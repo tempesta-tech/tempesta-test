@@ -174,13 +174,7 @@ class TestCurlClient(tester.TempestaTest):
 
     def setUp(self):
         super().setUp()
-        self.start_all()
-
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
+        self.start_all_services(client=False)
 
     def get_response(self, client) -> CurlResponse:
         client.start()

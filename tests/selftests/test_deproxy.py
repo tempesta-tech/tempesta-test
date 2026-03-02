@@ -44,15 +44,8 @@ class DeproxyTestH2(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
     def test_make_request(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", "localhost"),
@@ -86,7 +79,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(server.last_request.headers.get("cookie"), "name1=value1; name2=value2")
 
     def test_parsing_make_request(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [(":authority", "localhost"), (":path", "/"), (":scheme", "http"), ("method", "GET")]
         deproxy_cl = self.get_client("deproxy")
@@ -96,7 +89,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertIsNone(deproxy_cl.last_response)
 
     def test_no_parsing_make_request(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", "localhost"),
@@ -111,7 +104,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(deproxy_cl.last_response.status, "400")
 
     def test_bodyless(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", "localhost"),
@@ -127,7 +120,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
     def test_bodyless_multiplexed(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", "localhost"),
@@ -146,7 +139,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(2, len(deproxy_srv.requests))
 
     def test_with_body(self):
-        self.start_all()
+        self.start_all_services()
 
         body = "body body body"
         head = [
@@ -165,7 +158,7 @@ class DeproxyTestH2(tester.TempestaTest):
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
     def test_get_4xx_response(self):
-        self.start_all()
+        self.start_all_services()
 
         head = [
             (":authority", ""),
@@ -268,13 +261,6 @@ server ${server_ip}:8000;
 """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.start_all_clients()
-        self.assertTrue(self.wait_all_connections())
-
     def restore_defaults(self):
         remote.client.run_cmd(f"sysctl -w net.ipv4.tcp_syn_retries={self.saved_retries}")
         remote.client.run_cmd(f"sysctl -w net.ipv4.tcp_syn_linear_timeouts={self.saved_timeouts}")
@@ -351,7 +337,7 @@ server ${server_ip}:8000;
         )
 
     def test_make_request(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
@@ -362,7 +348,7 @@ server ${server_ip}:8000;
         self.assertEqual(client.last_response.status, "200")
 
     def test_parsing_make_request(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
@@ -374,7 +360,7 @@ server ${server_ip}:8000;
         self.assertIsNone(client.last_response)
 
     def test_no_parsing_make_request(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = False
 
@@ -385,7 +371,7 @@ server ${server_ip}:8000;
         self.assertEqual(client.last_response.status, "400")
 
     def test_many_make_request(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
@@ -399,7 +385,7 @@ server ${server_ip}:8000;
             self.assertEqual(res.status, "200")
 
     def test_many_make_request_2(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = False
 
@@ -426,7 +412,7 @@ server ${server_ip}:8000;
         ]
     )
     def test_make_requests(self, name, pipelined):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
@@ -436,7 +422,7 @@ server ${server_ip}:8000;
         self.__send_requests(client, request, 3, 6, pipelined)
 
     def test_parsing_make_requests(self):
-        self.start_all()
+        self.start_all_services()
         client: deproxy_client.DeproxyClient = self.get_client("deproxy")
         client.parsing = True
 
@@ -483,6 +469,3 @@ server ${server_ip}:8000;
         self.assertEqual(len(client.responses), messages)
         for res in client.responses:
             self.assertEqual(res.status, "200")
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

@@ -69,11 +69,6 @@ class TestDockerServer(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.assertTrue(self.wait_all_connections(5))
-
     def get_response(self, host, uri="/"):
         client = self.get_client("default")
         client.headers["Host"] = host
@@ -84,7 +79,7 @@ class TestDockerServer(tester.TempestaTest):
         return client.last_response
 
     def test_request_to_server_completed(self):
-        self.start_all()
+        self.start_all_services(client=False)
 
         with self.subTest("python -m http.server"):
             response = self.get_response("python-simple-server")

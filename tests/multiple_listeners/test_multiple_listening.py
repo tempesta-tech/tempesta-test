@@ -1416,11 +1416,6 @@ class TestMultipleListening(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-
     @dmesg.limited_rate_on_tempesta_node
     def test_multiple_listeners_success(self):
         # h2spec
@@ -1431,7 +1426,7 @@ class TestMultipleListening(tester.TempestaTest):
                 )
                 h2spec.options.append(H2SPEC_EXTRA_SETTINGS)
 
-        self.start_all()
+        self.start_all_services()
 
         for cli in self.clients:
             # h2spec

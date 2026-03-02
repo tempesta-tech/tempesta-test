@@ -131,20 +131,13 @@ class CheckedResponses(tester.TempestaTest):
 
         self.assertTrue(found, "Expected log string <<%s>> not found in dmesg" % log_string)
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        srv = self.get_server("0")
-        self.assertTrue(srv.wait_for_connections(timeout=1))
-
 
 #######################################
 # Happy-path tests (backend response) #
 #######################################
 class AccessLogTest(CheckedResponses):
     def test_success_path_http1x(self):
-        self.start_all()
+        self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         for status, body in [
             (200, "body http ok"),
@@ -156,7 +149,7 @@ class AccessLogTest(CheckedResponses):
             self.check_response(klog, status, body)
 
     def test_uri_truncate(self):
-        self.start_all()
+        self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/too-long-uri_" + "1" * 4000, user_agent="user-agent", referer="referer"
@@ -175,7 +168,7 @@ class AccessLogTest(CheckedResponses):
 
     def test_bad_user_agent(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         self.get_client("client").parsing = False
         req = self.make_request("/some-uri", user_agent="bad\nagent", referer="Ok-Referer")
@@ -205,7 +198,7 @@ class AccessLogFrang(CheckedResponses):
     }
 
     def test_frang(self):
-        self.start_all()
+        self.start_all_services(client=False)
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
         req = self.make_request(
             "/longer-than-10-symbols-uri", user_agent="user-agent", referer="referer"

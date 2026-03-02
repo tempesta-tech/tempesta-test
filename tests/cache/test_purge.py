@@ -720,17 +720,11 @@ class TestPurgeGet(TempestaTest):
         },
     ]
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_purge_get_success(self):
         """Test that PURGE+GET request completed with no errors.
         (see Tempesta issue #1692)
         """
-        self.start_all()
+        self.start_all_services(client=False)
         client = self.get_client("purge_get")
 
         for uri in "/server1", "/server2", "/server3":
@@ -752,7 +746,7 @@ class TestPurgeGet(TempestaTest):
                 self.assertFalse(response.stderr)
 
     def test_purge_without_get_completed_with_no_warnings(self):
-        self.start_all()
+        self.start_all_services(client=False)
         client = self.get_client("purge")
         client.set_uri("/server1")
 

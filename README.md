@@ -247,7 +247,7 @@ class TestExample(tester.TempestaTest):
 # TestExampleH2.test_request_2
 ```
 
-Example tests can be found in `tests/selftests/test_framework.py`
+Example tests can be found in `tests/selftests`
 
 Tests can be skipped or marked as expected to fail.
 More info at [Python documentation](https://docs.python.org/3/library/unittest.html).

@@ -1,6 +1,5 @@
 import os
 import re
-import time
 
 from framework.helpers import port_checks, remote, tf_cfg, util
 from framework.helpers.util import fill_template
@@ -63,19 +62,21 @@ class Nginx(stateful.Stateful):
             # Get rid of stats requests influence to statistics.
             self._requests = int(m.group(2)) - self._stats_ask_times
 
-    def wait_for_connections(self, timeout=1):
+    def wait_for_connections(
+        self, timeout: float = 1.0, strict: bool = False, msg: str = None
+    ) -> bool | None:
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        t = time.time()
-        while t - t0 <= timeout:
+        def wait() -> bool:
             self.get_stats()
-            if self.active_conns >= self.conns_n:
-                return True
-            time.sleep(0.001)  # to prevent redundant CPU usage
-            t = time.time()
-        return False
+            return self.active_conns < self.conns_n
+
+        result = util.wait_until(wait, timeout)
+
+        if strict:
+            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
+        return result
 
     def run_start(self):
         self.clear_stats()

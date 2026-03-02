@@ -20,14 +20,11 @@ LARGE_BODY_CHUNK_SIZE_2 = 10
 
 
 class CommonUtils:
-    def start_all(self):
+
+    def setUp(self):
+        super().setUp()
         srv = self.get_server("backend")
         srv.keep_alive = 1
-        srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(srv.wait_for_connections(1))
 
     def send_req(self, client, request=None):
         request = (
@@ -151,7 +148,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             self.assertEqual(len(server.requests), 2)
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
         self.run_test("GET", True)
 
 
@@ -200,7 +197,7 @@ class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
     chunk_size = 2
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("client")
         client.update_initial_settings(max_header_list_size=65536 * 2)
         client.send_bytes(client.h2_connection.data_to_send())
@@ -225,7 +222,7 @@ class TestH2EmptyResponseBodyDechunkingHead(TestH2BodyDechunking):
 
     def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all()
+        self.start_all_services()
         self.run_test("HEAD", False)
 
 
@@ -287,7 +284,7 @@ class TestH1ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
         client_1 = self.get_client("client-1")
         client_2 = self.get_client("client-2")
         server = self.get_server("backend")
@@ -346,7 +343,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
 
@@ -398,7 +395,7 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         super().setUp()
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
         server = self.get_server("backend")
@@ -452,7 +449,7 @@ class TestH1BothTEAndCE(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
 
@@ -513,7 +510,7 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
         super().setUp()
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
 
@@ -603,7 +600,7 @@ class TestH2ChunkedWithTrailer(tester.TempestaTest, CommonUtils):
         super().setUp()
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
         server = self.get_server("backend")
@@ -711,7 +708,7 @@ class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
 
@@ -752,7 +749,7 @@ class TestRequestTEAndCL(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
         client.parsing = False
@@ -790,7 +787,7 @@ class TestRequestChunkedNotLast(tester.TempestaTest, CommonUtils):
     }
 
     def test(self):
-        self.start_all()
+        self.start_all_services()
 
         client = self.get_client("client")
         client.parsing = False

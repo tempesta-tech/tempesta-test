@@ -6,12 +6,11 @@ __license__ = "GPL2"
 
 import json
 import tarfile
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
-from framework.helpers import error, port_checks, remote
+from framework.helpers import error, port_checks, remote, util
 from framework.helpers.util import fill_template
 from framework.services import stateful
 
@@ -128,7 +127,9 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode().strip()
 
-    def wait_for_connections(self, timeout=5):
+    def wait_for_connections(
+        self, timeout: float = 1.0, strict: bool = False, msg: str = None
+    ) -> bool | None:
         """
         Wait until the container becomes healthy
         and Tempesta establishes connections to the server ports.
@@ -136,18 +137,21 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        t0 = time.time()
-        t = time.time()
-        while t - t0 <= timeout and self.health_status != "unhealthy":
-            if self.health_status == "healthy" and self.port_checker.check_ports_established(
+        def wait() -> bool:
+            return self.health_status != "healthy" or not self.port_checker.check_ports_established(
                 ip=self.server_ip,
                 ports=self.ports.keys(),
-            ):
-                return True
-            time.sleep(0.001)  # to prevent redundant CPU usage
-            t = time.time()
+            )
 
-        return False
+        result = util.wait_until(
+            wait,
+            abort_cond=lambda: self.health_status == "unhealthy",
+            timeout=timeout,
+        )
+
+        if strict:
+            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
+        return result
 
     def stop_server(self):
         if self.container_id:

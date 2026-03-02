@@ -50,16 +50,6 @@ class TlsIntegrityTester(tester.TempestaTest):
         }
     ]
 
-    def start_all(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-
     @staticmethod
     def make_resp(body):
         return (
@@ -131,7 +121,7 @@ class Proxy(TlsIntegrityTester):
     }
 
     def test_various_req_resp_sizes(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(1, 1)
         self.common_check(19, 19)
         self.common_check(567, 567)
@@ -155,7 +145,7 @@ class Proxy(TlsIntegrityTester):
         Set payload and mtu in test like code below and
         run test with -v -v to see what happens
         """
-        self.start_all()
+        self.start_all_services()
         self.tcp_flow_check(7020, mtu=1500)
 
 
@@ -235,7 +225,7 @@ class Cache(TlsIntegrityTester):
     }
 
     def test_various_req_resp_sizes(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(1, 1)
         self.common_check(19, 19)
         self.common_check(567, 567)
@@ -387,16 +377,6 @@ class CloseConnection(tester.TempestaTest):
         """
     }
 
-    def start_all(self):
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            deproxy_srv.wait_for_connections(timeout=1), "No connection from Tempesta to backends"
-        )
-
     @staticmethod
     def make_resp(body):
         return (
@@ -430,33 +410,33 @@ class CloseConnection(tester.TempestaTest):
         self.assertTrue(hash1 == hash2, "Bad response checksum")
 
     def test1(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(1, 1)
 
     def test2(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(19, 19)
 
     def test3(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(567, 567)
 
     def test4(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(1755, 1755)
 
     def test5(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(4096, 4096)
 
     def test6(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(16380, 16380)
 
     def test7(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(65536, 65536)
 
     def test8(self):
-        self.start_all()
+        self.start_all_services()
         self.common_check(1000000, 1000000)

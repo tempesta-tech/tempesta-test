@@ -141,15 +141,8 @@ class CookiesNotEnabled(tester.TempestaTest):
 
         return False
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections(1))
-
     def test_cookie(self):
-        self.start_all()
+        self.start_all_services()
         vhost = "localhost"
 
         self.assertTrue(
@@ -205,7 +198,7 @@ class CookiesEnforced(CookiesNotEnabled):
     }
 
     def test_cookie(self):
-        self.start_all()
+        self.start_all_services()
         vhost = "localhost"
 
         self.assertFalse(
@@ -332,7 +325,7 @@ class VhostCookies(CookiesNotEnabled):
     }
 
     def test_cookie(self):
-        self.start_all()
+        self.start_all_services()
 
         # Default cookie name is used, client can't pass cookie challenge.
         self.assertFalse(
@@ -494,7 +487,7 @@ class CookieLifetime(CookiesNotEnabled):
     }
 
     def test_cookie(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("client-with-cookies")
 
         req = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"

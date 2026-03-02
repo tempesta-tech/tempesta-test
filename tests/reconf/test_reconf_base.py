@@ -1252,15 +1252,19 @@ class TestVhostReconf(tester.TempestaTest):
     def test(self, name, first_config, second_config, server_headers):
         tempesta = self.get_tempesta()
         client = self.get_client("deproxy")
-        self.get_server("deproxy-1").start()
-        self.get_server("deproxy-2").start()
+        srv1 = self.get_server("deproxy-1")
+        srv2 = self.get_server("deproxy-2")
+
+        srv1.start()
+        srv2.start()
         self.deproxy_manager.start()
 
         first_config(self)
         tempesta.start()
         second_config(self)
         tempesta.reload()
-        self.wait_all_connections()
+        srv1.wait_for_connections()
+        srv2.wait_for_connections()
 
         for authority, server_header in zip(["grp1", "grp2"], server_headers):
             client.restart()

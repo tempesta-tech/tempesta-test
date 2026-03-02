@@ -499,13 +499,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
         self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
 
-    # Should replace all duplicated instances of wait_all_connections
-    def wait_all_connections(self, tmt=5):
+    def wait_all_connections(self, tmt=5) -> None:
         for sid in self.__servers:
-            srv = self.__servers[sid]
-            if not srv.wait_for_connections(timeout=tmt):
-                return False
-        return True
+            self.__servers[sid].wait_for_connections(timeout=tmt, strict=True)
 
     def start_all_services(self, client: bool = True) -> None:
         """Start all services."""
@@ -517,7 +513,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
         ]:
             self.deproxy_manager.start()
 
-        self.assertTrue(self.wait_all_connections())
+        self.wait_all_connections()
         self.assertTrue(self.__tempesta.wait_while_logger_start())
 
         if client:

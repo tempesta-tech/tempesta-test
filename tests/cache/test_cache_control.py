@@ -65,13 +65,6 @@ class TestCacheControl(tester.TempestaTest, base=True):
     # Empty if cached/second response is same as first one.
     cached_status = "200"
 
-    def start_all(self):
-        self.start_all_servers()
-        self.start_tempesta()
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(self.wait_all_connections())
-
     def setUp(self):
         self.tempesta = copy.deepcopy(self.tempesta_template)
         self.tempesta["config"] = self.tempesta["config"] % {
@@ -131,7 +124,7 @@ class TestCacheControl(tester.TempestaTest, base=True):
                 )
 
     def _test(self):
-        self.start_all()
+        self.start_all_services()
         client = self.get_client("deproxy")
         srv = self.get_server("deproxy")
 
