@@ -12,7 +12,7 @@ from framework.helpers import error, remote, tf_cfg, util
 from framework.services import stateful
 
 
-def _run_client(client: "Client", resq: multiprocessing.Queue):
+def _run_client(client: "BaseClient", resq: multiprocessing.Queue):
     try:
         res = remote.client.run_cmd_safe(client.cmd, timeout=(client.duration + 5))
     except error.BaseCmdException as e:
@@ -21,7 +21,7 @@ def _run_client(client: "Client", resq: multiprocessing.Queue):
     resq.put(res)
 
 
-class Client(stateful.Stateful, metaclass=abc.ABCMeta):
+class BaseClient(stateful.Stateful, metaclass=abc.ABCMeta):
     """Base class for managing HTTP benchmark utilities.
 
     Command-line options can be added by appending `Client.options` list.
@@ -52,7 +52,6 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
         self.files = []
         # List of files to be removed from remote node after client finish.
         self.cleanup_files = []
-        self.stop_procedures = [self.__on_finish]
 
     def set_uri(self, uri):
         """For some clients uri is an optional parameter, e.g. for Siege.
@@ -91,6 +90,9 @@ class Client(stateful.Stateful, metaclass=abc.ABCMeta):
             else:
                 self._logger.debug("Client is not running")
         return busy
+
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self.__on_finish]
 
     def __on_finish(self):
         if not hasattr(self.proc, "terminate"):

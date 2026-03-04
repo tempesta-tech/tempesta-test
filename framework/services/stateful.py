@@ -20,20 +20,27 @@ class Stateful(abc.ABC):
     """
 
     def __init__(self, *, id_: str):
+        self.id = id_
         self._state = STATE_STOPPED
-        self.stop_procedures = []
         self._exceptions = []
-        self._generate_service_id(id_)
         self._logger = logging.LoggerAdapter(
-            logging.getLogger("service"), extra={"service": f"{self._service_id}"}
+            logging.getLogger("service"), extra={"service": f"{self}"}
         )
         self.clear_stats()
 
-    def _generate_service_id(self, id_: str) -> None:
-        self._service_id = f"{self.__class__.__name__}({id_})"
-
     def __str__(self):
-        return f"{self.__class__.__name__}"
+        return f"{self.__class__.__name__}({self.id})"
+
+    @abc.abstractmethod
+    def _stop_procedures(self) -> list[typing.Callable]: ...
+
+    @property
+    def id(self) -> str | int:
+        return self._id
+
+    @id.setter
+    def id(self, id_: str | int) -> None:
+        self._id = id_
 
     @property
     def state(self) -> str:
@@ -77,9 +84,9 @@ class Stateful(abc.ABC):
 
     def force_stop(self):
         """Stop object"""
-        procedures_names = [procedure.__name__ for procedure in self.stop_procedures]
+        procedures_names = [procedure.__name__ for procedure in self._stop_procedures()]
         self._logger.info(f"Stop procedures list: {procedures_names}")
-        for stop_proc in self.stop_procedures:
+        for stop_proc in self._stop_procedures():
             try:
                 stop_proc()
                 self.state = STATE_STOPPED
@@ -88,7 +95,7 @@ class Stateful(abc.ABC):
                 self._logger.error("Exception in stopping process: %s", exc, exc_info=True)
                 self.append_exception(tb_msg)
 
-    def stop(self, obj=""):
+    def stop(self):
         """Try to stop object"""
         self._logger.info("Stopping...")
         if self.state != STATE_STARTED and self.state != STATE_BEGIN_START:

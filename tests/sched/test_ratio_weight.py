@@ -267,7 +267,7 @@ class Ratio(tester.TempestaTest):
                 delta=(exp_weight * prec),
                 msg=(
                     "Server %s calculated weight is %f, but %d was expected"
-                    % (srv.get_name(), calc_weight, exp_weight)
+                    % (srv.id, calc_weight, exp_weight)
                 ),
             )
 

@@ -12,7 +12,7 @@ from framework.deproxy import asyncore, deproxy_message
 from framework.deproxy.deproxy_base import BaseDeproxy
 from framework.helpers import error, tf_cfg, util
 from framework.helpers.util import fill_template
-from framework.services import stateful, tempesta
+from framework.services import base_server, stateful
 
 
 class ServerConnection(asyncore.DeproxyAsyncore):
@@ -159,7 +159,7 @@ class ServerConnection(asyncore.DeproxyAsyncore):
             self._handle_close()
 
 
-class StaticDeproxyServer(BaseDeproxy):
+class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
     def __init__(
         self,
         # BaseDeproxy
@@ -184,7 +184,8 @@ class StaticDeproxyServer(BaseDeproxy):
         self._default_response = response
 
         # Initialize the `BaseDeproxy`
-        super().__init__(
+        BaseDeproxy.__init__(
+            self,
             id_=id_,
             deproxy_auto_parser=deproxy_auto_parser,
             port=port,
@@ -193,7 +194,7 @@ class StaticDeproxyServer(BaseDeproxy):
             segment_gap=segment_gap,
             is_ipv6=is_ipv6,
         )
-        self.conns_n = tempesta.server_conns_default()
+        base_server.BaseServer.__init__(self, id_)
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
         self.send_after_conn_established = send_after_conn_established
@@ -246,19 +247,8 @@ class StaticDeproxyServer(BaseDeproxy):
         for conn in connections:
             conn._handle_close()
 
-    def wait_for_connections(
-        self, timeout: float = 1.0, strict: bool = False, msg: str = None
-    ) -> bool | None:
-        if self.state != stateful.STATE_STARTED:
-            return False
-
-        result = util.wait_until(
-            lambda: len(self._connections) < self.conns_n, timeout, poll_freq=0.001
-        )
-
-        if strict:
-            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
-        return result
+    def _wait_for_connections(self) -> bool:
+        return len(self._connections) < self.conns_n
 
     def wait_for_connections_closed(self, timeout=1):
         if self.state != stateful.STATE_STARTED:
@@ -285,16 +275,6 @@ class StaticDeproxyServer(BaseDeproxy):
             self.__response = response
         elif isinstance(response, deproxy_message.Response):
             self.__response = response.msg.encode()
-
-    @property
-    def conns_n(self) -> int:
-        return self._conns_n
-
-    @conns_n.setter
-    def conns_n(self, conns_n: int) -> None:
-        if conns_n < 0:
-            raise ValueError("`conns_n` MUST be greater than or equal to 0.")
-        self._conns_n = conns_n
 
     @property
     def last_request(self) -> Optional[deproxy_message.Request]:

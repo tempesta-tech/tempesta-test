@@ -415,7 +415,9 @@ class Tempesta(stateful.Stateful):
         self.config = Config(vhost_auto=vhost_auto)
         self.check_config = True
         self.clickhouse = ClickHouseFinder()
-        self.stop_procedures = [
+
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [
             self.stop_tempesta,
             self.config.remove_config_files,
             self.clickhouse.drop_access_log_table,
@@ -507,12 +509,6 @@ class TempestaFI(Tempesta):
             self.modules_dir = "/lib/modules/$(uname -r)/custom/"
         else:
             self.stap_msg = "Cannot %s stap %s kernel."
-        self.stop_procedures = [
-            self.letout,
-            self.letout_finish,
-            self.stop_tempesta,
-            self.remove_config,
-        ]
 
     def inject_prepare(self):
         if self.module_stap:

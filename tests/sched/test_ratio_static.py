@@ -233,7 +233,7 @@ class Ratio(tester.TempestaTest):
                     "Server %s received %d requests, but [%d, %d] "
                     "was expected"
                     % (
-                        srv.get_name(),
+                        srv.id,
                         srv.requests,
                         s_reqs_expected - delta,
                         s_reqs_expected + delta,

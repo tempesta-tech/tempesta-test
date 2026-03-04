@@ -5,6 +5,7 @@ __license__ = "GPL2"
 import abc
 import logging
 import threading
+import typing
 from abc import ABC
 from ipaddress import AddressValueError, IPv4Address, IPv6Address, NetmaskValueError
 from typing import Optional
@@ -37,17 +38,15 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
 
         Stateful.__init__(self, id_=id_)
 
-        self.stop_procedures: list[callable] = [self.__stop]
-
         self._tcp_logger = logging.LoggerAdapter(
-            logging.getLogger("tcp"), extra={"service": f"{self._service_id}"}
+            logging.getLogger("tcp"), extra={"service": f"{self}"}
         )
         self._http_logger = logging.LoggerAdapter(
-            logging.getLogger("http"), extra={"service": f"{self._service_id}"}
+            logging.getLogger("http"), extra={"service": f"{self}"}
         )
 
-    def _generate_service_id(self, id_: str) -> None:
-        self._service_id = f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
+    def __str__(self):
+        return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
 
     def set_lock(self, polling_lock: threading.Lock) -> None:
         self.__polling_lock = polling_lock
@@ -110,6 +109,9 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
 
     @abc.abstractmethod
     def _run_deproxy(self) -> None: ...
+
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self.__stop]
 
     @property
     def bind_addr(self) -> str:

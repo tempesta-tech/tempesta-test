@@ -122,7 +122,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
                 s_reqs_expected,
                 delta=delta,
                 msg=self.dbg_msg.format(
-                    srv.get_name(),
+                    srv.id,
                     srv.requests,
                     s_reqs_expected - delta,
                     s_reqs_expected + delta,
@@ -153,7 +153,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
                 s_reqs_expected,
                 delta=delta,
                 msg=self.dbg_msg.format(
-                    srv.get_name(),
+                    srv.id,
                     srv.requests,
                     s_reqs_expected - delta,
                     s_reqs_expected + delta,

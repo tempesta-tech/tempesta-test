@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from framework.helpers import error
 from framework.helpers.tf_cfg import test_logger
-from framework.services import client
+from framework.services import base_client
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2025 Tempesta Technologies, Inc."
@@ -108,7 +108,7 @@ class CurlArguments:
         return list(cls.__dataclass_fields__.keys())
 
 
-class CurlClient(CurlArguments, client.Client):
+class CurlClient(CurlArguments, base_client.BaseClient):
     """
     Wrapper to manage cURL.
     See `selftests/test_curl_client.py` and #332 PR for usage examples.
@@ -141,7 +141,7 @@ class CurlClient(CurlArguments, client.Client):
         # Initialize the `CurlArguments` interface first
         super().__init__(**kwargs)
         # Initialize the base `Client`
-        client.Client.__init__(
+        base_client.BaseClient.__init__(
             self,
             id_=self.id,
             binary="curl",
