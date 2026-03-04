@@ -680,6 +680,14 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         self.send_bytes(data=self.h2_connection.data_to_send())
 
+    def send_reset_stream(self, stream_id: int, error_code: int = 0) -> None:
+        self.h2_connection.reset_stream(stream_id, error_code)
+        self.send_bytes(data=self.h2_connection.data_to_send())
+
+    def send_goaway(self, error_code: int = 0, last_stream_id: int | None = None) -> None:
+        self.h2_connection.close_connection(error_code=error_code, last_stream_id=last_stream_id)
+        self.send_bytes(data=self.h2_connection.data_to_send())
+
     def wait_for_ack_settings(self, timeout=5):
         """Wait SETTINGS frame with ack flag."""
         return util.wait_until(

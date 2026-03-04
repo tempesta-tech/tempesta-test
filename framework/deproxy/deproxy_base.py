@@ -4,6 +4,8 @@ __license__ = "GPL2"
 
 import abc
 import logging
+import socket
+import struct
 import threading
 import typing
 from abc import ABC
@@ -47,6 +49,12 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
+
+    def set_rst_tcp_to_closing_connection(self) -> None:
+        """Set socket options to close TCP connection with RST."""
+        self.__acquire()
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        self.__release()
 
     def set_lock(self, polling_lock: threading.Lock) -> None:
         self.__polling_lock = polling_lock
