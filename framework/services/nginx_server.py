@@ -1,44 +1,38 @@
 import os
 import re
+import typing
 
-from framework.helpers import port_checks, remote, tf_cfg, util
+from framework.helpers import remote, tf_cfg, util
 from framework.helpers.util import fill_template
-from framework.services import stateful, tempesta
+from framework.services import base_server, stateful
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class Nginx(stateful.Stateful):
-    """The set of wrappers to manage Nginx, such as to start,
-    stop, get statistics etc., from other Python classes."""
+class Nginx(base_server.BaseServer):
+    """
+    The set of wrappers to manage Nginx, such as to start,
+    stop, get statistics etc., from other Python classes.
+    """
 
     class Config(object):
         def __init__(self, name, props):
-            self.workdir = props["server_workdir"]
-            pidname = self.workdir + "/nginx_" + name + ".pid"
+            self._workdir = props["server_workdir"]
+            pidname = self._workdir + "/nginx_" + name + ".pid"
             props.update({"pid": pidname})
             self.config = fill_template(props["config"], props)
             self.config_name = "nginx_%s.cfg" % name
             self.pidfile_name = pidname
 
-    def __init__(self, id_, props):
-        super().__init__(id_=id_)
-        self.node = remote.server
-        self.workdir = tf_cfg.cfg.get("Server", "workdir")
+    def __init__(self, id_: str | int, props):
+        super().__init__(id_)
         self.config = self.Config(id_, props)
 
         # Configure number of connections used by TempestaFW.
-        self.conns_n = tempesta.server_conns_default()
-        self.name = id_
         self.status_uri = fill_template(props["status_uri"], props)
-        self.stop_procedures = [self.stop_nginx, self.remove_config]
         self.weight = int(props["weight"]) if "weight" in props else None
-        self.port_checker = port_checks.FreePortsChecker()
-
-    def get_name(self):
-        return self.name
 
     def clear_stats(self):
         super().clear_stats()
@@ -62,21 +56,12 @@ class Nginx(stateful.Stateful):
             # Get rid of stats requests influence to statistics.
             self._requests = int(m.group(2)) - self._stats_ask_times
 
-    def wait_for_connections(
-        self, timeout: float = 1.0, strict: bool = False, msg: str = None
-    ) -> bool | None:
-        if self.state != stateful.STATE_STARTED:
-            return False
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self.stop_nginx, self.remove_config]
 
-        def wait() -> bool:
-            self.get_stats()
-            return self.active_conns < self.conns_n
-
-        result = util.wait_until(wait, timeout)
-
-        if strict:
-            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
-        return result
+    def _wait_for_connections(self):
+        self.get_stats()
+        return self.active_conns < self.conns_n
 
     def run_start(self):
         self.clear_stats()
@@ -85,12 +70,12 @@ class Nginx(stateful.Stateful):
         self.node.copy_file(self.config.config_name, self.config.config)
         # Nginx forks on start, no background threads needed,
         # but it holds stderr open after demonisation.
-        config_file = os.path.join(self.workdir, self.config.config_name)
+        config_file = os.path.join(self._workdir, self.config.config_name)
         cmd = " ".join([tf_cfg.cfg.get("Server", "nginx"), "-c", config_file])
         self.node.run_cmd(cmd, is_blocking=False)
 
     def stop_nginx(self):
-        pid_file = os.path.join(self.workdir, self.config.pidfile_name)
+        pid_file = os.path.join(self._workdir, self.config.pidfile_name)
         cmd = " && ".join(
             [
                 "[ -e '%s' ]" % pid_file,
@@ -103,7 +88,7 @@ class Nginx(stateful.Stateful):
 
     def remove_config(self):
         self._logger.info(f"Removing config.")
-        config_file = os.path.join(self.workdir, self.config.config_name)
+        config_file = os.path.join(self._workdir, self.config.config_name)
         self.node.remove_file(config_file)
 
     @property

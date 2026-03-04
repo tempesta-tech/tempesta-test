@@ -238,7 +238,7 @@ class RatioDynamic(tester.TempestaTest):
 
         cl_reqs = tempesta.stats.cl_msg_forwarded
         tot_weight = len(servers) * 50  # for weight normalisation.
-        weights = [(srv.get_name(), 1.0 * srv.requests / cl_reqs * tot_weight) for srv in servers]
+        weights = [(srv.id, 1.0 * srv.requests / cl_reqs * tot_weight) for srv in servers]
         weights.sort()
 
         prev_name, prev_weight = weights[0]

@@ -249,8 +249,7 @@ class AllDefaults(tester.TempestaTest):
                 delta=delta,
                 msg=(
                     "Server %s received %d requests, but [%d, %d] "
-                    "was expected"
-                    % (srv.get_name(), srv.requests, exp_reqs - delta, exp_reqs + delta)
+                    "was expected" % (srv.id, srv.requests, exp_reqs - delta, exp_reqs + delta)
                 ),
             )
 
@@ -263,7 +262,7 @@ class AllDefaults(tester.TempestaTest):
         for srv in servers:
             tot_reqs += srv.requests
 
-        weights = [(srv.get_name(), 1.0 * srv.requests / tot_reqs * tot_weight) for srv in servers]
+        weights = [(srv.id, 1.0 * srv.requests / tot_reqs * tot_weight) for srv in servers]
         weights.sort()
 
         prev_name, prev_weight = weights[0]

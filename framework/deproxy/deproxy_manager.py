@@ -2,11 +2,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import errno
 import select
 import threading
 import time
 import traceback
+import typing
 
 from framework.deproxy import asyncore
 from framework.services import stateful
@@ -22,8 +22,6 @@ class DeproxyManager(stateful.Stateful):
         self._exit_event = threading.Event()
 
         self._lock = threading.Lock()
-
-        self.stop_procedures = [self.__stop]
 
     def clear_stats(self) -> None:
         self.servers = []
@@ -61,6 +59,9 @@ class DeproxyManager(stateful.Stateful):
         for server in self.servers:
             server.state = new_state
         return None
+
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self.__stop]
 
     def __stop(self):
         self._exit_event.set()

@@ -1,21 +1,21 @@
 import os
 import re
 
-from framework.services import client
+from framework.services import base_client
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class Wrk(client.Client):
+class Wrk(base_client.BaseClient):
     """The set of wrappers to manage Wrk, such as to start,
     stop, get statistics etc., from other Python classes."""
 
     FAIL_ON_SOCK_ERR = False
 
     def __init__(self, id_: str, threads=-1, timeout=60, **kwargs):
-        client.Client.__init__(self, id_, "wrk", **kwargs)
+        base_client.BaseClient.__init__(self, id_, "wrk", **kwargs)
         self.local_scriptdir = "".join(
             [os.path.dirname(os.path.realpath(__file__)), "/../../tools/wrk/"]
         )
@@ -59,7 +59,7 @@ class Wrk(client.Client):
         self.options.append("-c %d" % self.connections)
         self.options.append("--timeout %d" % self.timeout)
         self.append_script_option()
-        return client.Client.form_command(self)
+        return super().form_command()
 
     def parse_out(self, stdout, stderr):
         m = re.search(r"(\d+) requests in ", stdout.decode())

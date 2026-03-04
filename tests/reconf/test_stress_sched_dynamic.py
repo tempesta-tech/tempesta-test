@@ -139,7 +139,7 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
 
         total_weight = len(servers) * 50
         weights = [
-            (srv.get_name(), 1.0 * srv.requests / tempesta.stats.cl_msg_forwarded * total_weight)
+            (srv.id, 1.0 * srv.requests / tempesta.stats.cl_msg_forwarded * total_weight)
             for srv in servers
         ]
         weights.sort()

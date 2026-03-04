@@ -13,17 +13,17 @@ from unittest.util import strclass
 import run_config
 from framework.deproxy import deproxy_client, deproxy_manager
 from framework.deproxy.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
+from framework.deproxy.deproxy_server import deproxy_srv_factory
 from framework.helpers import clickhouse, dmesg, error, remote, tf_cfg, util
 from framework.helpers.memworker import MemoryChecker
 from framework.helpers.networker import NetWorker
 from framework.helpers.tf_cfg import test_logger
 from framework.helpers.util import fill_template
-from framework.services import curl_client, external_client
+from framework.services import base_server, curl_client, external_client
 from framework.services import tempesta as tfw
 from framework.services import wrk_client
-from framework.services.docker_server import DockerServer, docker_srv_factory
-from framework.services.nginx_server import Nginx, nginx_srv_factory
+from framework.services.docker_server import docker_srv_factory
+from framework.services.nginx_server import nginx_srv_factory
 from framework.services.stateful import Stateful
 
 __author__ = "Tempesta Technologies, Inc."
@@ -286,7 +286,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid) -> StaticDeproxyServer | Nginx | DockerServer | None:
+    def get_server(self, sid: str | int) -> base_server.BaseServer:
         """Return client with specified id"""
         server = self.__servers.get(sid, None)
         if server is None:

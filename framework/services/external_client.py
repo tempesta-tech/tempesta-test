@@ -1,14 +1,14 @@
 import sys
 from typing import Optional, Union
 
-from framework.services import client
+from framework.services import base_client
 
 __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2020-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
-class ExternalTester(client.Client):
+class ExternalTester(base_client.BaseClient):
     """The class allows to run various 3d-party test suites or any programs
     against Tempesta. Required properties of `client` definitions inside
     `tester.TempestaTest` class:
@@ -22,7 +22,7 @@ class ExternalTester(client.Client):
     """
 
     def __init__(self, id_: str, cmd_args: str, **kwargs):
-        client.Client.__init__(self, id_=id_, **kwargs)
+        base_client.BaseClient.__init__(self, id_=id_, **kwargs)
         self.options = [cmd_args]
 
     def clear_stats(self) -> None:

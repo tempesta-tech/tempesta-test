@@ -1,18 +1,19 @@
 """Docker containers backend server."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2024-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import json
 import tarfile
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
-from framework.helpers import error, port_checks, remote, util
+from framework.helpers import error
 from framework.helpers.util import fill_template
-from framework.services import stateful
+from framework.services import base_server, stateful
 
 
 @dataclass
@@ -42,7 +43,7 @@ class DockerServerArguments:
         return list(cls.__dataclass_fields__.keys())
 
 
-class DockerServer(DockerServerArguments, stateful.Stateful):
+class DockerServer(DockerServerArguments, base_server.BaseServer):
     """
     The set of wrappers to manage Docker container, such as to start,
     stop, get statistics etc., from other Python classes.
@@ -67,12 +68,11 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
     def __init__(self, **kwargs):
         # Initialize using the `DockerServerArguments` interface,
         # with only supported arguments
-        super().__init__(**{k: kwargs[k] for k in self.get_arg_names() if k in kwargs})
-        stateful.Stateful.__init__(self, id_=kwargs["id"])
-        self.node: remote.ANode = remote.server
+        DockerServerArguments.__init__(
+            self, **{k: kwargs[k] for k in self.get_arg_names() if k in kwargs}
+        )
+        base_server.BaseServer.__init__(self, kwargs["id"])
         self.container_id = None
-        self.stop_procedures = [self.stop_server, self.cleanup]
-        self.port_checker = port_checks.FreePortsChecker()
 
     def clear_stats(self) -> None:
         super().clear_stats()
@@ -127,31 +127,11 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
             error.bug(self._form_error(action="run"))
         self.container_id = stdout.decode().strip()
 
-    def wait_for_connections(
-        self, timeout: float = 1.0, strict: bool = False, msg: str = None
-    ) -> bool | None:
-        """
-        Wait until the container becomes healthy
-        and Tempesta establishes connections to the server ports.
-        """
-        if self.state != stateful.STATE_STARTED:
-            return False
-
-        def wait() -> bool:
-            return self.health_status != "healthy" or not self.port_checker.check_ports_established(
-                ip=self.server_ip,
-                ports=self.ports.keys(),
-            )
-
-        result = util.wait_until(
-            wait,
-            abort_cond=lambda: self.health_status == "unhealthy",
-            timeout=timeout,
+    def _wait_for_connections(self) -> bool:
+        return self.health_status != "healthy" or not self.port_checker.check_ports_established(
+            ip=self.server_ip,
+            ports=self.ports.keys(),
         )
-
-        if strict:
-            assert result, msg or f"Tempesta FW don't create connection to {self._service_id}."
-        return result
 
     def stop_server(self):
         if self.container_id:
@@ -208,6 +188,9 @@ class DockerServer(DockerServerArguments, stateful.Stateful):
 
     def _form_error(self, action):
         return f"Can't {action} Docker server"
+
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self.stop_server, self.cleanup]
 
 
 def docker_srv_factory(server, name, tester):
