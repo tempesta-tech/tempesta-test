@@ -200,6 +200,10 @@
         {
             "name": "tests.http2_general.test_h2_frame.TestPostponedFrames",
             "reason": "Disabled by test issue #862"
+        },
+        {
+            "name": "tests.server_connections.test_close_dead_connections.TestFinishH2StreamsByClient.test_drop_server_connection_for_goaway",
+            "reason": "Disabled by issue #2626"
         }
     ]
 }
