@@ -114,10 +114,10 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
     }
 
     @limited_rate_on_tempesta_node
-    def test_reconf_on_the_fly_for_sticky_cookie_sched(self) -> None:
+    async def test_reconf_on_the_fly_for_sticky_cookie_sched(self) -> None:
         """Test of sticky sessions to a server group."""
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         tempesta = self.get_tempesta()
         client = self.get_client("h2load")
 
@@ -125,7 +125,7 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         self._check_start_tfw_config(SRV_START, SRV_AFTER_RELOAD)
 
         # perform curl request
-        response = self.make_curl_client_request("curl", headers={"Host": "app.com"})
+        response = await self.make_curl_client_request("curl", headers={"Host": "app.com"})
         self.assertEqual(response.status, http.HTTPStatus.OK)
 
         # launch h2load
@@ -149,13 +149,13 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         )
 
         # perform `init` request
-        response = self.make_curl_client_request("curl")
+        response = await self.make_curl_client_request("curl")
         self.assertEqual(response.status, http.HTTPStatus.FOUND)
         self.assertIn("__tfw", response.headers["set-cookie"])
 
         # perform curl request
         cookie_header = {"Cookie": response.headers["set-cookie"]}
-        response = self.make_curl_client_request("curl", headers=cookie_header)
+        response = await self.make_curl_client_request("curl", headers=cookie_header)
         self.assertEqual(response.status, http.HTTPStatus.OK)
 
         # check servers statistics
@@ -165,8 +165,5 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
         self.assertEqual(nginx_8001.total_pinned_sessions, 1)
 
         # # h2load stop
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

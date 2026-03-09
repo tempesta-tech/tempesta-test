@@ -91,9 +91,9 @@ class BackendSetCoookie(tester.TempestaTest):
         }
     ]
 
-    def test_request_success(self):
+    async def test_request_success(self):
         """Test that Tempesta proxies responses with Set-Cookie headers successfully."""
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         for path in (
             "cookie1",  # single Set-Cookie header
@@ -102,7 +102,7 @@ class BackendSetCoookie(tester.TempestaTest):
         ):
             with self.subTest("GET cookies", path=path):
                 client.make_request(f"GET /{path} HTTP/1.1\r\nHost: deproxy\r\n\r\n")
-                self.assertTrue(client.wait_for_response(timeout=1))
+                self.assertTrue(await client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
 
 
@@ -141,7 +141,7 @@ class RepeatedHeaderCache(tester.TempestaTest):
         }
     ]
 
-    def test_request_cache_del_dup_success(self):
+    async def test_request_cache_del_dup_success(self):
         """
         Test that no kernel panic occur when:
           - cache is on
@@ -149,12 +149,12 @@ class RepeatedHeaderCache(tester.TempestaTest):
           - `cache_resp_hdr_del` is used.
         (see Tempesta issue #1691)
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         client.make_request("GET / HTTP/1.1\r\nHost: deproxy\r\n\r\n")
 
-        self.assertTrue(client.wait_for_response(timeout=1))
+        self.assertTrue(await client.wait_for_response(timeout=1))
         self.assertEqual(client.last_response.status, "200")
 
 
@@ -186,9 +186,9 @@ class TestSmallHeader(tester.TempestaTest):
         }
     ]
 
-    def test_small_header_name_accepted(self):
+    async def test_small_header_name_accepted(self):
         """Request with small header name length completes successfully."""
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         for length in range(1, 5):
@@ -196,7 +196,7 @@ class TestSmallHeader(tester.TempestaTest):
             client.start()
             with self.subTest(header=header):
                 client.make_request(f"GET / HTTP/1.1\r\nHost: deproxy\r\n{header}: test\r\n\r\n")
-                self.assertTrue(client.wait_for_response(timeout=1))
+                self.assertTrue(await client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
             client.stop()
 
@@ -239,38 +239,38 @@ class TestHost(TestHostBase):
         """
     }
 
-    def test_host_missing(self):
-        self.start_all_services()
+    async def test_host_missing(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\n\r\n",
             expected_status_code="400",
         )
 
-    def test_host_header_empty(self):
-        self.start_all_services()
+    async def test_host_header_empty(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
             expected_status_code="400",
         )
 
-    def test_host_header_ok(self):
-        self.start_all_services()
+    async def test_host_header_ok(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",
             expected_status_code="200",
         )
 
-    def test_host_in_uri_without_host_header(self):
-        self.start_all_services()
+    async def test_host_in_uri_without_host_header(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET http://user@tempesta-tech.com/ HTTP/1.1\r\n\r\n",
             expected_status_code="400",
         )
@@ -294,7 +294,7 @@ class TestHost(TestHostBase):
             ),
         ]
     )
-    def test_forward_absolute_uri(self, name, uri_host, uri_path):
+    async def test_forward_absolute_uri(self, name, uri_host, uri_path):
         """
         Verify correctness of forwarding a request with absolute URI.
         During forwarding Tempesta modifies request's URI transforming
@@ -302,11 +302,11 @@ class TestHost(TestHostBase):
         absolute URI.
         """
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET http://{uri_host}{uri_path} HTTP/1.1\r\nHost: localhost\r\n\r\n",
             expected_status_code="200",
         )
@@ -316,12 +316,12 @@ class TestHost(TestHostBase):
         self.assertEqual(server.last_request.uri, expected_uri)
         self.assertEqual(server.last_request.headers.get("host"), uri_host)
 
-    def test_forwarded_and_empty_host_header(self):
+    async def test_forwarded_and_empty_host_header(self):
         """Host header must be present. Forwarded header does not set host header."""
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=(
                 f"GET http://tempesta-tech.com/ HTTP/1.1\r\nForwarded: host=localhost\r\n\r\n"
             ),
@@ -365,23 +365,23 @@ class TestHeadersParsing(tester.TempestaTest):
         },
     ]
 
-    def test_long_header_name_in_request(self):
+    async def test_long_header_name_in_request(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
         for length, status_code in ((1023, "200"), (1024, "200"), (1025, "400")):
             with self.subTest(length=length, status_code=status_code):
-                self.start_all_services()
+                await self.start_all_services()
 
                 client = self.get_client("deproxy")
-                client.send_request(
+                await client.send_request(
                     f"GET / HTTP/1.1\r\nHost: localhost\r\n{'a' * length}: text\r\n\r\n",
                     status_code,
                 )
 
-    def test_long_header_name_in_response(self):
+    async def test_long_header_name_in_response(self):
         """Max length for header name - 1024. See fw/http_parser.c HTTP_MAX_HDR_NAME_LEN"""
         for length, status_code in ((1023, "200"), (1024, "200"), (1025, "502")):
             with self.subTest(length=length, status_code=status_code):
-                self.start_all_services()
+                await self.start_all_services()
 
                 client = self.get_client("deproxy")
                 server = self.get_server("deproxy")
@@ -392,7 +392,7 @@ class TestHeadersParsing(tester.TempestaTest):
                     + f"{'a' * length}: text\r\n"
                     + "Content-Length: 0\r\n\r\n"
                 )
-                client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
+                await client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", status_code)
 
     @marks.Parameterize.expand(
         [
@@ -400,11 +400,11 @@ class TestHeadersParsing(tester.TempestaTest):
             marks.Param(name="trailer_HEAD", method="HEAD"),
         ]
     )
-    def test_trailers_in_request(self, name, method):
-        self.start_all_services()
+    async def test_trailers_in_request(self, name, method):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=(
                 f"{method} / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -421,11 +421,11 @@ class TestHeadersParsing(tester.TempestaTest):
             expected_status_code="400",
         )
 
-    def test_invalid_trailers_in_request(self):
-        self.start_all_services()
+    async def test_invalid_trailers_in_request(self):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=(
                 "POST / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -487,14 +487,16 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_trailers_in_request(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
-        self.start_all_services()
+    async def test_trailers_in_request(
+        self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code
+    ):
+        await self.start_all_services()
         # self.disable_deproxy_auto_parser()
 
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=(
                 "POST / HTTP/1.1\r\n"
                 + "Host: localhost\r\n"
@@ -582,8 +584,10 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_trailers_in_response_get(self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code):
-        self.start_all_services()
+    async def test_trailers_in_response_get(
+        self, name, tr1, tr1_val, tr2, tr2_val, expected_status_code
+    ):
+        await self.start_all_services()
 
         response = (
             "HTTP/1.1 200 OK\r\n"
@@ -606,7 +610,7 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
-        client.send_request(request, expected_status_code)
+        await client.send_request(request, expected_status_code)
 
         if expected_status_code != "200":
             return
@@ -631,8 +635,8 @@ class TestHeadersParsing(tester.TempestaTest):
             marks.Param(name="hbp_from_connection_HEAD", tr1="HbpHeader1", tr2="HbpHeader2"),
         ]
     )
-    def test_trailers_in_response_head(self, name, tr1, tr2):
-        self.start_all_services()
+    async def test_trailers_in_response_head(self, name, tr1, tr2):
+        await self.start_all_services()
 
         response = (
             "HTTP/1.1 200 OK\r\n"
@@ -650,20 +654,20 @@ class TestHeadersParsing(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         request = client.create_request(method="HEAD", headers=[])
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
         for tr in (tr1, tr2):
             self.assertIsNone(client.last_response.trailer.get(tr))
             self.assertIsNone(client.last_response.headers.get(tr))
 
-    def test_without_trailers_in_request(self):
-        self.start_all_services()
+    async def test_without_trailers_in_request(self):
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=(
                 "POST / HTTP/1.1\r\n"
                 "Host: localhost\r\n"
@@ -703,13 +707,13 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_server_in_trailers_response(self, name, response):
-        self.start_all_services()
+    async def test_server_in_trailers_response(self, name, response):
+        await self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(response)
 
         client = self.get_client("deproxy")
-        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
+        await client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
 
     @marks.Parameterize.expand(
         [
@@ -733,13 +737,13 @@ class TestHeadersParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_trailers_in_response_simple(self, name, response):
-        self.start_all_services()
+    async def test_trailers_in_response_simple(self, name, response):
+        await self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(response)
 
         client = self.get_client("deproxy")
-        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
+        await client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200")
         self.assertIsNone(client.last_response.headers.get("Trailer"))
         self.assertIsNone(client.last_response.headers.get("X-Token"))
         self.assertEqual(client.last_response.headers.get("Transfer-Encoding"), "chunked")
@@ -756,8 +760,8 @@ class TestHeadersParsing(tester.TempestaTest):
             marks.Param(name="vary", tr="vary", tr_val="accept"),
         ]
     )
-    def test_invalid_trailers_in_response(self, name, tr, tr_val):
-        self.start_all_services()
+    async def test_invalid_trailers_in_response(self, name, tr, tr_val):
+        await self.start_all_services()
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\n"
@@ -769,7 +773,7 @@ class TestHeadersParsing(tester.TempestaTest):
         )
 
         client = self.get_client("deproxy")
-        client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
+        await client.send_request(f"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "502")
 
 
 class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
@@ -808,30 +812,30 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
         },
     ]
 
-    def test_blocked_by_max_headers_count(self):
+    async def test_blocked_by_max_headers_count(self):
         """
         Total header length is 24 bytes, greater then 23 bytes.
         Host: localhost (15 bytes)
         'a': aaaa (9 bytes)
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaaa\r\n\r\n",
             expected_status_code="403",
         )
 
-    def test_not_blocked_by_max_headers_count(self):
+    async def test_not_blocked_by_max_headers_count(self):
         """
         Total header length is 23 bytes, not greater then 23 bytes.
         Host: localhost (15 bytes)
         'a': aaa (8 bytes)
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: localhost\r\n'a': aaa\r\n\r\n",
             expected_status_code="200",
         )
@@ -944,19 +948,19 @@ class TestHostWithCache(TestHostBase):
             ),
         ]
     )
-    def test_different_host_in_uri_and_headers(self, name, request, expected_status_code):
-        self.start_all_services()
+    async def test_different_host_in_uri_and_headers(self, name, request, expected_status_code):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         srv = self.get_server("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=request,
             expected_status_code=expected_status_code,
         )
         self.assertNotIn("age", client.last_response.headers)
 
         if expected_status_code == "200":
-            client.send_request(
+            await client.send_request(
                 request=request,
                 expected_status_code=expected_status_code,
             )
@@ -1038,8 +1042,8 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
             500: "Internal Server Error",
         }
 
-    def test_request_success(self):
-        self.start_all_services()
+    async def test_request_success(self):
+        await self.start_all_services()
         self.disable_deproxy_auto_parser()
 
         server = self.get_server("deproxy")
@@ -1054,7 +1058,7 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
                     "Content-Length: 0\r\n\r\n\r\n"
                 )
 
-                client.send_request(
+                await client.send_request(
                     request=client.create_request(method=self.method, headers=[]),
                     expected_status_code=str(status),
                 )
@@ -1128,10 +1132,10 @@ class TestContentTypeWithEmptyBody(tester.TempestaTest):
     ]
     method: str = None
 
-    def test_request_success(self):
-        self.start_all_services()
+    async def test_request_success(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method=self.method, headers=[]),
             expected_status_code="200",
         )
@@ -1215,13 +1219,13 @@ class TestMethods(tester.TempestaTest):
             marks.Param(name="unknown_methods_leading_crlf", methods=UNKNOWN_METHODS, crlf="\r\n"),
         ]
     )
-    def test(self, name, methods, crlf):
-        self.start_all_services()
+    async def test(self, name, methods, crlf):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
         for i, method in enumerate(methods):
-            client.send_request(
+            await client.send_request(
                 request=f"{crlf}{method} / HTTP/1.1\r\nHost: localhost\r\n\r\n",
                 expected_status_code="200",
             )

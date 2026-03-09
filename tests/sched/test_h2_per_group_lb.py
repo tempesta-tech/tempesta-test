@@ -38,25 +38,25 @@ class AllDefaultsH2(test_per_group_lb.AllDefaults):
         },
     ]
 
-    def test_inherit(self):
-        super(AllDefaultsH2, self).test_inherit()
+    async def test_inherit(self):
+        await super(AllDefaultsH2, self).test_inherit()
 
 
 class RedefineGlobalSchedH2(AllDefaultsH2, test_per_group_lb.RedefineGlobalSched):
-    def test_inherit(self):
-        super(RedefineGlobalSchedH2, self).test_inherit()
+    async def test_inherit(self):
+        await super(RedefineGlobalSchedH2, self).test_inherit()
 
 
 class RedefineGroupSchedH2(AllDefaultsH2, test_per_group_lb.RedefineGroupSched):
-    def test_inherit(self):
-        super(RedefineGroupSchedH2, self).test_inherit()
+    async def test_inherit(self):
+        await super(RedefineGroupSchedH2, self).test_inherit()
 
 
 class RedefineAllSchedsH2(AllDefaultsH2, test_per_group_lb.RedefineAllScheds):
-    def test_inherit(self):
-        super(RedefineAllSchedsH2, self).test_inherit()
+    async def test_inherit(self):
+        await super(RedefineAllSchedsH2, self).test_inherit()
 
 
 class LateRedefineGlobalSchedH2(AllDefaultsH2, test_per_group_lb.LateRedefineGlobalSched):
-    def test_inherit(self):
-        super(LateRedefineGlobalSchedH2, self).test_inherit()
+    async def test_inherit(self):
+        await super(LateRedefineGlobalSchedH2, self).test_inherit()

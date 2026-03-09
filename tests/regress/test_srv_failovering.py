@@ -11,7 +11,7 @@ import random
 from framework.deproxy.deproxy_server import ServerConnection
 from framework.services import tempesta as tfw
 from framework.services.tempesta import Tempesta
-from framework.test_suite import tester
+from framework.test_suite import marks, tester
 
 
 class TestFailovering(tester.TempestaTest):
@@ -62,8 +62,9 @@ class TestFailovering(tester.TempestaTest):
         for step in range(tfw.servers_in_group())
     ]
 
-    def test_on_close(self) -> None:
-        self.start_all_services()
+    @marks.change_ulimit(ulimit=10000)
+    async def test_on_close(self) -> None:
+        await self.start_all_services()
         tempesta = self.get_tempesta()
         tempesta.get_stats()
         self.assertTrue(self.is_srvs_ready())
@@ -96,6 +97,3 @@ class TestFailovering(tester.TempestaTest):
         for srv in self.get_servers():
             srv_connections.extend(srv.connections)
         return srv_connections
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

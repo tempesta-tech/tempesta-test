@@ -8,12 +8,12 @@ from tests.http2_general.helpers import H2Base
 
 
 class TestMaxFrameSize(H2Base):
-    def test_large_data_frame_in_response(self):
+    async def test_large_data_frame_in_response(self):
         """
         Tempesta must separate response body because it is larger than SETTINGS_MAX_FRAME_SIZE.
         Client must receive several DATA frames.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
 
@@ -29,15 +29,15 @@ class TestMaxFrameSize(H2Base):
 
         # H2Connection has SETTINGS_MAX_FRAME_SIZE = 16384 in local config therefore,
         # client does not receive response if Tempesta send DATA frame larger than 16384
-        client.send_request(self.get_request, "200")
+        await client.send_request(self.get_request, "200")
         self.assertEqual(len(client.last_response.body), len(response_body))
 
-    def test_large_headers_frame_in_response(self):
+    async def test_large_headers_frame_in_response(self):
         """
         Tempesta must separate response headers to HEADERS and CONTINUATION frames because
         it is larger than SETTINGS_MAX_FRAME_SIZE.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
         server: deproxy_server.StaticDeproxyServer = self.get_server("deproxy")
 
@@ -54,19 +54,19 @@ class TestMaxFrameSize(H2Base):
 
         # H2Connection has SETTINGS_MAX_FRAME_SIZE = 16384 in local config therefore,
         # client does not receive response if Tempesta send HEADERS frame larger than 16384
-        client.send_request(self.post_request, "200")
+        await client.send_request(self.post_request, "200")
         self.assertIsNotNone(client.last_response.headers.get(large_header[0]))
         self.assertEqual(
             len(client.last_response.headers.get(large_header[0])), len(large_header[1])
         )
 
-    def test_headers_frame_is_large_than_max_frame_size(self):
+    async def test_headers_frame_is_large_than_max_frame_size(self):
         """
         An endpoint MUST send an error code of FRAME_SIZE_ERROR if
         a frame exceeds the size defined in SETTINGS_MAX_FRAME_SIZE.
         RFC 9113 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
@@ -78,15 +78,15 @@ class TestMaxFrameSize(H2Base):
         client.make_request(
             request=self.post_request + [("qwerty", "x" * 17000)], end_stream=True, huffman=False
         )
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())
 
-    def test_data_frame_is_large_than_max_frame_size(self):
+    async def test_data_frame_is_large_than_max_frame_size(self):
         """
         An endpoint MUST send an error code of FRAME_SIZE_ERROR if
         a frame exceeds the size defined in SETTINGS_MAX_FRAME_SIZE.
         RFC 9113 4.2
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
 
@@ -98,4 +98,4 @@ class TestMaxFrameSize(H2Base):
         client.make_request(
             request=(self.post_request, "x" * 18000), end_stream=True, huffman=False
         )
-        self.assertTrue(client.wait_for_connection_close())
+        self.assertTrue(await client.wait_for_connection_close())

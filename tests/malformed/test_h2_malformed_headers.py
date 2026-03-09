@@ -18,15 +18,15 @@ class H2MalformedRequestsTest(test_malformed_headers.MalformedRequestsTest):
         },
     ]
 
-    def test_upgrade(self):
-        self.common_check(headers=("Upgrade", "invalid"))
+    async def test_upgrade(self):
+        await self.common_check(headers=("Upgrade", "invalid"))
 
-    def test_te(self):
-        self.common_check(headers=("TE", "invalid"))
+    async def test_te(self):
+        await self.common_check(headers=("TE", "invalid"))
 
-    def test_expect(self):
+    async def test_expect(self):
         """TempestaFW blocks h2 requests with Expect header."""
-        self.common_check(headers=("Expect", "100-continue"))
+        await self.common_check(headers=("Expect", "100-continue"))
 
     @staticmethod
     def generate_request(headers: tuple, method="GET"):
@@ -62,15 +62,15 @@ class H2MalformedRequestsWithoutStrictParsingTest(
     ]
 
     @unittest.SkipTest
-    def test_upgrade(self):
+    async def test_upgrade(self):
         pass
 
     @unittest.SkipTest
-    def test_te(self):
+    async def test_te(self):
         pass
 
     @unittest.SkipTest
-    def test_expect(self):
+    async def test_expect(self):
         """This test move to H2MalformedRequestsTest."""
 
     @staticmethod

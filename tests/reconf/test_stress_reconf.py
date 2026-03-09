@@ -55,9 +55,9 @@ class TestLiveReconf(LiveReconfStressTestBase):
         "config": TEMPESTA_CONFIG,
     }
 
-    def setUp(self) -> None:
+    async def asyncSetUp(self) -> None:
         self.clients.extend(self.curl_clients)
-        super().setUp()
+        await super().asyncSetUp()
         self.addCleanup(self.cleanup_clients)
 
     def cleanup_clients(self) -> None:
@@ -65,11 +65,11 @@ class TestLiveReconf(LiveReconfStressTestBase):
             self.clients.remove(client)
 
     @limited_rate_on_tempesta_node
-    def test_stress_reconfig_on_the_fly(self) -> None:
+    async def test_stress_reconfig_on_the_fly(self) -> None:
         """Test Tempesta for change config on the fly."""
         self.disable_deproxy_auto_parser()
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # start config Tempesta check (before reload)
         self._check_start_tfw_config(
@@ -82,11 +82,11 @@ class TestLiveReconf(LiveReconfStressTestBase):
         client.start()
 
         # sending curl requests before reconfig Tempesta
-        response = self.make_curl_request("curl-0")
+        response = await self.make_curl_request("curl-0")
         self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # check reload socket not in Tempesta config
-        self.check_non_working_socket("curl-1")
+        await self.check_non_working_socket("curl-1")
 
         # config Tempesta change,
         # reload, and check after reload
@@ -96,31 +96,25 @@ class TestLiveReconf(LiveReconfStressTestBase):
         )
 
         # sending curl requests after reconfig Tempesta
-        response = self.make_curl_request("curl-1")
+        response = await self.make_curl_request("curl-1")
         self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # check start socket not in Tempesta config
-        self.check_non_working_socket("curl-0")
+        await self.check_non_working_socket("curl-0")
 
         # h2load stop
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
-    def check_non_working_socket(
+    async def check_non_working_socket(
         self,
         curl_client_id: str,
     ) -> None:
         """
         Check that socket is not working.
-
-        Args:
-            socket: Socket for checking.
         """
         self.assertRaises(
             Exception,
-            self.make_curl_request(curl_client_id),
+            await self.make_curl_request(curl_client_id),
         )
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

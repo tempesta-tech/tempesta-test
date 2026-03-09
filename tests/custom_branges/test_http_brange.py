@@ -85,7 +85,7 @@ class TestConfigParsing(tester.TempestaTest):
             marks.Param(name="between", characters="0x21-0x40 0x0d 0x41-0x7e"),
         ]
     )
-    def test_enable_0x00_0x0a_0x0d(self, name, characters: str):
+    async def test_enable_0x00_0x0a_0x0d(self, name, characters: str):
         """
         Tempesta MUST not start when 0x00, 0x0a, 0x0d bytes are enabled in config.
         They are not allowed by RFC 9113 and cause http/1 parser to fail.
@@ -98,18 +98,18 @@ class TestConfigParsing(tester.TempestaTest):
             error.ProcessBadExitStatusException,
             msg=f"Tempesta config parser allowed 0x00 | 0x0a | 0x0d bytes with '{directive}'.",
         ):
-            self.start_tempesta()
+            await self.start_tempesta()
 
-    def test_uri_brange_combine_dec_and_hex(self):
+    async def test_uri_brange_combine_dec_and_hex(self):
         """This test checks how Tempesta work when combining dec and hex characters."""
         self._update_tempesta_config(
             directive="http_uri_brange", characters="0x2d-57 0x41-90 0x61-126"
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[], uri=f"/example\x42"),
             expected_status_code="200",
         )
@@ -150,12 +150,12 @@ class TestConfigParsing(tester.TempestaTest):
             ),
         ]
     )
-    def test_http(self, name, directive, characters, msg):
+    async def test_http(self, name, directive, characters, msg):
         self._update_tempesta_config(directive=directive, characters=characters)
         self.oops_ignore.append("ERROR")
 
         with self.assertRaises(error.ProcessBadExitStatusException, msg=msg):
-            self.start_tempesta()
+            await self.start_tempesta()
 
 
 @marks.parameterize_class(
@@ -220,18 +220,18 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_uri_brange(self, name, custom_uri_branch, uri, expected_status):
+    async def test_http_uri_brange(self, name, custom_uri_branch, uri, expected_status):
         self._update_tempesta_config(directive="http_uri_brange", characters=custom_uri_branch)
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         request = client.create_request(method="GET", uri=uri, headers=[])
-        client.send_request(request, expected_status_code=expected_status)
+        await client.send_request(request, expected_status_code=expected_status)
 
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -242,15 +242,15 @@ tls_match_any_server_name;
             marks.Param(name="disallowed_0x5f", character="\x5f", expected_status="400"),
         ]
     )
-    def test_boundary_values(self, name, character, expected_status):
+    async def test_boundary_values(self, name, character, expected_status):
         self._update_tempesta_config(
             directive="http_uri_brange", characters="0x2d-0x39 0x41-0x5a 0x61-0x7e"
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[], uri=f"/example{character}"),
             expected_status_code=expected_status,
         )
@@ -258,7 +258,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -266,15 +266,15 @@ tls_match_any_server_name;
             marks.Param(name="allowed_character", character="\x2d", expected_status="200"),
         ]
     )
-    def test_http_uri_brange_referer_header(self, name, character, expected_status):
+    async def test_http_uri_brange_referer_header(self, name, character, expected_status):
         self._update_tempesta_config(
             directive="http_uri_brange", characters="0x2d-0x39 0x41-0x5a 0x61-0x7a"
         )
 
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", headers=[("referer", f"/example{character}")]
             ),
@@ -284,7 +284,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -315,19 +315,19 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_etag_brange_if_none_match(self, name, etag, expected_status):
+    async def test_http_etag_brange_if_none_match(self, name, etag, expected_status):
         self._update_tempesta_config(directive="http_etag_brange", characters="0x61-0x7a")
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("if-none-match", etag)]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -351,19 +351,19 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_cookie_brange(self, name, characters, cookie, expected_status):
+    async def test_http_cookie_brange(self, name, characters, cookie, expected_status):
         self._update_tempesta_config(directive="http_cookie_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("cookie", cookie)]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -399,19 +399,19 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_xff_brange(self, name, characters, ip_, expected_status):
+    async def test_http_xff_brange(self, name, characters, ip_, expected_status):
         self._update_tempesta_config(directive="http_xff_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("x-forwarded-for", ip_)]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -429,19 +429,19 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_ctext_vchar_brange(self, name, characters, header, expected_status):
+    async def test_http_ctext_vchar_brange(self, name, characters, header, expected_status):
         self._update_tempesta_config(directive="http_ctext_vchar_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("user-agent", header)]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -457,20 +457,20 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_token_brange(self, name, header_value, expected_status):
+    async def test_http_token_brange(self, name, header_value, expected_status):
         self._update_tempesta_config(directive="http_token_brange", characters="0x41-0x7a")
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("cookie", f"{header_value}")]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -494,20 +494,20 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_qetoken_brange(self, name, characters, cache_control, expected_status):
+    async def test_http_qetoken_brange(self, name, characters, cache_control, expected_status):
         self._update_tempesta_config(directive="http_qetoken_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         client.parsing = False
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("cache-control", cache_control)]),
             expected_status_code=expected_status,
         )
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -525,13 +525,13 @@ tls_match_any_server_name;
             ),
         ]
     )
-    def test_http_nctl_brange_request(self, name, characters, date, expected_status):
+    async def test_http_nctl_brange_request(self, name, characters, date, expected_status):
         self._update_tempesta_config(directive="http_nctl_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
 
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", headers=[("if-modified-since", date)]),
             expected_status_code=expected_status,
         )
@@ -539,7 +539,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
 
     @marks.Parameterize.expand(
         [
@@ -558,9 +558,9 @@ tls_match_any_server_name;
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_http_nctl_brange_response(self, name, characters, date, expected_status):
+    async def test_http_nctl_brange_response(self, name, characters, date, expected_status):
         self._update_tempesta_config(directive="http_nctl_brange", characters=characters)
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -573,7 +573,7 @@ tls_match_any_server_name;
                         headers=[(header, date), ("content-length", "0")],
                     )
                 )
-                client.send_request(
+                await client.send_request(
                     request=client.create_request(method="GET", headers=[]),
                     expected_status_code=expected_status,
                 )

@@ -1,4 +1,3 @@
-from framework.deproxy import deproxy_message
 from framework.helpers import tf_cfg
 from framework.services import tempesta
 from framework.test_suite import tester
@@ -47,7 +46,7 @@ frang_limits {
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def common_check(
+    async def common_check(
         self,
         request_0="",
         expect_status_0=200,
@@ -62,16 +61,16 @@ frang_limits {
         deproxy_srv = self.get_server("deproxy")
         deproxy_cl = self.get_client("deproxy")
 
-        self.start_all_services()
+        await self.start_all_services()
 
-        deproxy_cl.send_request(request_0, str(expect_status_0))
+        await deproxy_cl.send_request(request_0, str(expect_status_0))
 
         if chunked:
             deproxy_cl.segment_size = 1
 
-        deproxy_cl.send_request(request, str(expect_status))
+        await deproxy_cl.send_request(request, str(expect_status))
 
-        frequest: deproxy.Request = deproxy_srv.last_request
+        frequest = deproxy_srv.last_request
 
         frequest.headers.headers.sort()
         expect.sort()
@@ -80,10 +79,10 @@ frang_limits {
         self.assertEqual(frequest.headers.headers, expect)
         self.assertEqual(frequest.body, "")
 
-    def test_0_purge_non_hch(self):
+    async def test_0_purge_non_hch(self):
         # Normal (non heavy-chunked) test
         #
-        self.common_check(
+        await self.common_check(
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",
@@ -97,10 +96,10 @@ frang_limits {
             ],
         )
 
-    def test_1_purge_hch(self):
+    async def test_1_purge_hch(self):
         # Heavy-chunked test
         #
-        self.common_check(
+        await self.common_check(
             request_0="GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
             expect_status_0=200,
             request="PURGE / HTTP/1.1\r\n" "Host: localhost\r\n" "X-Tempesta-Cache: GET\r\n" "\r\n",

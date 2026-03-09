@@ -125,22 +125,22 @@ class TestModifyServerGroup(tester.TempestaTest):
                 f"Tempesta FW deadtime is greater than {self.max_deadtime}.",
             )
 
-    def test_simple_reload(self):
+    async def test_simple_reload(self):
         """A simple reboot while sending requests by the client."""
         server_listeners = self._generate_server_listener_list()
         self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
         self._add_nginx_backends(server_listeners)
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("sequential")
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
         client.start()
-        server.wait_for_requests(n=self.requests_n // 3)
+        await server.wait_for_requests(n=self.requests_n // 3)
         tfw.reload()
-        self.assertTrue(client.wait_for_finish())
+        self.assertTrue(await client.wait_for_finish())
         client.stop()
 
         self.assertGreater(
@@ -148,24 +148,24 @@ class TestModifyServerGroup(tester.TempestaTest):
         )
         self._check_requests_delay(client)
 
-    def test_reload_with_adding_server(self):
+    async def test_reload_with_adding_server(self):
         """A reboot with adding server to srv_group while sending requests by the client."""
         server_listeners = self._generate_server_listener_list()
         first_part = server_listeners[: (len(server_listeners) // 2)]
         self._generate_tempesta_config_with_multiple_srv_group(first_part)
         self._add_nginx_backends(server_listeners)
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("sequential")
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
         client.start()
-        server.wait_for_requests(n=self.requests_n // 3)
+        await server.wait_for_requests(n=self.requests_n // 3)
         self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
         tfw.reload()
-        self.assertTrue(client.wait_for_finish())
+        self.assertTrue(await client.wait_for_finish())
         client.stop()
 
         self.assertGreater(
@@ -173,24 +173,24 @@ class TestModifyServerGroup(tester.TempestaTest):
         )
         self._check_requests_delay(client)
 
-    def test_reload_with_removing_server(self):
+    async def test_reload_with_removing_server(self):
         """A reboot with removing server from srv_group while sending requests by the client."""
         server_listeners = self._generate_server_listener_list()
         first_part = server_listeners[: (len(server_listeners) // 2)]
         self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
         self._add_nginx_backends(server_listeners)
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("sequential")
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
         client.start()
-        server.wait_for_requests(n=self.requests_n // 3)
+        await server.wait_for_requests(n=self.requests_n // 3)
         self._generate_tempesta_config_with_multiple_srv_group(first_part)
         tfw.reload()
-        self.assertTrue(client.wait_for_finish())
+        self.assertTrue(await client.wait_for_finish())
         client.stop()
 
         self.assertGreater(

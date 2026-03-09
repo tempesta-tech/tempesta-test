@@ -41,8 +41,8 @@ class TestH2Ping(tester.TempestaTest):
         """
     }
 
-    def test(self):
-        self.start_all_services(client=False)
+    async def test(self):
+        await self.start_all_services(client=False)
 
         hostname = tf_cfg.cfg.get("Tempesta", "hostname")
         port = 443

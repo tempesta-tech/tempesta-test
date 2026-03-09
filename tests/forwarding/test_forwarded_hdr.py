@@ -40,12 +40,12 @@ class TestForwardedBase(tester.TempestaTest, base=True):
 
     response_status = "200"
 
-    def test_run(self):
-        self.start_all_services()
+    async def test_run(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         for param in self.req_params:
             with self.subTest(msg=f"Forwarded: {param}"):
-                client.send_request(
+                await client.send_request(
                     request=client.create_request(method="GET", headers=[("Forwarded", param)]),
                     expected_status_code=self.response_status,
                 )
@@ -136,14 +136,14 @@ class TestForwardedBaseMalicious(TestForwardedBase):
 
     malicious = ["<xss>", '"><xss>', '" onlick=alert(1)', "' sqlinj"]
 
-    def test_malicious(self):
-        self.start_all_services()
+    async def test_malicious(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
         for param in self.req_params:
             for evil_str in self.malicious:
                 evil_param = param % evil_str
                 with self.subTest(msg=f"Forwarded: {evil_param}"):
-                    client.send_request(
+                    await client.send_request(
                         request=client.create_request(
                             method="GET", headers=[("Forwarded", evil_param)]
                         ),

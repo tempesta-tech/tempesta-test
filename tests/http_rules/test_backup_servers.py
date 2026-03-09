@@ -4,7 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
+import asyncio
 
 from framework.deproxy.deproxy_message import HttpMessage
 from framework.helpers import checks_for_tests as checks
@@ -82,11 +82,11 @@ http_chain {
         },
     ]
 
-    def test_scheduler(self):
+    async def test_scheduler(self):
         """
         Tempesta must forward requests to backup server if primary server is disabled.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         client = self.get_client("deproxy")
         primary_server = self.get_server("primary")
@@ -94,18 +94,18 @@ http_chain {
 
         request = client.create_request(method="GET", headers=[])
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         got_requests = len(primary_server.requests)
 
         primary_server.stop()
         # Sleep to be shure that server is stopped and connection
         # is closed (Remove after #2111 in Tempesta)
-        time.sleep(1)
-        client.send_request(request, "200")
+        await asyncio.sleep(1)
+        await client.send_request(request, "200")
 
         primary_server.start()
-        self.assertTrue(primary_server.wait_for_connections(3))
-        client.send_request(request, "200")
+        self.assertTrue(await primary_server.wait_for_connections(3))
+        await client.send_request(request, "200")
         got_requests += len(primary_server.requests)
 
         self.assertEqual(2, got_requests)

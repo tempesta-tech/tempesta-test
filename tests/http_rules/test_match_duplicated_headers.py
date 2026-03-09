@@ -96,11 +96,11 @@ class TestDuplicatedHeadersMatch(tester.TempestaTest):
     ]
     header_name = "X-Forwarded-For"
 
-    def test_match_success(self):
-        self.start_all_services()
+    async def test_match_success(self):
+        await self.start_all_services()
         for i, headers in enumerate(self.headers_val):
             client = self.get_client(i)
-            client.send_request(
+            await client.send_request(
                 request=client.create_request(
                     method="GET",
                     uri="/",
@@ -113,10 +113,10 @@ class TestDuplicatedHeadersMatch(tester.TempestaTest):
                 expected_status_code="200",
             )
 
-    def test_match_fail(self):
-        self.start_all_services()
+    async def test_match_fail(self):
+        await self.start_all_services()
         client = self.get_client(0)
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="GET", uri="/", headers=[(self.header_name, "1.2.3.4")]
             )

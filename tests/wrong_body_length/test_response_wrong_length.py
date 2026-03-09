@@ -21,9 +21,9 @@ class ResponseContentLengthBase(TestContentLengthBase, base=True):
     cl_msg_other_errors = 0
     expected_requests_to_server = 1
 
-    def test(self):
+    async def test(self):
         """Call test from base class"""
-        self._test()
+        await self._test()
         response = self.get_client("deproxy").last_response
         self.assertEqual(
             self.expected_body_length,
@@ -102,9 +102,9 @@ class H2ResponseMissingEmptyBodyLength(H2Config, ResponseMissingEmptyBodyLength)
 
     request_headers = []
 
-    def test(self):
+    async def test(self):
         """Call test from base class"""
-        self._test()
+        await self._test()
         response = self.get_client("deproxy").last_response
         self.assertEqual(
             self.expected_body_length,
@@ -328,16 +328,16 @@ class H2CachedResponseMissingContentLength(ResponseContentLengthBase):
     srv_msg_parsing_errors = 0
     expected_requests_to_server = 1
 
-    def test(self):
+    async def test(self):
         """
         Send request with correct or incorrect data to server and check if response have been
         received.
         """
-        srv: StaticDeproxyServer = self.get_server("deproxy")
+        srv = self.get_server("deproxy")
         srv.keep_alive = self.keep_alive
-        self.start_all_services()
+        await self.start_all_services()
 
-        client: DeproxyClient = self.get_client("deproxy")
+        client = self.get_client("deproxy")
         client.parsing = False
 
         response = (
@@ -356,7 +356,7 @@ class H2CachedResponseMissingContentLength(ResponseContentLengthBase):
         ]
 
         for step in range(2):
-            client.send_request(
+            await client.send_request(
                 request=headers,
                 expected_status_code=self.expected_response_status,
             )

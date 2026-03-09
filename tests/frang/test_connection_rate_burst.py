@@ -97,7 +97,7 @@ class TestFrang(FrangTestCase):
             marks.Param(name="burst_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
-    def test_connection(self, name, conn_n: int, warns_expected):
+    async def test_connection(self, name, conn_n: int, warns_expected):
         """
         Create several client connections, if number of
         connections is more than 5 some of them will be
@@ -105,16 +105,16 @@ class TestFrang(FrangTestCase):
         connections because connnection is blocked only if
         connection count per 0.125 sec is greater then 5.
         """
-        self.set_frang_config(self.burst_config)
+        await self.set_frang_config(self.burst_config)
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, self.tls_connection)
+        await self.run_rate_check(client, conn_n, self.tls_connection)
 
         reset_conn_n, total_conn_n = parse_out(client)
-        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.burst_warning, warns_expected)
         self.assertEqual(total_conn_n, conn_n)
         self.assertEqual(reset_conn_n, warns_occured)
-        self.assertFrangWarning(self.rate_warning, expected=0)
+        await self.assertFrangWarning(self.rate_warning, expected=0)
 
     @marks.Parameterize.expand(
         [
@@ -123,7 +123,7 @@ class TestFrang(FrangTestCase):
             marks.Param(name="rate_on_the_limit", conn_n=5, warns_expected=0),
         ]
     )
-    def test_connection(self, name, conn_n: int, warns_expected):
+    async def test_connection(self, name, conn_n: int, warns_expected):
         """
         Create several client connections, if number of
         connections is more than 5 some of them will be
@@ -131,17 +131,17 @@ class TestFrang(FrangTestCase):
         connections because connnection is blocked only if
         connection count per 1 sec is greater then 5.
         """
-        self.set_frang_config(self.rate_config)
+        await self.set_frang_config(self.rate_config)
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, self.tls_connection)
+        await self.run_rate_check(client, conn_n, self.tls_connection)
 
         reset_conn_n, total_conn_n = parse_out(client)
 
-        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.rate_warning, warns_expected)
         self.assertEqual(total_conn_n, conn_n)
         self.assertEqual(reset_conn_n, warns_occured)
-        self.assertFrangWarning(self.burst_warning, expected=0)
+        await self.assertFrangWarning(self.burst_warning, expected=0)
 
 
 class FrangTlsVsBoth(FrangTestCase):
@@ -172,51 +172,51 @@ class FrangTlsVsBoth(FrangTestCase):
     burst_config = "tls_connection_burst 3;"
     rate_config = "tls_connection_rate 3;"
 
-    def test_burst(self):
+    async def test_burst(self):
         """
         Set `tls_connection_burst 3` and create 7 tls and 7 non-tls connections.
         Only tls connections will be blocked.
         """
-        self.set_frang_config(frang_config=self.burst_config)
+        await self.set_frang_config(frang_config=self.burst_config)
         conn_n = 7
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, True)
+        await self.run_rate_check(client, conn_n, True)
         tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        self.run_rate_check(client, conn_n, False)
+        await self.run_rate_check(client, conn_n, False)
         tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, conn_n - 3)
-        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.burst_warning, warns_expected)
         self.assertEqual(tls_total_conn_n, conn_n)
         self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n, warns_occured)
         self.assertEqual(tcp_reset_conn_n, 0)
-        self.assertFrangWarning(self.rate_warning, expected=0)
+        await self.assertFrangWarning(self.rate_warning, expected=0)
 
-    def test_rate(self):
+    async def test_rate(self):
         """
         Set `tls_connection_rate 3` and create 7 tls and 7 non-tls connections.
         Only tls connections will be blocked.
         """
-        self.set_frang_config(frang_config=self.rate_config)
+        await self.set_frang_config(frang_config=self.rate_config)
         conn_n = 7
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, True)
+        await self.run_rate_check(client, conn_n, True)
         tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        self.run_rate_check(client, conn_n, False)
+        await self.run_rate_check(client, conn_n, False)
         tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, conn_n - 3)
-        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.rate_warning, warns_expected)
         self.assertEqual(tls_total_conn_n, conn_n)
         self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n, warns_occured)
         self.assertEqual(tcp_reset_conn_n, 0)
-        self.assertFrangWarning(self.burst_warning, expected=0)
+        await self.assertFrangWarning(self.burst_warning, expected=0)
 
 
 class FrangTcpVsBoth(FrangTlsVsBoth):
@@ -248,46 +248,46 @@ class FrangTcpVsBoth(FrangTlsVsBoth):
     burst_config = "tcp_connection_burst 3;"
     rate_config = "tcp_connection_rate 3;"
 
-    def test_burst(self):
+    async def test_burst(self):
         """
         Set `tcp_connection_burst 3` and create 7 tls and 7 non-tls connections.
         Connections of both types will be blocked.
         """
-        self.set_frang_config(frang_config=self.burst_config)
+        await self.set_frang_config(frang_config=self.burst_config)
         conn_n = 7
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, True)
+        await self.run_rate_check(client, conn_n, True)
         tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        self.run_rate_check(client, conn_n, False)
+        await self.run_rate_check(client, conn_n, False)
         tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, 2 * conn_n - 3)
-        warns_occured = self.assertFrangWarning(self.burst_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.burst_warning, warns_expected)
         self.assertEqual(tls_total_conn_n, conn_n)
         self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
-        self.assertFrangWarning(self.rate_warning, expected=0)
+        await self.assertFrangWarning(self.rate_warning, expected=0)
 
-    def test_rate(self):
+    async def test_rate(self):
         """
         Set tcp_connection_rate 3` and create 7 tls and 7 non-tls connections.
         Connections of both types will be blocked.
         """
-        self.set_frang_config(frang_config=self.rate_config)
+        await self.set_frang_config(frang_config=self.rate_config)
         conn_n = 7
 
         client = self.get_client("ratechecker")
-        self.run_rate_check(client, conn_n, True)
+        await self.run_rate_check(client, conn_n, True)
         tls_reset_conn_n, tls_total_conn_n = parse_out(client)
 
-        self.run_rate_check(client, conn_n, False)
+        await self.run_rate_check(client, conn_n, False)
         tcp_reset_conn_n, tcp_total_conn_n = parse_out(client)
 
         warns_expected = range(1, 2 * conn_n - 3)
-        warns_occured = self.assertFrangWarning(self.rate_warning, warns_expected)
+        warns_occured = await self.assertFrangWarning(self.rate_warning, warns_expected)
         self.assertEqual(tls_total_conn_n, conn_n)
         self.assertEqual(tcp_total_conn_n, conn_n)
         self.assertEqual(tls_reset_conn_n + tcp_reset_conn_n, warns_occured)
-        self.assertFrangWarning(self.burst_warning, expected=0)
+        await self.assertFrangWarning(self.burst_warning, expected=0)

@@ -16,13 +16,13 @@ class TestHttpTablesH2(test_http_tables.HttpTablesTest):
         (":method", "GET"),
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.clients = copy.deepcopy(self.clients)
         for client in self.clients:
             client["port"] = "443"
             client["type"] = "deproxy_h2"
             client["ssl"] = True
-        super(TestHttpTablesH2, self).setUp()
+        await super().asyncSetUp()
 
 
 class HttpTablesTestMarkRulesH2(TestHttpTablesH2, test_http_tables.HttpTablesTestMarkRules):
@@ -198,8 +198,8 @@ class H2Redirects(tester.TempestaTest):
         ("/temporary-redirect", "307", "/new-location-307"),
     ]
 
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
 
         for uri, status, location in self.params:
             request = [
@@ -210,7 +210,7 @@ class H2Redirects(tester.TempestaTest):
             ]
 
             client = self.get_client("deproxy")
-            client.send_request(request, status)
+            await client.send_request(request, status)
             self.assertEqual(client.last_response.headers["location"], location)
 
 

@@ -114,8 +114,8 @@ http {
     }
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
-        self.start_all_services()
+    async def test(self):
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         request = client.create_request(
@@ -144,7 +144,7 @@ http {
                 expect_response=True,
             )
 
-        self.assertTrue(client.wait_for_response(120))
+        self.assertTrue(await client.wait_for_response(120))
         # check a memory consumption (http2 connection is still open)
         (mem2,) = get_memory_lines("MemAvailable")
         mem2 = mem2 + psutil.Process().memory_info().rss // 1024
@@ -154,4 +154,4 @@ http {
         # close first stream and http2 connection and finish test
         client.stream_id = 1
         client.make_request("data", end_stream=True)
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())

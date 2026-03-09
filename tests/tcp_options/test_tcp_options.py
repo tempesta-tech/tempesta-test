@@ -89,11 +89,11 @@ class TestTcpOptions(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, option, value, mtu):
+    async def test(self, name, option, value, mtu):
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
         with networker.change_and_restore_tcp_options(mtu=mtu, tcp_options={option: value}):
-            self.start_all_services()
+            await self.start_all_services()
             header = ("qwerty", "x" * 50000)
             server.set_response(
                 "HTTP/1.1 200 OK\r\n"
@@ -104,5 +104,5 @@ class TestTcpOptions(tester.TempestaTest):
                 + ("x" * 100000)
             )
 
-            client.send_request(client.create_request(method="GET", headers=[]), "200")
+            await client.send_request(client.create_request(method="GET", headers=[]), "200")
             self.assertFalse(client.connection_is_closed())
