@@ -6,6 +6,7 @@ on the same node (developer test case), or on separate machines (CI case).
 """
 
 import abc
+import asyncio
 import errno
 import logging
 import multiprocessing
@@ -146,7 +147,7 @@ class ANode(object, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def wait_available(self) -> bool:
+    async def wait_available(self) -> bool:
         """
         Wait for a node.
 
@@ -336,7 +337,7 @@ class LocalNode(ANode):
             except FileNotFoundError:
                 self._logger.warning(f"Removing `{filename}`: file not found")
 
-    def wait_available(self) -> bool:
+    async def wait_available(self) -> bool:
         """
         Wait for a node.
 
@@ -576,7 +577,7 @@ class RemoteNode(ANode):
 
             sftp.close()
 
-    def wait_available(self) -> bool:
+    async def wait_available(self) -> bool:
         """
         Wait for a node.
 
@@ -601,7 +602,7 @@ class RemoteNode(ANode):
                 self._logger.debug(f"Node {self.type} is available, host {self.host}")
                 return True
 
-            time.sleep(1)
+            await asyncio.sleep(run_config.asyncio_freq)
 
     def copy_file_to_node(self, file: str, dest_dir: str):
         """
@@ -663,14 +664,11 @@ for node in [client, server, tempesta, clickhouse]:
     node.post_init()
 
 
-def wait_available():
+async def wait_available():
     global tempesta
     global clickhouse
 
     for node in [tempesta, clickhouse]:
-        if not node.wait_available():
+        if not await node.wait_available():
             return False
     return True
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
