@@ -107,14 +107,14 @@ class TestStressPipeline(tester.TempestaTest):
     errors_write = 0
     errors_timeout = 0
 
-    def routine(self, lua: str) -> Wrk:
+    async def routine(self, lua: str) -> Wrk:
         wrk = self.get_client("wrk")
         wrk.set_script("wrk", lua)
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         wrk.start()
-        self.wait_while_busy(wrk)
+        await self.wait_while_busy(wrk)
         wrk.stop()
         return wrk
 
@@ -178,7 +178,7 @@ class TestStressPipeline(tester.TempestaTest):
         exp_max = cl_req_cnt + cl_conn_cnt
 
         self.assertTrue(
-            tempesta.stats.cl_msg_received >= exp_min and tempesta.stats.cl_msg_received <= exp_max,
+            exp_min <= tempesta.stats.cl_msg_received <= exp_max,
             msg="Tempesta received bad number %d of messages, expected [%d:%d]"
             % (tempesta.stats.cl_msg_received, exp_min, exp_max),
         )
@@ -197,9 +197,6 @@ class TestStressPipeline(tester.TempestaTest):
         self.assert_tempesta()
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_pipeline(self) -> None:
-        self.routine(PIPELINE_LUA)
+    async def test_pipeline(self) -> None:
+        await self.routine(PIPELINE_LUA)
         self.generic_asserts_test()
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

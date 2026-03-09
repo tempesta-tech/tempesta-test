@@ -46,15 +46,15 @@ class RequestCorrectBodyLength(RequestContentLengthBase):
     expected_response_status = "204"
     cl_msg_parsing_errors = 0
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestDuplicateBodyLength(RequestContentLengthBase):
@@ -73,15 +73,15 @@ class RequestDuplicateBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestSecondBodyLength(RequestContentLengthBase):
@@ -101,15 +101,15 @@ class RequestSecondBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestInvalidBodyLength(RequestContentLengthBase):
@@ -128,15 +128,15 @@ class RequestInvalidBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestNegativeBodyLength(RequestContentLengthBase):
@@ -155,15 +155,15 @@ class RequestNegativeBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestDecimalBodyLength(RequestContentLengthBase):
@@ -182,15 +182,15 @@ class RequestDecimalBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestMissingBodyLength(RequestContentLengthBase):
@@ -206,15 +206,15 @@ class RequestMissingBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestEmptyBodyLength(RequestContentLengthBase):
@@ -233,15 +233,15 @@ class RequestEmptyBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestSmallBodyLength(RequestContentLengthBase):
@@ -260,15 +260,15 @@ class RequestSmallBodyLength(RequestContentLengthBase):
     expected_response_status = "400"
     cl_msg_parsing_errors = 1
 
-    def test_post_request(self):
+    async def test_post_request(self):
         """Test for POST request method."""
         self.request_method = "POST"
-        self._test()
+        await self._test()
 
-    def test_put_request(self):
+    async def test_put_request(self):
         """Test for PUT request method."""
         self.request_method = "PUT"
-        self._test()
+        await self._test()
 
 
 class RequestLongBodyLength(TempestaTest):
@@ -318,19 +318,19 @@ class RequestLongBodyLength(TempestaTest):
         },
     ]
 
-    def test_post_request(self):
-        self._test(method="POST")
+    async def test_post_request(self):
+        await self._test(method="POST")
 
-    def test_put_request(self):
-        self._test(method="PUT")
+    async def test_put_request(self):
+        await self._test(method="PUT")
 
-    def _test(self, method: str) -> None:
+    async def _test(self, method: str) -> None:
         """
         Send request with body and longer Content-length header.
         Check that Tempesta has not sent client request and closed connection after the set time
         'keepalive'.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client: DeproxyClient = self.get_client("deproxy")
         srv = self.get_server("deproxy")
         client.parsing = False
@@ -345,7 +345,7 @@ class RequestLongBodyLength(TempestaTest):
             + "\r\n"
             + "body\r\n"
         )
-        client.wait_for_response(timeout=3)
+        await client.wait_for_response(timeout=3)
 
         self.assertIsNone(
             client.last_response,

@@ -204,14 +204,14 @@ class Ratio(tester.TempestaTest):
     # Minimum request count delta used for short term tests.
     min_delta = 10
 
-    def test_load_distribution(self):
+    async def test_load_distribution(self):
         """All servers must receive almost the same number of requests."""
         client = self.get_client("client")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.start_all_clients()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
 
         tempesta = self.get_tempesta()
         servers = self.get_servers()
@@ -249,5 +249,5 @@ class RatioVariableConns(Ratio):
 
     tempesta = {"config": TEMPESTA_CONFIG_VAR_CONNS}
 
-    def test_load_distribution(self):
-        super(RatioVariableConns, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioVariableConns, self).test_load_distribution()

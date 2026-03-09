@@ -110,13 +110,13 @@ class BindToServer(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         self.backends = copy.deepcopy(self.backends_template)
         for backend in self.backends:
             backend["config"] = backend["config"] % self.ka_requests
-        super(BindToServer, self).setUp()
+        await super().asyncSetUp()
 
-    def test_hash(self):
+    async def test_hash(self):
         """
         Send requests with the same URI, only one connection (server) should be
         loaded, but a few other connections (servers) can get a little bit of the
@@ -124,8 +124,8 @@ class BindToServer(tester.TempestaTest):
         """
         client = self.get_client("client")
 
-        self.start_all_services()
-        self.wait_while_busy(client)
+        await self.start_all_services()
+        await self.wait_while_busy(client)
         client.stop()
 
         self.__check_load_distribution_between_servers()
@@ -169,5 +169,5 @@ class BindToServerFailovering(BindToServer):
 
     ka_requests = 50000
 
-    def test_hash(self):
-        super(BindToServerFailovering, self).test_hash()
+    async def test_hash(self):
+        await super(BindToServerFailovering, self).test_hash()

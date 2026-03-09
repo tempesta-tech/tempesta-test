@@ -60,16 +60,16 @@ tls_match_any_server_name;
         cache = "cache 2;\ncache_fulfill * *;\n" if self.cache else "cache 0;"
         tempesta.config.defconfig += config + "\n" + cache
 
-    def base_scenario(self, config: str, expected_headers: list):
+    async def base_scenario(self, config: str, expected_headers: list):
         client = self.get_client("deproxy-1")
         server = self.get_server("deproxy")
 
         self.update_tempesta_config(config=config)
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         for _ in range(2 if self.cache else 1):
-            client.send_request(self.request, "200")
+            await client.send_request(self.request, "200")
 
             for header in expected_headers:
                 if self.directive in ["req_hdr_set", "req_hdr_add"]:
@@ -97,8 +97,8 @@ class TestReqAddHeader(AddHeaderBase):
         + "\r\n"
     )
 
-    def test_add_some_hdrs(self):
-        client, server = self.base_scenario(
+    async def test_add_some_hdrs(self):
+        client, server = await self.base_scenario(
             config=(
                 f'{self.directive} x-my-hdr "some text";\n'
                 f'{self.directive} x-my-hdr-2 "some other text";\n'
@@ -107,8 +107,8 @@ class TestReqAddHeader(AddHeaderBase):
         )
         return client, server
 
-    def test_add_some_hdrs_custom_location(self):
-        client, server = self.base_scenario(
+    async def test_add_some_hdrs_custom_location(self):
+        client, server = await self.base_scenario(
             config=(
                 'location prefix "/" {\n'
                 f'{self.directive} x-my-hdr "some text";\n'
@@ -119,15 +119,15 @@ class TestReqAddHeader(AddHeaderBase):
         )
         return client, server
 
-    def test_add_hdrs_derive_config(self):
-        client, server = self.base_scenario(
+    async def test_add_hdrs_derive_config(self):
+        client, server = await self.base_scenario(
             config=(f'{self.directive} x-my-hdr "some text";\n' 'location prefix "/" {}\n'),
             expected_headers=[("x-my-hdr", "some text")],
         )
         return client, server
 
-    def test_add_hdrs_override_config(self):
-        client, server = self.base_scenario(
+    async def test_add_hdrs_override_config(self):
+        client, server = await self.base_scenario(
             config=(
                 f'{self.directive} x-my-hdr "some text";\n'
                 'location prefix "/" {\n'
@@ -191,23 +191,23 @@ class TestReqSetHeader(TestReqAddHeader):
         server = self.get_server("deproxy")
         self.assertIn(header, server.last_request.headers.items())
 
-    def test_add_some_hdrs(self):
-        super(TestReqSetHeader, self).test_add_some_hdrs()
+    async def test_add_some_hdrs(self):
+        await super(TestReqSetHeader, self).test_add_some_hdrs()
         self.header_not_in(("x-my-hdr", "original text"))
         self.header_not_in(("x-my-hdr-2", "other original text"))
 
-    def test_add_some_hdrs_custom_location(self):
-        super(TestReqSetHeader, self).test_add_some_hdrs_custom_location()
+    async def test_add_some_hdrs_custom_location(self):
+        await super(TestReqSetHeader, self).test_add_some_hdrs_custom_location()
         self.header_not_in(("x-my-hdr", "original text"))
         self.header_not_in(("x-my-hdr-2", "other original text"))
 
-    def test_add_hdrs_derive_config(self):
-        super(TestReqSetHeader, self).test_add_hdrs_derive_config()
+    async def test_add_hdrs_derive_config(self):
+        await super(TestReqSetHeader, self).test_add_hdrs_derive_config()
         self.header_not_in(("x-my-hdr", "original text"))
         self.header_in(("x-my-hdr-2", "other original text"))
 
-    def test_add_hdrs_override_config(self):
-        super(TestReqSetHeader, self).test_add_hdrs_override_config()
+    async def test_add_hdrs_override_config(self):
+        await super(TestReqSetHeader, self).test_add_hdrs_override_config()
         self.header_in(("x-my-hdr", "original text"))
         self.header_not_in(("x-my-hdr-2", "other original text"))
 

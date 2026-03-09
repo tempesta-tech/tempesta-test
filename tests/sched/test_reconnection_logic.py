@@ -82,7 +82,7 @@ http_chain {
         },
     ]
 
-    def test_reconnection_to_primary_server(self):
+    async def test_reconnection_to_primary_server(self):
         """
         TempestaFW must reconnect to primary server if the server is active again.
         """
@@ -95,34 +95,34 @@ http_chain {
         primary_server.conns_n = 1
         backup_server.conns_n = 1
 
-        self.start_all_services()
+        await self.start_all_services()
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertTrue(
-            primary_server.wait_for_requests(1),
+            await primary_server.wait_for_requests(1),
             "TempestaFW first send a request to the backup server.",
         )
 
         primary_server.stop()
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertTrue(
-            backup_server.wait_for_requests(1),
+            await backup_server.wait_for_requests(1),
             "TempestaFW doesn't send a request to the backup server when the primary server is down.",
         )
 
         primary_server.start()
         self.assertTrue(
-            primary_server.wait_for_connections(),
+            await primary_server.wait_for_connections(),
             "TempestaFW doesn't reconnect to the primary server.",
         )
         self.assertEqual(
             len(primary_server.requests), 0, "Server must remove the old requests after restart."
         )
 
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
         self.assertTrue(
-            primary_server.wait_for_requests(1),
+            await primary_server.wait_for_requests(1),
             "TempestaFW doesn't send a request to the primary server "
             "when it has restored operation.",
         )

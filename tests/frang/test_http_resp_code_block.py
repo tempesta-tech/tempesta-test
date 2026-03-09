@@ -86,13 +86,13 @@ class TestRespCodeBlockOneClient(FrangTestCase):
 
     warning = "frang: http_resp_code_block limit exceeded for"
 
-    def set_frang_config_no_shc(self, frang_config: str):
-        self.set_frang_config(frang_config + "\nhttp_strict_host_checking false;")
+    async def set_frang_config_no_shc(self, frang_config: str):
+        await self.set_frang_config(frang_config + "\nhttp_strict_host_checking false;")
 
-    def test_not_reaching_the_limit(self):
+    async def test_not_reaching_the_limit(self):
         client = self.get_client("deproxy-1")
 
-        self.set_frang_config("http_resp_code_block 404 405 6 2;")
+        await self.set_frang_config("http_resp_code_block 404 405 6 2;")
         client.start()
 
         for rps, requests in [
@@ -102,17 +102,17 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             with self.subTest():
                 client.set_rps(rps)
                 client.make_requests(requests)
-                client.wait_for_response()
+                await client.wait_for_response()
 
                 self.assertFalse(client.connection_is_closed())
-                self.assertFrangWarning(warning=self.warning, expected=0)
+                await self.assertFrangWarning(warning=self.warning, expected=0)
 
-    def test_reaching_the_limit(self):
+    async def test_reaching_the_limit(self):
         """
         Client send 7 requests. It receives 3 404 responses and 4 404 responses.
         Client will be blocked.
         """
-        self.set_frang_config_no_shc("http_resp_code_block 404 405 6 2;")
+        await self.set_frang_config_no_shc("http_resp_code_block 404 405 6 2;")
 
         client = self.get_client("deproxy-1")
         client.start()
@@ -120,18 +120,18 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 3
             + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
         )
-        client.wait_for_response()
+        await client.wait_for_response()
 
-        self.assertTrue(client.wait_for_connection_close())
-        self.assertFrangWarning(warning=self.warning, expected=1)
+        self.assertTrue(await client.wait_for_connection_close())
+        await self.assertFrangWarning(warning=self.warning, expected=1)
 
-    def test_reaching_the_limit_2(self):
+    async def test_reaching_the_limit_2(self):
         """
         Client send irregular chain of 404, 405 and 200 requests with 5 rps.
         8 requests: [ '200', '404', '404', '404', '404', '200', '405', '405'].
         Client will be blocked.
         """
-        self.set_frang_config("http_resp_code_block 404 405 5 2;")
+        await self.set_frang_config("http_resp_code_block 404 405 5 2;")
 
         client = self.get_client("deproxy-1")
         client.start()
@@ -141,10 +141,10 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             + [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg]
             + [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 2
         )
-        client.wait_for_response()
+        await client.wait_for_response()
 
-        self.assertTrue(client.wait_for_connection_close())
-        self.assertFrangWarning(warning=self.warning, expected=1)
+        self.assertTrue(await client.wait_for_connection_close())
+        await self.assertFrangWarning(warning=self.warning, expected=1)
 
 
 @parameterize_class(
@@ -226,11 +226,11 @@ tls_match_any_server_name;
 """,
     }
 
-    def test_two_clients_one_ip(self):
+    async def test_two_clients_one_ip(self):
         """
         Two clients to be blocked by ip for a total of 404 requests
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         deproxy_cl = self.get_client("deproxy3")
         deproxy_cl.start()
@@ -242,20 +242,20 @@ tls_match_any_server_name;
         request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])
 
         deproxy_cl.make_requests([request_1] * 10)
-        self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
+        self.assertIsNone(await deproxy_cl.wait_for_response(timeout=4))
 
         deproxy_cl2.make_requests([request_2] * 10)
-        self.assertIsNone(deproxy_cl2.wait_for_response(timeout=6))
+        self.assertIsNone(await deproxy_cl2.wait_for_response(timeout=6))
 
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(0, len(deproxy_cl2.responses))
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close())
-        self.assertTrue(deproxy_cl2.wait_for_connection_close())
+        self.assertTrue(await deproxy_cl.wait_for_connection_close())
+        self.assertTrue(await deproxy_cl2.wait_for_connection_close())
 
-        self.assertFrangWarning(warning=self.warning, expected=1)
+        await self.assertFrangWarning(warning=self.warning, expected=1)
 
-    def test_two_clients_two_ip(self):
+    async def test_two_clients_two_ip(self):
         """
         Two clients. One client sends 12 requests by 6 per second during
         2 seconds. Of these, 6 requests by 3 per second give 404 responses and
@@ -264,7 +264,7 @@ tls_match_any_server_name;
         Of these, 10 requests by 2.5 per second give 404 responses and should not be
         blocked.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.start()
@@ -278,13 +278,13 @@ tls_match_any_server_name;
         deproxy_cl.make_requests(([request_1] + [request_2]) * 6)
         deproxy_cl2.make_requests(([request_1] + [request_2]) * 10)
 
-        self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
-        self.assertTrue(deproxy_cl2.wait_for_response(timeout=10))
+        self.assertIsNone(await deproxy_cl.wait_for_response(timeout=4))
+        self.assertTrue(await deproxy_cl2.wait_for_response(timeout=10))
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
 
-        self.assertTrue(deproxy_cl.wait_for_connection_close())
+        self.assertTrue(await deproxy_cl.wait_for_connection_close())
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
-        self.assertFrangWarning(warning=self.warning, expected=1)
+        await self.assertFrangWarning(warning=self.warning, expected=1)

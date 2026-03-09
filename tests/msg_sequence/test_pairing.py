@@ -57,14 +57,14 @@ tls_match_any_server_name;
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_disconnect_client(self):
+    async def test_disconnect_client(self):
         """Tempesta forwards requests from client to backend, but client
         disconnects before Tempesta received responses from backend. Responses
         must be evicted, no 'Paired request missing' messages are allowed.
         """
 
         chain_size = 2
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
 
@@ -72,15 +72,15 @@ tls_match_any_server_name;
         for _ in range(chain_size):
             client.make_request(request)
 
-        server.wait_for_requests(n=chain_size, strict=True)
+        await server.wait_for_requests(n=chain_size, strict=True)
         client.stop()
 
         server.set_response("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
 
         client.start()
-        client.send_request(request, "200")
+        await client.send_request(request, "200")
 
         self.assertTrue(
-            self.loggers.dmesg.find(dmesg.WARN_SPLIT_ATTACK, cond=dmesg.amount_zero),
+            await self.loggers.dmesg.find(dmesg.WARN_SPLIT_ATTACK, cond=dmesg.amount_zero),
             msg=("Got '%s'" % dmesg.WARN_SPLIT_ATTACK),
         )

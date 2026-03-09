@@ -92,7 +92,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_h2_cookie_scheduler(self):
+    async def test_h2_cookie_scheduler(self):
         """
         Test for sticky cookie scheduler by issue.
 
@@ -110,12 +110,12 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         curl = self.get_client("curl")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
 
         # perform `init` request
         curl.headers = {"Host": "good.com"}
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FOUND)
@@ -128,7 +128,7 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         }
 
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
 
         response = curl.last_response
@@ -137,14 +137,14 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         # perform `bad` request
         curl.headers["Host"] = "bad.com"
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
 
         # check request is filtering out
         self.assertTrue(
-            self.loggers.dmesg.find(
+            await self.loggers.dmesg.find(
                 "request has been filtered out via http table",
             ),
             "Filtered request warning is not shown",

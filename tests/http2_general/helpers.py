@@ -80,7 +80,7 @@ class H2Base(tester.TempestaTest):
         (":method", "GET"),
     ]
 
-    def initiate_h2_connection(self, client: DeproxyClientH2):
+    async def initiate_h2_connection(self, client: DeproxyClientH2):
         # add preamble + settings frame with default variable into data_to_send
         client.update_initial_settings()
         # send preamble + settings frame to Tempesta
@@ -88,7 +88,7 @@ class H2Base(tester.TempestaTest):
         client.h2_connection.clear_outbound_data_buffer()
 
         self.assertTrue(
-            client.wait_for_ack_settings(),
+            await client.wait_for_ack_settings(),
             "Tempesta foes not returns SETTINGS frame with ACK flag.",
         )
 
@@ -126,9 +126,9 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
     """
 
     @staticmethod
-    def setup_sniffer() -> analyzer.Sniffer:
+    async def setup_sniffer() -> analyzer.Sniffer:
         sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(443,))
-        sniffer.start()
+        await sniffer.start()
         return sniffer
 
     def check_fin_no_rst_in_sniffer(
@@ -159,13 +159,13 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         self.assert_not_fin_socks(sniffer.packets, clients)
         self.assert_unreset_socks(sniffer.packets, clients)
 
-    def start_services_and_initiate_conn(self, client):
-        self.start_all_services()
+    async def start_services_and_initiate_conn(self, client):
+        await self.start_all_services()
 
         client.update_initial_settings(initial_window_size=self.INITIAL_WINDOW_SIZE)
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
         self.assertTrue(
-            client.wait_for_ack_settings(),
+            await client.wait_for_ack_settings(),
             "Tempesta does not returns SETTINGS frame with ACK flag.",
         )

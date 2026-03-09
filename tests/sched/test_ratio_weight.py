@@ -223,17 +223,17 @@ class Ratio(tester.TempestaTest):
     # Base precision to check the fairness.
     precision = 0.1
 
-    def test_load_distribution(self):
+    async def test_load_distribution(self):
         """Manually calculate resulted weight of every server and compare with
         definded in configuration.
         """
         client = self.get_client("client")
 
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         self.start_all_clients()
 
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
 
         tempesta = self.get_tempesta()
         servers = self.get_servers()
@@ -279,5 +279,5 @@ class RatioVariableConns(Ratio):
 
     tempesta = {"config": TEMPESTA_CONFIG_VAR_CONNS}
 
-    def test_load_distribution(self):
-        super(RatioVariableConns, self).test_load_distribution()
+    async def test_load_distribution(self):
+        await super(RatioVariableConns, self).test_load_distribution()

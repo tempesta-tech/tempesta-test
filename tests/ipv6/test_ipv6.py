@@ -98,11 +98,11 @@ class TestIPv6(tester.TempestaTest):
             marks.Param(name="ipv6_to_ipv4", client="deproxy-v6", server="deproxy-v4", uri="/ipv4"),
         ]
     )
-    def test(self, name, client: str, server: str, uri: str):
+    async def test(self, name, client: str, server: str, uri: str):
         client = self.get_client(client)
         server = self.get_server(server)
 
-        self.start_all_services()
+        await self.start_all_services()
 
         data_size = 5000
         response_header = ("x-my-hdr", "x" * data_size)
@@ -118,7 +118,7 @@ class TestIPv6(tester.TempestaTest):
             + f"Content-Length: {len(response_body)}\r\n\r\n"
             + response_body
         )
-        client.send_request(
+        await client.send_request(
             request=client.create_request(
                 method="POST",
                 uri=uri,

@@ -193,7 +193,7 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
 
     requests = [("/nip/", "GET"), ("/regular/", "GET")]
 
-    def test(self):
+    async def test(self):
         """
         In this test we send one request with two streams, one of these requests
         is non-idempotent and must be processed with a couple of seconds delay.
@@ -201,12 +201,12 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         will be in the same upstream is an error.
         """
         self.get_server("nginx").conns_n = 2
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
 
         self.send_requests(self.requests, deproxy_cl)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
@@ -248,13 +248,13 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
     requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
@@ -297,13 +297,13 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
     requests = [("/nip/drop/", "GET"), ("/regular/", "GET")]
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
@@ -352,7 +352,7 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
-    def test(self):
+    async def test(self):
         """
         In this test we send two pipelined requests, one of these requests
         is non-idempotent and must be processed with a couple of seconds delay.
@@ -360,11 +360,11 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
         will be in the same upstream is an error.
         """
         self.get_server("nginx").conns_n = 2
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests, pipelined=True)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
@@ -404,18 +404,18 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         "GET /regular/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
-    def test(self):
+    async def test(self):
         """
         This test has difference from HTTP2 version. Non-idempotent request
         will be turned into regular request, because non-idempotent followed
         by another request. See RFC 7230 6.3.2.
         """
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 
@@ -477,13 +477,13 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
         "GET /nip/drop/ HTTP/1.1\r\nHost: localhost\r\n\r\n",
     ]
 
-    def test(self):
+    async def test(self):
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
-        resp = deproxy_cl.wait_for_response(timeout=5)
+        resp = await deproxy_cl.wait_for_response(timeout=5)
         self.assertTrue(resp, "Response not received")
         self.assertEqual(2, len(deproxy_cl.responses))
 

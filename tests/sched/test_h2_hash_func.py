@@ -27,5 +27,5 @@ class HashSchedulerH2(test_hash_func.HashScheduler):
             (":method", "GET"),
         ]
 
-    def test_hash_scheduler(self):
-        super(HashSchedulerH2, self).test_hash_scheduler()
+    async def test_hash_scheduler(self):
+        await super(HashSchedulerH2, self).test_hash_scheduler()

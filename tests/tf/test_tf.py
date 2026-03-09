@@ -163,20 +163,20 @@ class TestTFt(tester.TempestaTest):
             ),
         ]
     )
-    def test(self, name, tempesta_tf_config: str, expected_block: bool):
+    async def test(self, name, tempesta_tf_config: str, expected_block: bool):
         """Update tempesta config. Send many identical requests and checks cache operation."""
         tempesta: Tempesta = self.get_tempesta()
         tempesta.config.defconfig += tempesta_tf_config
 
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", uri="/", headers=[])
 
         client.make_request(request)
         if expected_block:
-            self.assertTrue(client.wait_for_connection_close())
+            self.assertTrue(await client.wait_for_connection_close())
         else:
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertTrue(client.last_response.status, "200")
 
 
@@ -250,12 +250,12 @@ class TestTFtStress(tester.TempestaTest):
         ]
     )
     @dmesg.limited_rate_on_tempesta_node
-    def test(self, name, client_id: str):
-        self.start_all_services()
+    async def test(self, name, client_id: str):
+        await self.start_all_services()
         client = self.get_client(client_id)
         client.start()
         self.change_cfg()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         if client_id == "wrk":

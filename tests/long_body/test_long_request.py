@@ -104,27 +104,27 @@ class LongBodyInRequest(tester.TempestaTest):
         },
     ]
 
-    def setUp(self):
+    async def asyncSetUp(self):
         location = tf_cfg.cfg.get("Client", "workdir")
         self.abs_path = os.path.join(location, "long_body.bin")
         remote.client.copy_file(self.abs_path, "x" * BODY_SIZE)
-        super().setUp()
+        await super().asyncSetUp()
         # Cleanup part
-        self.addCleanup(self.cleanup_file)
+        self.addAsyncCleanup(self.cleanup_file)
 
-    def cleanup_file(self):
+    async def cleanup_file(self):
         if not remote.DEBUG_FILES:
             remote.client.run_cmd(f"rm {self.abs_path}")
 
     @marks.set_stress_mtu
-    def _test(self, client_id: str, header: str):
+    async def _test(self, client_id: str, header: str):
         """Send request with long body and check that Tempesta does not crash."""
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client(client_id)
         client.options = [f" --data-binary @'{self.abs_path}' -H '{header}' -H 'Expect: '"]
         client.start()
-        client.wait_for_finish()
+        await client.wait_for_finish()
         client.stop()
 
         self.assertIsNotNone(client.last_response)
@@ -140,23 +140,23 @@ class LongBodyInRequest(tester.TempestaTest):
             srv_msg_forwarded=1,
         )
 
-    def test_http(self):
-        self._test(client_id="curl-http", header=f"Content-Length: {BODY_SIZE}")
+    async def test_http(self):
+        await self._test(client_id="curl-http", header=f"Content-Length: {BODY_SIZE}")
 
-    def test_https(self):
-        self._test(client_id="curl-https", header=f"Content-Length: {BODY_SIZE}")
+    async def test_https(self):
+        await self._test(client_id="curl-https", header=f"Content-Length: {BODY_SIZE}")
 
-    def test_h2(self):
-        self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}")
+    async def test_h2(self):
+        await self._test(client_id="curl-h2", header=f"Content-Length: {BODY_SIZE}")
 
-    def test_many_big_chunks_in_request_http(self):
-        self._test(
+    async def test_many_big_chunks_in_request_http(self):
+        await self._test(
             client_id="curl-http",
             header="Transfer-Encoding: chunked",
         )
 
-    def test_many_big_chunks_in_request_https(self):
-        self._test(
+    async def test_many_big_chunks_in_request_https(self):
+        await self._test(
             client_id="curl-https",
             header="Transfer-Encoding: chunked",
         )

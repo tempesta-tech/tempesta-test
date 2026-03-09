@@ -120,9 +120,9 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
     tempesta = {"config": TEMPESTA_CONFIG}
 
     @limited_rate_on_tempesta_node
-    def test_reconf_on_the_fly_for_health_monitor(self):
+    async def test_reconf_on_the_fly_for_health_monitor(self):
         # launch all services except clients and getting Tempesta instance
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         tempesta = self.get_tempesta()
 
         # start config Tempesta check (before reload)
@@ -151,7 +151,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
         self.check_servers_stats(stats_srvs, timeout=3)
 
         # H2Load stop
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
@@ -174,6 +174,3 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
             self.assertTrue(srv.server_health)
             self.assertTrue(srv.is_enable_health_monitor)
             self.assertEqual(srv.health_request_timeout, timeout)
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

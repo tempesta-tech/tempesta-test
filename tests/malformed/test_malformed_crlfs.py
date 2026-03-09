@@ -63,7 +63,7 @@ server ${server_ip}:8000 conns_n=1;
         {"id": "deproxy", "type": "deproxy", "addr": "${tempesta_ip}", "port": "80"},
     ]
 
-    def common_check(self, request, expect_status=200, expect=""):
+    async def common_check(self, request, expect_status=200, expect=""):
         """
         Set expect to expected proxied request, to empty string to skip request
         check and to None to check that request is missing.
@@ -73,11 +73,11 @@ server ${server_ip}:8000 conns_n=1;
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.parsing = False
 
-        self.start_all_services()
+        await self.start_all_services()
 
         deproxy_cl.make_requests(request, True)
 
-        self.assertTrue(deproxy_cl.wait_for_response(timeout=5), "Response not received")
+        self.assertTrue(await deproxy_cl.wait_for_response(timeout=5), "Response not received")
 
         status = int(deproxy_cl.last_response.status)
         self.assertTrue(
@@ -94,7 +94,7 @@ server ${server_ip}:8000 conns_n=1;
                 "Request sent to backend differs from expected one",
             )
 
-    def test_02_no_crlf_pipeline(self):
+    async def test_02_no_crlf_pipeline(self):
         """Test 2 normal requests in pipeline."""
         self.disable_deproxy_auto_parser()
         request = [
@@ -102,9 +102,9 @@ server ${server_ip}:8000 conns_n=1;
             "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
+        await self.common_check(request, 200, expect)
 
-    def test_03_single_crlf(self):
+    async def test_03_single_crlf(self):
         """
         Test single CRLF before request
         Request should be passed to backed with stripped CRLF
@@ -112,9 +112,9 @@ server ${server_ip}:8000 conns_n=1;
         """
         request = ["\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
+        await self.common_check(request, 200, expect)
 
-    def test_04_single_crlf_pipeline(self):
+    async def test_04_single_crlf_pipeline(self):
         """
         Test single CRLF before 2nd request in a pipeline
         Request should be passed to the backend with stripped CRLF
@@ -126,9 +126,9 @@ server ${server_ip}:8000 conns_n=1;
             "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
+        await self.common_check(request, 200, expect)
 
-    def test_05_single_lf(self):
+    async def test_05_single_lf(self):
         """
         Test single LF before request
         Request should be passed to backed with stripped LF
@@ -136,9 +136,9 @@ server ${server_ip}:8000 conns_n=1;
         """
         request = ["\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
+        await self.common_check(request, 200, expect)
 
-    def test_06_single_lf_pipeline(self):
+    async def test_06_single_lf_pipeline(self):
         """
         Test single LF before 2nd request in a pipeline
         Request should be passed to backed with stripped LF
@@ -150,18 +150,18 @@ server ${server_ip}:8000 conns_n=1;
             "\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         expect = "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 200, expect)
+        await self.common_check(request, 200, expect)
 
-    def test_07_double_crlf(self):
+    async def test_07_double_crlf(self):
         """
         Test double CRLF before request
         Request should be rejected by the proxy
         """
         request = ["\r\n" "\r\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = None
-        self.common_check(request, 400, expect)
+        await self.common_check(request, 400, expect)
 
-    def test_08_double_crlf_pipeline(self):
+    async def test_08_double_crlf_pipeline(self):
         """
         Test double CRLF before 2nd request in a pipeline
         The 1st request should be passed to backend
@@ -173,18 +173,18 @@ server ${server_ip}:8000 conns_n=1;
             "\r\n" "\r\n" "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         expect = "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 400, expect)
+        await self.common_check(request, 400, expect)
 
-    def test_09_double_lf(self):
+    async def test_09_double_lf(self):
         """
         Test double LF before request
         Request should be rejected by the proxy
         """
         request = ["\n" "\n" "GET / HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"]
         expect = None
-        self.common_check(request, 400, expect)
+        await self.common_check(request, 400, expect)
 
-    def test_10_double_lf_pipeline(self):
+    async def test_10_double_lf_pipeline(self):
         """
         Test double LF before 2nd request in a pipeline
         The 1st request should be sent to backed
@@ -196,4 +196,4 @@ server ${server_ip}:8000 conns_n=1;
             "GET /bbb HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n",
         ]
         expect = "GET /aaa HTTP/1.1\r\n" "Host: localhost\r\n" "\r\n"
-        self.common_check(request, 400, expect)
+        await self.common_check(request, 400, expect)

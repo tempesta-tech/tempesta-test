@@ -86,38 +86,40 @@ class TestH2Responses(tester.TempestaTest):
         },
     ]
 
-    def __setup_h2_responses_test(self):
+    async def __setup_h2_responses_test(self):
         curl = self.get_client("curl")
         self.start_all_servers()
-        self.start_tempesta()
+        await self.start_tempesta()
         return curl
 
-    def __test_h2_response(self, curl, header_name, header_value, status):
+    async def __test_h2_response(self, curl, header_name, header_value, status):
         curl.headers[header_name] = header_value
         curl.start()
-        self.wait_while_busy(curl)
+        await self.wait_while_busy(curl)
         curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, status)
 
-    def test_h2_bad_host(self):
-        curl = self.__setup_h2_responses_test()
+    async def test_h2_bad_host(self):
+        curl = await self.__setup_h2_responses_test()
         # perform and check `bad` request
-        self.__test_h2_response(curl, "Host", "bad.com", http.HTTPStatus.FORBIDDEN)
+        await self.__test_h2_response(curl, "Host", "bad.com", http.HTTPStatus.FORBIDDEN)
 
-    def test_h2_bad_header(self):
-        curl = self.__setup_h2_responses_test()
+    async def test_h2_bad_header(self):
+        curl = await self.__setup_h2_responses_test()
 
         # perform and check `good` request.
-        self.__test_h2_response(curl, "Host", "good.com", http.HTTPStatus.OK)
+        await self.__test_h2_response(curl, "Host", "good.com", http.HTTPStatus.OK)
         # add invalid cookie header and check response.
-        self.__test_h2_response(curl, "cookie", "AAAAAA//dfsdf", http.HTTPStatus.BAD_REQUEST)
+        await self.__test_h2_response(curl, "cookie", "AAAAAA//dfsdf", http.HTTPStatus.BAD_REQUEST)
 
-    def test_h2_bad_forwarded_for_ip(self):
-        curl = self.__setup_h2_responses_test()
+    async def test_h2_bad_forwarded_for_ip(self):
+        curl = await self.__setup_h2_responses_test()
 
         # perform request with invalid X-Forwarded-For header
-        self.__test_h2_response(curl, "X-Forwarded-For", "1.1.1.1.1.1", http.HTTPStatus.BAD_REQUEST)
+        await self.__test_h2_response(
+            curl, "X-Forwarded-For", "1.1.1.1.1.1", http.HTTPStatus.BAD_REQUEST
+        )
 
 
 class H2ResponsesPipelinedBase(H2Base):
@@ -147,11 +149,11 @@ class H2ResponsesPipelinedBase(H2Base):
 
     clients_ids = ["deproxy_1", "deproxy_2", "deproxy_3"]
 
-    def setup_and_start(self, pipelined):
+    async def setup_and_start(self, pipelined):
         srv = self.get_server("deproxy")
         srv.pipelined = pipelined
         srv.conns_n = 1
-        self.start_all_services()
+        await self.start_all_services()
         return srv
 
 
@@ -195,22 +197,22 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
         """
     }
 
-    def test_success_pipelined(self):
+    async def test_success_pipelined(self):
         """
         Send three requests each from the new client.
         Server all responses as pipelined.
         """
-        srv = self.setup_and_start(3)
+        srv = await self.setup_and_start(3)
 
         clients = self.get_clients()
         for client in clients:
             client.make_request(self.get_request)
 
-        self.assertTrue(srv.wait_for_requests(3))
+        self.assertTrue(await srv.wait_for_requests(3))
 
         self.assertEqual(len(srv.requests), 3)
         for client in clients:
-            self.assertTrue(client.wait_for_response())
+            self.assertTrue(await client.wait_for_response())
             self.assertEqual(client.last_response.status, "200")
 
     @marks.Parameterize.expand(
@@ -232,20 +234,20 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
             ),
         ]
     )
-    def test_bad_pipelined(self, name, response_list, expected_response_statuses):
+    async def test_bad_pipelined(self, name, response_list, expected_response_statuses):
         requests_n = len(self.get_clients())
-        srv = self.setup_and_start(requests_n)
+        srv = await self.setup_and_start(requests_n)
         # The next connection will be not pipelined
         self.disable_deproxy_auto_parser()
         clients = self.get_clients()
         for client, response, i in zip(clients, response_list, list(range(1, 4))):
             srv.set_response(response)
             client.make_request(self.get_request)
-            self.assertTrue(srv.wait_for_requests(i))
+            self.assertTrue(await srv.wait_for_requests(i))
 
         for client, expected_status in zip(clients, expected_response_statuses):
             if expected_status:
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertEqual(client.last_response.status, expected_status)
             else:
                 self.assertFalse(client.last_response)
@@ -254,14 +256,14 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
         # processing and then immmediatly reestablish it and sends requests
         # again. Check that Tempesta FW do it correctly and clients receive
         # successful responses later.
-        srv.wait_for_connections()
+        await srv.wait_for_connections()
         req_count = requests_n
 
         i = 0
         for client, expected_status in zip(clients, expected_response_statuses):
             if not expected_status:
                 i = i + 1
-                self.assertTrue(srv.wait_for_requests(req_count + i))
+                self.assertTrue(await srv.wait_for_requests(req_count + i))
                 srv.flush()
-                self.assertTrue(client.wait_for_response())
+                self.assertTrue(await client.wait_for_response())
                 self.assertEqual(client.last_response.status, "200")

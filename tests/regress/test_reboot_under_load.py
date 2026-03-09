@@ -6,7 +6,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2017-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import time
+import asyncio
 
 from framework.helpers import remote
 from framework.test_suite import tester
@@ -94,7 +94,7 @@ class TestRebootUnderLoad(tester.TempestaTest):
             "type": "external",
             "binary": "curl",
             "ssl": True,
-            "cmd_args": ("-Ikf --http2 https://${tempesta_ip}:443/"),
+            "cmd_args": "-Ikf --http2 https://${tempesta_ip}:443/",
         },
         {
             "id": "h2load",
@@ -117,7 +117,7 @@ class TestRebootUnderLoad(tester.TempestaTest):
             "type": "deproxy",
             "port": "8000",
             "response": "static",
-            "response_content": ("HTTP/1.1 200 OK\r\n" "Content-length: 0\r\n" "\r\n"),
+            "response_content": "HTTP/1.1 200 OK\r\n" "Content-length: 0\r\n" "\r\n",
         },
     ]
 
@@ -129,18 +129,18 @@ class TestRebootUnderLoad(tester.TempestaTest):
 
     dbg_msg = "Error for curl"
 
-    def reboot(self) -> None:
+    async def reboot(self) -> None:
         tempesta = self.get_tempesta()
-        time.sleep(self.warm_timeout)
+        await asyncio.sleep(self.warm_timeout)
         for i in range(self.restart_cycles):
-            time.sleep(self.restart_timeout)
+            await asyncio.sleep(self.restart_timeout)
             tempesta.stop()
             # Run random command on remote node to see if it is still alive.
             remote.tempesta.run_cmd("uname")
             tempesta.start()
             self._check_tfw_log()
 
-    def make_curl_request(self, curl_client_id: str) -> str:
+    async def make_curl_request(self, curl_client_id: str) -> str:
         """
         Make `curl` request.
 
@@ -152,35 +152,35 @@ class TestRebootUnderLoad(tester.TempestaTest):
         """
         client = self.get_client(curl_client_id)
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         self.assertEqual(
             0,
             client.returncode,
-            msg=(f"Curl return code is not 0. Received - {client.returncode}."),
+            msg=f"Curl return code is not 0. Received - {client.returncode}.",
         )
         client.stop()
         return client.response_msg
 
-    def test_reboot_under_load(self) -> None:
+    async def test_reboot_under_load(self) -> None:
         # launch all services except clients
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         # launch h2load
         client = self.get_client("h2load")
         client.start()
 
         # sending curl requests before reboot Tempesta
-        response = self.make_curl_request("curl")
+        response = await self.make_curl_request("curl")
         self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
-        self.reboot()
+        await self.reboot()
 
         # sending curl requests after reboot Tempesta
-        response = self.make_curl_request("curl")
+        response = await self.make_curl_request("curl")
         self.assertIn(STATUS_OK, response, msg=self.dbg_msg)
 
         # h2load stop
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
@@ -188,6 +188,3 @@ class TestRebootUnderLoad(tester.TempestaTest):
         """Checking for errors in the Tempesta log."""
         self.loggers.dmesg.update()
         self.assertFalse(len(self.loggers.dmesg.log_findall("ERROR")))
-
-
-# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
