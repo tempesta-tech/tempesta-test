@@ -101,9 +101,11 @@ class Nginx(base_server.BaseServer):
         self.get_stats()
         return self._requests
 
-    def wait_for_requests(self, n: int, timeout=1, strict=False, adjust_timeout=False) -> bool:
+    async def wait_for_requests(
+        self, n: int, timeout=1, strict=False, adjust_timeout=False
+    ) -> bool:
         """wait for the `n` number of responses to be received"""
-        timeout_not_exceeded = util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             lambda: self.requests < n,
             timeout=timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,

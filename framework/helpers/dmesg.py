@@ -1,11 +1,9 @@
 """Helper for Tempesta system log operations."""
 
-from __future__ import print_function
-
 import abc
 import re
 import typing
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from typing import Callable, List
 
 from framework.helpers.tf_cfg import test_logger
@@ -154,7 +152,7 @@ class DmesgFinder(BaseTempestaLogger):
 
         return re.findall(pattern, self.log)
 
-    def find(self, pattern: str, cond=amount_one) -> bool:
+    async def find(self, pattern: str, cond=amount_one) -> bool:
         """
         Why we need to put wait_until() logic under the hood:
         in most cases can be situation when dmesg isn't ready yet and we need to wait
@@ -168,7 +166,7 @@ class DmesgFinder(BaseTempestaLogger):
             matches = self.log_findall(pattern)
             return not cond(matches)
 
-        return util.wait_until(wait_cond, timeout=2, poll_freq=0.2)
+        return await util.wait_until(wait_cond, timeout=2)
 
     def access_log_records_all(self) -> typing.List[AccessLogLine]:
         self.update()
@@ -294,11 +292,11 @@ class DmesgFinder(BaseTempestaLogger):
 
 WARN_GENERIC = "Warning: "
 WARN_SPLIT_ATTACK = "Warning: Paired request missing, HTTP Response Splitting attack?"
-WARN_RATELIMIT = "net_ratelimit: [\d]+ callbacks suppressed"
+WARN_RATELIMIT = "net_ratelimit: [d]+ callbacks suppressed"
 
 
-@contextmanager
-def wait_for_msg(pattern: str, strict=True):
+@asynccontextmanager
+async def wait_for_msg(pattern: str, strict=True):
     """Enter context: save start time for further dmesg grepping.
     Exit context: ensure that message occured.
 
@@ -310,13 +308,13 @@ def wait_for_msg(pattern: str, strict=True):
     dmesg = DmesgFinder(disable_ratelimit=strict)
     yield
 
-    if dmesg.find(pattern):
+    if await dmesg.find(pattern):
         return
 
     if strict:
         raise error.Error("dmesg wait for message timeout")
 
-    if not dmesg.find(WARN_RATELIMIT):
+    if not await dmesg.find(WARN_RATELIMIT):
         # Ratelimiting messages appear only on next logging operation if
         # previous records were suppressed. This means that if some operation
         # produces a lot of logging and last log records are dropped, then we
@@ -327,13 +325,13 @@ def wait_for_msg(pattern: str, strict=True):
         test_logger.warning(f'No "{pattern}" log record and no ratelimiting')
 
 
-def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):
+async def __change_dmesg_limit_on_tempesta_node(func, rate, *args, **kwargs):
     node = remote.tempesta
     cmd = "/proc/sys/net/core/message_cost"
     current_rate = node.run_cmd(f"cat {cmd}")[0].strip()
     try:
         node.run_cmd(f"echo {rate} > {cmd}")
-        return func(*args, **kwargs)
+        return await func(*args, **kwargs)
     finally:
         node.run_cmd(f"echo {current_rate.decode()} > {cmd}")
 
@@ -344,8 +342,8 @@ def unlimited_rate_on_tempesta_node(func):
     messages are caught.
     """
 
-    def func_wrapper(*args, **kwargs):
-        return __change_dmesg_limit_on_tempesta_node(func, 0, *args, **kwargs)
+    async def func_wrapper(*args, **kwargs):
+        return await __change_dmesg_limit_on_tempesta_node(func, 0, *args, **kwargs)
 
     # we need to change name of function to work correctly with parametrize
     func_wrapper.__name__ = func.__name__
@@ -355,8 +353,8 @@ def unlimited_rate_on_tempesta_node(func):
 def limited_rate_on_tempesta_node(func):
     """The decorator sets a dmesg messages rate limit."""
 
-    def func_wrapper(*args, **kwargs):
-        return __change_dmesg_limit_on_tempesta_node(func, 5, *args, **kwargs)
+    async def func_wrapper(*args, **kwargs):
+        return await __change_dmesg_limit_on_tempesta_node(func, 5, *args, **kwargs)
 
     # we need to change name of function to work correctly with parametrize
     func_wrapper.__name__ = func.__name__

@@ -30,7 +30,7 @@ class BaseServer(stateful.Stateful, abc.ABC):
             raise ValueError("`conns_n` MUST be greater than or equal to 0.")
         self._conns_n = conns_n
 
-    def wait_for_connections(
+    async def wait_for_connections(
         self, timeout: float = 1.0, strict: bool = False, msg: str = None
     ) -> bool | None:
         """
@@ -40,7 +40,7 @@ class BaseServer(stateful.Stateful, abc.ABC):
         if self.state != stateful.STATE_STARTED:
             return False
 
-        result = util.wait_until(
+        result = await util.wait_until(
             self._wait_for_connections,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
             timeout=timeout,
