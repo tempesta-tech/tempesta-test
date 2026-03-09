@@ -14,6 +14,7 @@ __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.helpers.dmesg import amount_one
+from framework.helpers.tf_cfg import test_logger
 
 try:
     _connection: Client = clickhouse_connect.get_client(
@@ -133,6 +134,8 @@ class ClickHouseFinder(dmesg.BaseTempestaLogger):
 
         if not records:
             return None
+
+        test_logger.info(f"Last log from clickhouse:\n'{records[-1]}'")
 
         return records[-1]
 
