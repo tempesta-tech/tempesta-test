@@ -441,7 +441,7 @@ class HttpMessage(object, metaclass=abc.ABCMeta):
         elif len(self.body) < size and self.headers.get("expect") == "100-continue":
             return
         elif len(self.body) < size:
-            raise IncompleteMessage()
+            raise IncompleteMessage("Not complete CL body.")
 
     def parse_trailer(self, stream):
         self.trailer = HeaderCollection.from_stream(stream, no_crlf=True)
