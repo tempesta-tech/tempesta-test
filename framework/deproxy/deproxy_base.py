@@ -59,6 +59,12 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
     def set_lock(self, polling_lock: threading.Lock) -> None:
         self.__polling_lock = polling_lock
 
+    def set_size_of_receiving_buffer(self, new_buffer_size: int) -> None:
+        """Set the size of the receiving buffer."""
+        self.__acquire()
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, new_buffer_size)
+        self.__release()
+
     def _bind(self, address: tuple) -> None:
         """
         Wrapper for `bind` method to add some log details.
