@@ -204,6 +204,14 @@
         {
             "name": "tests.server_connections.test_close_dead_connections.TestFinishH2StreamsByClient.test_drop_server_connection_for_goaway",
             "reason": "Disabled by issue #2626"
+        },
+        {
+            "name": "tests.cve.test_cve_2019.TestSlowRead.test_cve_2019_9511",
+            "reason": "Disabled by issue #2627"
+        },
+        {
+            "name": "tests.cve.test_cve_2019.TestSlowRead.test_cve_2019_9517",
+            "reason": "Disabled by issue #1715"
         }
     ]
 }
