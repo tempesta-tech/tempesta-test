@@ -1,3 +1,0 @@
-tests.frang.test_request_rate_burst
-tests.frang.test_http_resp_code_block
-tests.leaks
