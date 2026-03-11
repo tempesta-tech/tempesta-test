@@ -18,7 +18,7 @@
             "reason" : "the tests did not work on the first run"
         },
         {
-            "name": "tests.stress.test_header_leak.TestH2HeaderLeak",
+            "name": "tests.cve.test_cve.TestH2HeaderLeak",
             "reason" : "the tests did not work on the first run"
         },
         {
