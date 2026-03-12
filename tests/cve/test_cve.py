@@ -6,7 +6,7 @@ import random
 import string
 from pathlib import Path
 
-from hyperframe.frame import HeadersFrame
+from hyperframe.frame import HeadersFrame, PriorityFrame
 
 from framework.deproxy.deproxy_message import HttpMessage
 from framework.helpers import dmesg, memworker, remote, tf_cfg
@@ -218,7 +218,68 @@ class TestHttp2FrameFlood(tester.TempestaTest):
                 "-threads 4 -connections 10000 -streams 100 -headers_cnt 7"
             ),
         },
+        {
+            "id": "deproxy",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+        },
     ]
+
+    def random_depends_on(self, stream_id: int) -> int:
+        depends_on = random.randint(1, 199)
+        if depends_on % 2 == 0:
+            depends_on += 1
+        if depends_on == stream_id:
+            return self.random_depends_on(stream_id)
+        return depends_on
+
+    @staticmethod
+    def random_stream_id(max_id: int) -> int:
+        stream_id = random.randint(1, max_id)
+        if stream_id % 2 == 0:
+            stream_id = stream_id - 1 if stream_id == max_id else stream_id + 1
+        return stream_id
+
+    def test_cve_2019_9513(self):
+        """
+        CVE-2019-9513 “Resource Loop”
+        Some HTTP/2 implementations are vulnerable to resource loops, potentially leading to a denial of service.
+        The attacker creates multiple request streams and continually shuffles the priority of the streams in a way
+        that causes substantial churn to the priority tree. This can consume excess CPU.
+
+        Tempesta FW blocks a lot of priority frames.
+        """
+        server = self.get_server("deproxy")
+        client = self.get_client("deproxy")
+
+        server.set_response("")
+
+        self.start_all_services(client=False)
+
+        request = client.create_request(uri="/", method="GET", headers=[])
+
+        client.start()
+        client.make_request(request)
+        for stream_id in range(3, 200, 2):
+            client.make_request(
+                request,
+                priority_weight=random.randint(1, 255),
+                priority_depends_on=self.random_depends_on(stream_id),
+                priority_exclusive=bool(random.randint(0, 1)),
+            )
+
+        for _ in range(1000):
+            client.send_bytes(
+                PriorityFrame(
+                    stream_id=self.random_stream_id(199),
+                    depends_on=self.random_depends_on(stream_id),
+                    stream_weight=random.randint(1, 255),
+                    exclusive=bool(random.randint(0, 1)),
+                ).serialize()
+            )
+        client.wait_for_connection_close(strict=True)
 
     @dmesg.limited_rate_on_tempesta_node
     def test_cve_2024_2758(self):
