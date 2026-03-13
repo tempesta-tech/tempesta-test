@@ -162,7 +162,7 @@ class DeproxyAutoParser:
             response = Response(response.decode(), body_parsing=False)
         response.set_expected()
         response.add_tempesta_headers()
-        response.headers.expected_time_delta = 20
+        response.headers.expected_time_delta = 30
         self.__expected_response = response
 
     def __prepare_expected_response_for_request(
