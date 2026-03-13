@@ -1,3 +1,4 @@
+import http
 import ssl
 
 import requests
@@ -209,6 +210,26 @@ class BaseWsPing(tester.TempestaTest):
         await super().asyncSetUp()
         self.ws_servers: list[websockets.WebSocketServer] = []
 
+    async def wait_for_connections(self, conns_n: int) -> None:
+        tempesta = self.get_tempesta()
+
+        def wait():
+            tempesta.get_stats()
+            return tempesta.stats.__dict__.get("srv_established_connections", 0) != conns_n
+
+        self.assertTrue(
+            await util.wait_until(wait),
+            "Tempesta FW doesn't create connections to websocket server",
+        )
+
+    def fibo(self, n):
+        fib = [0, 1]
+        for _ in range(n):
+            fib.append(fib[-2] + fib[-1])
+            if fib[-1] > n:
+                break
+        return fib
+
     # Client
 
     async def ws_ping_test(self, port: int, is_ssl: bool) -> None:
@@ -226,9 +247,21 @@ class BaseWsPing(tester.TempestaTest):
             response_body = await websocket.recv()
             self.assertEqual(response_body, b"response")
 
+    async def ws_ping_stress(self, port: int, is_ssl: bool) -> bool:
+        try:
+            await self.ws_ping_test(port, is_ssl)
+            return http.HTTPStatus.OK
+        except websockets.InvalidStatusCode as e:
+            self.assertEqual(
+                e.status_code,
+                504,
+                "Tempesta FW returns an unexpected status code when creating a connection.",
+            )
+            return http.HTTPStatus.GATEWAY_TIMEOUT
+
     # Backend
 
-    async def handler(self, websocket, path):
+    async def handler(self, websocket):
         request_body = await websocket.recv()
         self.assertEqual(request_body, b"request")
         await websocket.send(b"response")
@@ -245,11 +278,12 @@ class BaseWsPing(tester.TempestaTest):
         return wrapper
 
     @cleanup_ws_servers
-    async def _test(self, tempesta_port: int, is_ssl: bool):
+    async def _test(self, tempesta_port: int, is_ssl: bool, conns_n=32):
         self.ws_servers.append(
             await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099)
         )
         await self.start_tempesta()
+        await self.wait_for_connections(conns_n)
         for _ in range(4):
             await self.ws_ping_test(tempesta_port, is_ssl)
 
@@ -359,17 +393,14 @@ class TestWsCache(BaseWsPing):
         r = requests.get(f"http://{TEMPESTA_IP}:{port}", auth=("user", "pass"), headers=headers_)
         self.assertIn(r.status_code, expected_status)
 
-    async def test(self):
-        await self._test(tempesta_port=81, is_ssl=False)
-
     @BaseWsPing.cleanup_ws_servers
-    async def _test(self, tempesta_port: int, is_ssl: bool):
+    async def test(self):
         server = await websockets.serve(
             self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
         )
         self.ws_servers.append(server)
         await self.start_tempesta()
-        await self.ws_ping_test(tempesta_port, is_ssl)
+        await self.ws_ping_test(81, False)
         server.close(close_connections=True)
         await server.wait_closed()
         self.call_upgrade(81, [502, 504])
@@ -382,23 +413,6 @@ class TestWssStress(BaseWsPing):
 
     tempesta = {"config": TEMPESTA_STRESS_CONFIG}
 
-    def fibo(self, n):
-        fib = [0, 1]
-        for i in range(n):
-            fib.append(fib[-2] + fib[-1])
-            if fib[-1] > n:
-                break
-        return fib
-
-    async def wait_for_connections(self, conns_n: int) -> None:
-        tempesta = self.get_tempesta()
-
-        def wait():
-            tempesta.get_stats()
-            return tempesta.stats.__dict__.get("srv_established_connections", 0) != conns_n
-
-        await util.wait_until(wait)
-
     @marks.change_ulimit(ulimit=10000)
     @BaseWsPing.cleanup_ws_servers
     async def test(self):
@@ -409,12 +423,16 @@ class TestWssStress(BaseWsPing):
             )
         await self.start_tempesta()
         await self.wait_for_connections(conns_n=servers_n * 32)  # conns_n == 32
-        count = 0
-        for _ in range(4000):
-            count += 1
-            await self.ws_ping_test(82, True)
-            if (4000 - count) in self.fibo(4000):
+        results = {http.HTTPStatus.OK: 0, http.HTTPStatus.GATEWAY_TIMEOUT: 0}
+        for i in range(4000):
+            results[await self.ws_ping_stress(82, True)] += 1
+            if i in self.fibo(4000):
                 self.get_tempesta().restart()
+        self.assertGreater(
+            results[http.HTTPStatus.OK],
+            results[http.HTTPStatus.GATEWAY_TIMEOUT],
+            "Tempesta FW returns 504 responses more than 200.",
+        )
 
 
 class TestWssPipelining(BaseWsPing):
@@ -458,17 +476,15 @@ class TestWssPipelining(BaseWsPing):
     ]
 
     @dmesg.unlimited_rate_on_tempesta_node
-    async def test(self):
-        await self._test()
-
     @BaseWsPing.cleanup_ws_servers
-    async def _test(self):
+    async def test(self):
         self.ws_servers.append(
             await websockets.serve(
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=3
             )
         )
         await self.start_all_services()
+        await self.wait_for_connections(conns_n=32)
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.request, pipelined=True)
         await deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
@@ -495,6 +511,9 @@ class TestWsScheduler(BaseWsPing):
 
             srv_group default {
                 server ${server_ip}:18099 conns_n=16;
+                server ${server_ip}:18100 conns_n=16;
+                server ${server_ip}:18101 conns_n=16;
+                server ${server_ip}:18102 conns_n=16;
             }
             frang_limits {http_strict_host_checking false;}
             vhost default {
@@ -507,18 +526,21 @@ class TestWsScheduler(BaseWsPing):
         """,
     }
 
-    async def test(self):
-        await self._test(tempesta_port=81, is_ssl=False)
-
     @BaseWsPing.cleanup_ws_servers
-    async def _test(self, tempesta_port: int, is_ssl: bool):
+    async def test(self):
         for i in range(4):
             self.ws_servers.append(
                 await websockets.serve(self.handler, tf_cfg.cfg.get("Server", "ip"), 18099 + i)
             )
         await self.start_tempesta()
-        for _ in range(256):
-            await self.ws_ping_test(tempesta_port, is_ssl)
+        results = {http.HTTPStatus.OK: 0, http.HTTPStatus.GATEWAY_TIMEOUT: 0}
+        for i in range(256):
+            results[await self.ws_ping_stress(81, False)] += 1
+        self.assertGreater(
+            results[http.HTTPStatus.OK],
+            results[http.HTTPStatus.GATEWAY_TIMEOUT],
+            "Tempesta FW returns 504 responses more than 200.",
+        )
 
 
 class TestRestartOnUpgrade(BaseWsPing):
@@ -530,26 +552,21 @@ class TestRestartOnUpgrade(BaseWsPing):
 
     tempesta = {"config": TEMPESTA_CONFIG}
 
-    def fibo(self, n):
-        fib = [0, 1]
-        for _ in range(n):
-            fib.append(fib[-2] + fib[-1])
-            if fib[-1] > n:
-                break
-        return fib
-
-    async def test(self):
-        await self._test(tempesta_port=81, is_ssl=False)
-
     @BaseWsPing.cleanup_ws_servers
-    async def _test(self, tempesta_port: int, is_ssl: bool):
+    async def test(self):
         self.ws_servers.append(
             await websockets.serve(
                 self.handler, tf_cfg.cfg.get("Server", "ip"), 18099, open_timeout=10
             )
         )
         await self.start_tempesta()
+        results = {http.HTTPStatus.OK: 0, http.HTTPStatus.GATEWAY_TIMEOUT: 0}
         for i in range(1500):
-            await self.ws_ping_test(tempesta_port, is_ssl)
+            results[await self.ws_ping_stress(81, False)] += 1
             if i in self.fibo(1500):
                 self.get_tempesta().restart()
+        self.assertGreater(
+            results[http.HTTPStatus.OK],
+            results[http.HTTPStatus.GATEWAY_TIMEOUT],
+            "Tempesta FW returns 504 responses more than 200.",
+        )

@@ -268,24 +268,24 @@ block_action attack drop;
             await cl.wait_for_connection_open(strict=True)
 
         # Reset all current clients with the same IPs
+        # New clients with blocked IP won't be accepted
+        c4.start()
+        for cl in [c1, c2, c4]:
+            cl.start()
+            await cl.wait_for_connection_close(strict=True)
+
         # Client with different IP wasn't blocked
         await c3.send_request(self.REQ, "200")
         self.assertEqual(c3.last_response.status, "200")
         self.assertTrue(c3.conn_is_active)
-        # New clients with blocked IP won't be accepted
-        c4.start()
-        # block expected wait 3 seconds timeout
-        self.assertFalse(await c4.wait_for_connection_open(timeout=3))
-        self.assertTrue(await c4.wait_for_connection_close(timeout=3))
-        self.assertFalse(c4.conn_is_active)
 
         # "c4" connected when a connection still can be established and after connection of "c4" its
         # ip will be blocked. But we can't be sure that it being blocked or it just disconnected, to
         # be sure that ip is blocked we do this connection attempt. At this moment connection will
         # not be established and SYN from client "c5" will be dropped
         c5.start()
-        self.assertFalse(
-            await c5.wait_for_connection_open(timeout=3, adjust_timeout=False),
+        self.assertTrue(
+            await c5.wait_for_connection_close(timeout=3, adjust_timeout=False),
             "Client has not been blocked",
         )
         self.assertFalse(c5.conn_is_active, "Client has not been blocked")

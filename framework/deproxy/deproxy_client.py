@@ -78,7 +78,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.request_buffer = ""
         self.response_buffer = ""
         self.conn_addr = conn_addr
-        self.conn_is_closed = True
         self.__error_codes: list[Exception | ErrorCodes] = []
         self.__is_rst_received: bool = None
 
@@ -205,7 +204,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self._socket = self._context.wrap_socket(
                 self._socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
             )
-        self.conn_is_closed = False
         self.start_time = time.time()
 
     def _handle_close(self):
@@ -390,7 +388,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._src_port = None
 
     def connection_is_closed(self):
-        return self.conn_is_closed
+        return not self.connected
 
     def selected_alpn_protocol(self):
         if isinstance(self._socket, ssl.SSLSocket):
