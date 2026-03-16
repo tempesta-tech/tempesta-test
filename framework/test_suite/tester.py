@@ -360,6 +360,9 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
 
     def start_tempesta(self):
         """Start Tempesta and wait until the initialization process finish."""
+        # should not run `wait_for_msg` if Tempesta FW is running.
+        if self.__tempesta.is_running():
+            return
         # "modules are started" string is only logged in debug builds while
         # "Tempesta FW is ready" is logged at all levels.
         with dmesg.wait_for_msg(re.escape("[tempesta fw] Tempesta FW is ready"), strict=False):

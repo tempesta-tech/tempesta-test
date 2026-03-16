@@ -17,7 +17,8 @@ from framework.services import base_server, stateful
 
 class ServerConnection(asyncore.DeproxyAsyncore):
     def __init__(self, *, server: "StaticDeproxyServer", sock: socket.socket):
-        self._id = f"{self.__class__.__name__}({sock.getpeername()[0]}:{sock.getpeername()[1]})"
+        self.addr = sock.getpeername()
+        self._id = f"{self.__class__.__name__}({self.addr[0]}:{self.addr[1]})"
         self._tcp_logger = logging.LoggerAdapter(
             logging.getLogger("tcp"), extra={"service": f"{self._id}"}
         )
@@ -27,7 +28,6 @@ class ServerConnection(asyncore.DeproxyAsyncore):
         super().__init__(is_ipv6=server.is_ipv6)
         self._set_socket(sock)
         self.connected = True
-        self.addr = sock.getpeername()
         self._server = server
         self._last_segment_time: int = 0
         self._responses_done: int = 0
