@@ -77,7 +77,7 @@ http {
         {"name": "H2", "clients": H2Config.clients},
     ]
 )
-class HttpRespCodeBlockOneClient(FrangTestCase):
+class TestRespCodeBlockOneClient(FrangTestCase):
     backends = [NGINX_CONFIG]
 
     uri_200 = "/uri2"
@@ -147,11 +147,21 @@ class HttpRespCodeBlockOneClient(FrangTestCase):
         self.assertFrangWarning(warning=self.warning, expected=1)
 
 
-class HttpRespCodeBlock(FrangTestCase):
+@parameterize_class(
+    [
+        {"name": "Http", "tfw_port": "80", "ssl": False, "client_type": "deproxy"},
+        {"name": "H2", "tfw_port": "443", "ssl": True, "client_type": "deproxy_h2"},
+    ]
+)
+class TestRespCodeBlock(FrangTestCase):
     """
     Blocks an attacker's IP address if a protected web application return
     5 error responses with codes 404 or 405 within 2 seconds. This is 2,5 per second.
     """
+
+    tfw_port: str
+    ssl: bool
+    client_type: str
 
     clients = [
         {
@@ -186,24 +196,35 @@ class HttpRespCodeBlock(FrangTestCase):
         },
     ]
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        for client in cls.clients:
+            client["ssl"] = cls.ssl
+            client["type"] = cls.client_type
+            client["port"] = cls.tfw_port
+
     backends = [NGINX_CONFIG]
 
     warning = "frang: http_resp_code_block limit exceeded for"
 
     tempesta = {
         "config": """
+listen 80;
+listen 443 proto=h2;
 server ${server_ip}:8000;
 
 frang_limits {
+    http_strict_host_checking false;
     http_resp_code_block 404 405 5 2;
     ip_block 0;
 }
 
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
 """,
     }
-
-    requests = ["GET /uri1 HTTP/1.1\r\nHost: localhost\r\n\r\n"]
-    requests2 = ["GET /uri2 HTTP/1.1\r\nHost: localhost\r\n\r\n"]
 
     def test_two_clients_one_ip(self):
         """
@@ -217,10 +238,13 @@ frang_limits {
         deproxy_cl2 = self.get_client("deproxy4")
         deproxy_cl2.start()
 
-        deproxy_cl.make_requests(self.requests * 10)
+        request_1 = deproxy_cl.create_request(method="GET", uri="/uri1", headers=[])
+        request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])
+
+        deproxy_cl.make_requests([request_1] * 10)
         self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
 
-        deproxy_cl2.make_requests(self.requests2 * 10)
+        deproxy_cl2.make_requests([request_2] * 10)
         self.assertIsNone(deproxy_cl2.wait_for_response(timeout=6))
 
         self.assertEqual(5, len(deproxy_cl.responses))
@@ -248,8 +272,11 @@ frang_limits {
         deproxy_cl2 = self.get_client("deproxy2")
         deproxy_cl2.start()
 
-        deproxy_cl.make_requests((self.requests + self.requests2) * 6)
-        deproxy_cl2.make_requests((self.requests + self.requests2) * 10)
+        request_1 = deproxy_cl.create_request(method="GET", uri="/uri1", headers=[])
+        request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])
+
+        deproxy_cl.make_requests(([request_1] + [request_2]) * 6)
+        deproxy_cl2.make_requests(([request_1] + [request_2]) * 10)
 
         self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
         self.assertTrue(deproxy_cl2.wait_for_response(timeout=6))
@@ -261,46 +288,3 @@ frang_limits {
         self.assertFalse(deproxy_cl2.connection_is_closed())
 
         self.assertFrangWarning(warning=self.warning, expected=1)
-
-
-class HttpRespCodeBlockH2(HttpRespCodeBlock):
-    tempesta = {
-        "config": """
-    listen 443 proto=h2;
-    server ${server_ip}:8000;
-
-    frang_limits {
-        http_strict_host_checking false;
-        http_resp_code_block 404 405 5 2;
-        ip_block 0;
-    }
-    
-    tls_certificate ${tempesta_workdir}/tempesta.crt;
-    tls_certificate_key ${tempesta_workdir}/tempesta.key;
-    tls_match_any_server_name;
-    """,
-    }
-
-    requests = [
-        [
-            (":authority", "example.com"),
-            (":path", "/uri1"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ],
-    ]
-    requests2 = [
-        [
-            (":authority", "example.com"),
-            (":path", "/uri2"),
-            (":scheme", "https"),
-            (":method", "GET"),
-        ],
-    ]
-
-    def setUp(self):
-        self.clients = [{**client, "ssl": True} for client in self.clients]
-        for client in self.clients:
-            client["type"] = "deproxy_h2"
-            client["port"] = "443"
-        super().setUp()
