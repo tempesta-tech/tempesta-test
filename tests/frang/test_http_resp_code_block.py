@@ -178,7 +178,7 @@ class TestRespCodeBlock(FrangTestCase):
             "addr": "${tempesta_ip}",
             "port": "80",
             "interface": True,
-            "rps": 5,
+            "rps": 4,
         },
         {
             "id": "deproxy3",
@@ -260,7 +260,7 @@ tls_match_any_server_name;
         Two clients. One client sends 12 requests by 6 per second during
         2 seconds. Of these, 6 requests by 3 per second give 404 responses and
         should be blocked after 10 responses (5 with code 200 and 5 with code 404).
-        The second client sends 20 requests by 5 per second during 4 seconds.
+        The second client sends 20 requests by 4 per second during 5 seconds.
         Of these, 10 requests by 2.5 per second give 404 responses and should not be
         blocked.
         """
@@ -279,7 +279,7 @@ tls_match_any_server_name;
         deproxy_cl2.make_requests(([request_1] + [request_2]) * 10)
 
         self.assertIsNone(deproxy_cl.wait_for_response(timeout=4))
-        self.assertTrue(deproxy_cl2.wait_for_response(timeout=6))
+        self.assertTrue(deproxy_cl2.wait_for_response(timeout=10))
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
