@@ -74,11 +74,11 @@
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.HttpRespCodeBlock",
+            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockHttp",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.HttpRespCodeBlockH2",
+            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockH2",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
