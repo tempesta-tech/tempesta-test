@@ -127,12 +127,11 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
     def setUp(self):
         super().setUp()
-        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=10, ports=(80, 443))
-        self.set_frang_config(self.frang_config)
+        self.sniffer = analyzer.Sniffer(remote.client, "Client", timeout=5, ports=(80, 443))
 
     def arrange(self, c1, c2):
         self.sniffer.start()
-        self.start_all_services(client=False)
+        self.set_frang_config(self.frang_config)
         c1.start()
         c2.start()
 
@@ -147,7 +146,7 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
     @marks.retry_if_not_conditions
     def test_two_clients_two_ip(self):
         """
-        Set `request_rate 4;` and make requests for two clients with different ip:
+        Set `rate 4` and make requests for two clients with different ip:
             - 4 requests for client 1 and receive 4 responses with 200 status;
             - 8 requests for client 2 and get ip block;
         """
@@ -171,17 +170,17 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.sniffer.stop()
 
+        self.assert_reset_socks(self.sniffer.packets, [c2])
+        self.assert_unreset_socks(self.sniffer.packets, [c1])
         self.assertFrangWarning(
             warning=f"Warning: block client: {c2.bind_addr}", expected=range(1, 3)
         )
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
-        self.assert_reset_socks(self.sniffer.packets, [c2])
-        self.assert_unreset_socks(self.sniffer.packets, [c1])
 
     @marks.retry_if_not_conditions
     def test_two_clients_one_ip(self):
         """
-        Set `request_rate 4;` and make requests concurrently for two clients with same ip.
+        Set `rate 4` and make requests concurrently for two clients with same ip.
         Clients will be blocked on 5th request.
         """
         c1 = self.get_client("same-ip1")
@@ -201,9 +200,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
 
         self.sniffer.stop()
 
+        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
         self.assertFrangWarning(warning="Warning: block client:", expected=range(1, 6))
         self.assertFrangWarning(warning=self.error_msg, expected=range(1, 12))
-        self.assert_reset_socks(self.sniffer.packets, [c1, c2])
 
 
 @marks.parameterize_class(
