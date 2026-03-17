@@ -236,7 +236,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             "Tempesta did not forward the RST_STREAM frame when a window size is 0.",
         )
         self.assertFalse(
-            client.connection_is_closed(),
+            client.connection_is_closed,
             "Tempesta closed connection when sending the RST_STREAM with a window size is 0.",
         )
 

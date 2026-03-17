@@ -213,7 +213,7 @@ class JSChallenge(BaseJSChallenge):
         if conn_is_closed:
             self.assertTrue(await client.wait_for_connection_close())
         else:
-            self.assertFalse(client.conn_is_closed)
+            self.assertFalse(client.connection_is_closed)
 
     @marks.Parameterize.expand(
         [
@@ -262,7 +262,7 @@ class JSChallenge(BaseJSChallenge):
                 client.create_request(method=method, headers=[("accept", "image/*")]),
                 status,
             )
-            self.assertFalse(client.conn_is_closed)
+            self.assertFalse(client.connection_is_closed)
 
     @marks.Parameterize.expand(
         [
@@ -309,7 +309,7 @@ class JSChallenge(BaseJSChallenge):
             expected_status_code=second_status,
         )
         self.assertFalse(
-            client.conn_is_closed,
+            client.connection_is_closed,
             "Tempesta close a connection during a JS challenge check "
             "and max_misses was not exceeded.",
         )
@@ -492,7 +492,7 @@ class JSChallenge(BaseJSChallenge):
             self.assertEqual(len(responses), 2)
             for resp in responses:
                 self.assertEqual(resp.status, "200", "unexpected response status code")
-        self.assertEqual(client.conn_is_closed, conn_is_closed)
+        self.assertEqual(client.connection_is_closed, conn_is_closed)
 
     async def test_first_post_request_pipelined(self):
         await self.start_all_services()
@@ -522,7 +522,7 @@ class JSChallenge(BaseJSChallenge):
 
         await self._java_script_sleep(cookie[1])
 
-        self.assertEqual(client.conn_is_closed, False)
+        self.assertEqual(client.connection_is_closed, False)
         await client.send_request(
             client.create_request(method="POST", headers=[("cookie", f"{cookie[0]}={cookie[1]}")]),
             "200",

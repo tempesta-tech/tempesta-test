@@ -179,4 +179,4 @@ class TestALPN(tester.TempestaTest):
             client.create_request("GET", [], authority="tempesta-tech.com"), "200"
         )
         # Verify ALPN didn't use.
-        self.assertIsNone(client.selected_alpn_protocol())
+        self.assertIsNone(client.selected_alpn_protocol)

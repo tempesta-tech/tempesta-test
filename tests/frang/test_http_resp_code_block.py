@@ -104,7 +104,7 @@ class TestRespCodeBlockOneClient(FrangTestCase):
                 client.make_requests(requests)
                 await client.wait_for_response()
 
-                self.assertFalse(client.connection_is_closed())
+                self.assertFalse(client.connection_is_closed)
                 await self.assertFrangWarning(warning=self.warning, expected=0)
 
     async def test_reaching_the_limit(self):
@@ -285,6 +285,6 @@ tls_match_any_server_name;
         self.assertEqual(20, len(deproxy_cl2.responses))
 
         self.assertTrue(await deproxy_cl.wait_for_connection_close())
-        self.assertFalse(deproxy_cl2.connection_is_closed())
+        self.assertFalse(deproxy_cl2.connection_is_closed)
 
         await self.assertFrangWarning(warning=self.warning, expected=1)

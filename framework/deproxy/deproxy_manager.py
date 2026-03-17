@@ -79,7 +79,7 @@ class DeproxyManager(stateful.Stateful):
             if obj.readable():
                 flags |= select.POLLIN | select.POLLPRI
             # accepting sockets should not be writable
-            if obj.writable() and not obj.accepting:
+            if obj.writable() and not obj._accepting:
                 flags |= select.POLLOUT
             if flags:
                 pollster.register(fd, flags)

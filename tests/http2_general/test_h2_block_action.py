@@ -88,7 +88,7 @@ class TestBlockActionH2(BlockActionH2Base):
             expected_status_code="400",
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
         await client.send_request(
             request=[

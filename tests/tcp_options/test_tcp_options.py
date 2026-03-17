@@ -105,4 +105,4 @@ class TestTcpOptions(tester.TempestaTest):
             )
 
             await client.send_request(client.create_request(method="GET", headers=[]), "200")
-            self.assertFalse(client.connection_is_closed())
+            self.assertFalse(client.connection_is_closed)
