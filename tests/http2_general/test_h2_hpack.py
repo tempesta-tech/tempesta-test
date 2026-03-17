@@ -476,6 +476,81 @@ class TestHpack(TestHpackBase):
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 
+    def test_bytes_of_table_size_in_header_frame_of_trailers(self):
+        """
+        1. Client sets SETTINGS_INITIAL_WINDOW_SIZE = 0 bytes;
+        2. Server return response with body.
+        3. Tempesta must forward HEADERS frame and wait for a WindowUpdate.
+        4. Client send SETTINGS frame and wait for a SETTINGS frame with ack settings from
+           Tempesta.
+        5. Client send WindowUpdate and wait for a DATA frame.
+        6. Tempesta responds with the new table size in the first HEADERS frame of trailer.
+        7. Check that table size is correct.
+        """
+        error_msg = (
+            "Tempesta did not add dynamic table size ({0}) before first header block in trailer."
+        )
+        new_table_size = 2048
+        resp_body = "x" * 100
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Transfer-Encoding: chunked\r\n"
+                + "Trailer: X-Hash\r\n\r\n"
+                + "64\r\n"
+                + (resp_body)
+                + "\r\n0\r\n"
+                + "trail-hash: 0123456789abcdef\r\n\r\n"
+            )
+        )
+
+        # Set SETTINGS_INITIAL_WINDOW_SIZE = 0
+        client = self.get_client("deproxy")
+        client.auto_flow_control = False
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
+        client.make_request(self.get_request)
+        self.assertTrue(client.wait_for_headers_frame(stream_id=1))
+        # send the new table size
+        client.send_settings_frame(header_table_size=new_table_size)
+        # ensure that the current table size is equal to default 4096
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta did not forward the SETTINGS frame when the window size is 0.",
+        )
+
+        client.increment_flow_control_window(stream_id=1, flow_controlled_length=100)
+
+        # we are ready to receive body and trailers to that
+        client.valid_req_num = 1  # change the expected number of responses
+        client.wait_for_response(strict=True)
+
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
+        self.assertEqual(
+            client.last_response.body,
+            resp_body,
+            "Tempesta returned invalid response body.",
+        )
+
+        # check correctness of the new table size
+        self.assertTrue(
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x0f"),
+            error_msg.format(new_table_size),
+        )
+
+        # ensure that new table size is applied by Tempesta and the client
+        self.assertEqual(client.h2_connection.decoder.header_table_size, new_table_size)
+        self.assertEqual(client.last_response.trailer.get("trail-hash", None), "0123456789abcdef")
+
     def test_bytes_of_table_size_in_header_frame_not_sent(self):
         """
         This dynamic table size update MUST occur at the beginning of the first header
