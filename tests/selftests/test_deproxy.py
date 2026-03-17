@@ -330,7 +330,7 @@ server ${server_ip}:8000;
             await client.wait_for_connection_open(timeout=timeout)
         # If wait less than block_duration time thus expected not established connection.
         expected_connected = True if timeout > block_duration else False
-        self.assertEqual(client.connected, expected_connected)
+        self.assertEqual(client._connected, expected_connected)
         self.assertTrue(
             await klog.find("Warning: block client:", cond=dmesg.amount_equals(1)),
             "Client has not been blocked.",

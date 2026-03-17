@@ -317,7 +317,7 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         timeout_not_exceeded = await util.wait_until(
             lambda: len(self.requests) < n,
             timeout=timeout,
-            abort_cond=lambda: not self.accepting,
+            abort_cond=lambda: not self._accepting,
             adjust_timeout=adjust_timeout,
         )
         if strict:

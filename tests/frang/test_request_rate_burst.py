@@ -304,4 +304,4 @@ class TestFrangRequestRateBurst(FrangTestCase):
         await self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=warns_expected)
         await self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=0)
         if warns_expected:
-            self.assertTrue(client.connection_is_closed())
+            self.assertTrue(client.connection_is_closed)

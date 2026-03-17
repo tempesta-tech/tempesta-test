@@ -164,15 +164,15 @@ frang_limits {
             self.assertEqual(1, len(clients[1].responses))
             self.assertEqual(0, len(clients[2].responses))
             self.assertTrue(await clients[2].wait_for_connection_close())
-            self.assertFalse(clients[0].connection_is_closed())
-            self.assertFalse(clients[1].connection_is_closed())
+            self.assertFalse(clients[0].connection_is_closed)
+            self.assertFalse(clients[1].connection_is_closed)
         elif responses == 3:
             self.assertEqual(1, len(clients[0].responses))
             self.assertEqual(1, len(clients[1].responses))
             self.assertEqual(1, len(clients[2].responses))
-            self.assertFalse(clients[0].connection_is_closed())
-            self.assertFalse(clients[1].connection_is_closed())
-            self.assertFalse(clients[2].connection_is_closed())
+            self.assertFalse(clients[0].connection_is_closed)
+            self.assertFalse(clients[1].connection_is_closed)
+            self.assertFalse(clients[2].connection_is_closed)
 
     async def test_three_clients_same_ip(self):
         """

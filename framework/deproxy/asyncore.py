@@ -30,9 +30,9 @@ class DeproxyAsyncore(abc.ABC):
     def __init__(self, is_ipv6: bool):
         self.is_ipv6: bool = is_ipv6
 
-        self.connected: bool = False
-        self.connecting: bool = False
-        self.accepting: bool = False
+        self._connected: bool = False
+        self._connecting: bool = False
+        self._accepting: bool = False
 
         self.addr: tuple[str, int] = None
         self._fileno: int = None
@@ -72,12 +72,12 @@ class DeproxyAsyncore(abc.ABC):
     # socket methods
 
     def _listen(self) -> None:
-        self.accepting = True
+        self._accepting = True
         self._socket.listen(socket.SOMAXCONN)
 
     def _connect(self, address) -> None:
-        self.connected = False
-        self.connecting = True
+        self._connected = False
+        self._connecting = True
         err = self._socket.connect_ex(address)
         if err in (errno.EINPROGRESS, errno.EALREADY, errno.EWOULDBLOCK):
             self.addr = address
@@ -145,25 +145,25 @@ class DeproxyAsyncore(abc.ABC):
         if err != 0:
             raise OSError(err, errno.errorcode[err])
         self._handle_connect()
-        self.connected = True
-        self.connecting = False
+        self._connected = True
+        self._connecting = False
 
     def _handle_read_event(self):
-        if self.accepting:
+        if self._accepting:
             self._handle_accept()
-        elif not self.connected:
-            if self.connecting:
+        elif not self._connected:
+            if self._connecting:
                 self._handle_connect_event()
             self._handle_read()
         else:
             self._handle_read()
 
     def _handle_write_event(self) -> None:
-        if self.accepting:
+        if self._accepting:
             return
 
-        if not self.connected:
-            if self.connecting:
+        if not self._connected:
+            if self._connecting:
                 self._handle_connect_event()
         self._handle_write()
 
@@ -188,9 +188,9 @@ class DeproxyAsyncore(abc.ABC):
 
     def _handle_close(self) -> None:
         """Close socket and remove it from socket map."""
-        self.connected = False
-        self.accepting = False
-        self.connecting = False
+        self._connected = False
+        self._accepting = False
+        self._connecting = False
         self._del_channel()
         if self._socket is not None:
             try:

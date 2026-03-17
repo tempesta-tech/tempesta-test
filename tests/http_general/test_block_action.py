@@ -182,7 +182,7 @@ class BlockActionReply(BlockActionBase):
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
         await client.send_request(
             request=f"GET / HTTP/1.1\r\nHost: good.com\r\n\r\n",
@@ -214,7 +214,7 @@ class BlockActionReply(BlockActionBase):
         )
         await client.wait_for_response()
         self.assertEqual(len(client.responses), 2)
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
         sniffer.stop()
         self.assert_not_fin_socks(sniffer.packets, [client])

@@ -311,7 +311,7 @@ class TestH2Frame(H2Base):
         # send header frame after sending WindowUpdate and make sure
         # that connection is working correctly.
         await client.send_request(self.get_request, "200")
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
     async def test_continuation_frame(self):
         """Tempesta must handle CONTINUATION frame."""
@@ -330,7 +330,7 @@ class TestH2Frame(H2Base):
             expected_status_code="200",
         )
 
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
     async def test_rst_frame_in_request(self):
         """
@@ -359,7 +359,7 @@ class TestH2Frame(H2Base):
         await client.send_request(self.post_request, "200")
 
         self.assertFalse(
-            client.connection_is_closed(), "Tempesta closed connection after receiving RST_STREAM."
+            client.connection_is_closed, "Tempesta closed connection after receiving RST_STREAM."
         )
 
     async def test_rst_frame_in_response(self):
@@ -396,7 +396,7 @@ class TestH2Frame(H2Base):
             StreamClosedError, client.h2_connection._get_stream_by_id, stream_with_rst
         )
         self.assertFalse(
-            client.connection_is_closed(), "Tempesta closed connection after sending RST_STREAM."
+            client.connection_is_closed, "Tempesta closed connection after sending RST_STREAM."
         )
 
     async def test_rst_stream_with_id_0(self):
@@ -633,7 +633,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             )
         client.valid_req_num += count
         self.assertTrue(await client.wait_for_response(timeout))
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
         for i in range(count):
             self.assertEqual(client.responses[i].status, "200", "Status code mismatch.")

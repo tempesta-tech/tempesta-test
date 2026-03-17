@@ -158,7 +158,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
 
     def _in_connecting_state(self):
-        return self.connecting
+        return self._connecting
 
     def _has_pending_data(self):
         if self.cur_req_num >= self.nrreq:
@@ -218,7 +218,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             super()._handle_close()
             self.writable = self._in_connecting_state
             self._handle_write = self.__setup_write
-            self.conn_is_closed = True
 
     def _handle_error(self):
         type_error, v, _ = sys.exc_info()
@@ -310,7 +309,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = await util.wait_until(
             lambda: not self.conn_is_active,
             timeout,
-            abort_cond=lambda: not self.connecting,
+            abort_cond=lambda: not self._connecting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -325,7 +324,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         to prevent tests from hard to detect errors.
         """
         timeout_not_exceeded = await util.wait_until(
-            lambda: not self.connection_is_closed(),
+            lambda: not self.connection_is_closed,
             timeout,
             abort_cond=lambda: self.state == stateful.STATE_ERROR,
             adjust_timeout=adjust_timeout,
@@ -346,7 +345,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = await util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
-            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
+            abort_cond=lambda: self.connection_is_closed and not self._connecting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
@@ -387,9 +386,11 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._src_ip = None
         self._src_port = None
 
-    def connection_is_closed(self):
-        return not self.connected
+    @property
+    def connection_is_closed(self) -> bool:
+        return not self._connected
 
+    @property
     def selected_alpn_protocol(self):
         if isinstance(self._socket, ssl.SSLSocket):
             return self._socket.selected_alpn_protocol()
@@ -409,7 +410,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     @property
     def conn_is_active(self):
-        return self.connected
+        return self._connected
 
     @property
     def conn_addr(self) -> str:
@@ -693,7 +694,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return await util.wait_until(
             lambda: not self.ack_settings,
             timeout,
-            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
+            abort_cond=lambda: self.connection_is_closed and not self._connecting,
         )
 
     async def wait_for_reset_stream(self, stream_id: int, timeout=5):
@@ -701,7 +702,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         return await util.wait_until(
             lambda: not self.h2_connection._stream_is_closed_by_reset(stream_id=stream_id),
             timeout,
-            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
+            abort_cond=lambda: self.connection_is_closed and not self._connecting,
         )
 
     async def wait_for_headers_frame(self, stream_id: int, timeout=5):
@@ -710,14 +711,14 @@ class DeproxyClientH2(BaseDeproxyClient):
         return await util.wait_until(
             lambda: not stream.state_machine.headers_received,
             timeout,
-            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
+            abort_cond=lambda: self.connection_is_closed and not self._connecting,
         )
 
     async def wait_for_ping_frames(self, ping_count: int, timeout=5):
         return await util.wait_until(
             lambda: self._ping_received < ping_count,
             timeout,
-            abort_cond=lambda: self.connection_is_closed() and not self.connecting,
+            abort_cond=lambda: self.connection_is_closed and not self._connecting,
         )
 
     @property

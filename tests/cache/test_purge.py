@@ -112,7 +112,7 @@ cache_methods GET;
         await client.send_request(
             client.create_request(method="PURGE", uri="/page.html", headers=[]), "403"
         )
-        self.assertFalse(client.conn_is_closed)
+        self.assertFalse(client.connection_is_closed)
 
     async def test_purge_acl_fail(self):
         """
@@ -130,7 +130,7 @@ cache_methods GET;
         await client.send_request(
             client.create_request(method="PURGE", uri="/page.html", headers=[]), "403"
         )
-        self.assertFalse(client.conn_is_closed)
+        self.assertFalse(client.connection_is_closed)
 
 
 class TestPurgeInvalidConfig(TempestaTest):

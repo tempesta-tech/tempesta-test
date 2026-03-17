@@ -1147,7 +1147,7 @@ srv_group default {{
         )
         self.assertEqual(tempesta.stats.cl_msg_other_errors, get_502_statuses)
 
-        self.assertFalse(client.conn_is_closed)
+        self.assertFalse(client.connection_is_closed)
 
 
 class TestVhostReconf(tester.TempestaTest):

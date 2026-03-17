@@ -112,7 +112,7 @@ block_action attack reply;
 
     async def _check_frang_warning(self, client, status_code: str, warning_msg: str):
         if status_code == "200":
-            self.assertFalse(client.connection_is_closed())
+            self.assertFalse(client.connection_is_closed)
             await self.assertFrangWarning(warning=warning_msg, expected=0)
         else:
             self.assertTrue(await client.wait_for_connection_close())

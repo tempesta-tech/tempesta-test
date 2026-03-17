@@ -114,7 +114,7 @@ class TestConfigParsing(tester.TempestaTest):
             expected_status_code="200",
         )
 
-        self.assertFalse(client.connection_is_closed())
+        self.assertFalse(client.connection_is_closed)
 
     @marks.Parameterize.expand(
         [
