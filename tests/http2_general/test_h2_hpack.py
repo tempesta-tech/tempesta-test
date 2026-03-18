@@ -451,20 +451,128 @@ class TestHpack(TestHpackBase):
         This dynamic table size update MUST occur at the beginning of the first header
         block following the change to the dynamic table size.
         RFC 7541 4.2
+
+        This test checks that default 4096 table size is advertised to the client when the
+        client uses table size greater than default and Tempesta FW wants to use 4096 table size.
+        In other words test verify this statement:
+        "An encoder can choose to use less capacity than this maximum size" RFC 7541 4.2
         """
         self.start_all_services()
 
+        table_size = 12288
         client = self.get_client("deproxy")
+        error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
 
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
-        # and this default value for table size.
-        # Therefore Tempesta does not return bytes of table size in header frame.
-        client.update_initial_settings(header_table_size=12288)
+        # and we expect \x3f\xe1\x07 bytes in first header frame
+        client.update_initial_settings(header_table_size=table_size)
+        # Set the new size to the table to be able to check that it changed when Tempesta returns the new size
+        client.h2_connection.decoder.header_table_size = table_size
+        self.assertEqual(client.h2_connection.decoder.header_table_size, table_size)
+        client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertTrue(
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x1f"),
+            error_msg.format(4096),
+        )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
+
+    def test_bytes_of_table_size_in_header_frame_of_trailers(self):
+        """
+        1. Client sets SETTINGS_INITIAL_WINDOW_SIZE = 0 bytes;
+        2. Server return response with body.
+        3. Tempesta must forward HEADERS frame and wait for a WindowUpdate.
+        4. Client send SETTINGS frame and wait for a SETTINGS frame with ack settings from
+           Tempesta.
+        5. Client send WindowUpdate and wait for a DATA frame.
+        6. Tempesta responds with the new table size in the first HEADERS frame of trailer.
+        7. Check that table size is correct.
+        """
+        error_msg = (
+            "Tempesta did not add dynamic table size ({0}) before first header block in trailer."
+        )
+        new_table_size = 2048
+        resp_body = "x" * 100
+        self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            (
+                "HTTP/1.1 200 OK\r\n"
+                + f"Date: {HttpMessage.date_time_string()}\r\n"
+                + "Server: debian\r\n"
+                + "Transfer-Encoding: chunked\r\n"
+                + "Trailer: X-Hash\r\n\r\n"
+                + "64\r\n"
+                + (resp_body)
+                + "\r\n0\r\n"
+                + "trail-hash: 0123456789abcdef\r\n\r\n"
+            )
+        )
+
+        # Set SETTINGS_INITIAL_WINDOW_SIZE = 0
+        client = self.get_client("deproxy")
+        client.auto_flow_control = False
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.wait_for_ack_settings()
+
+        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
+        client.make_request(self.get_request)
+        self.assertTrue(client.wait_for_headers_frame(stream_id=1))
+        # send the new table size
+        client.send_settings_frame(header_table_size=new_table_size)
+        # ensure that the current table size is equal to default 4096
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
+        self.assertTrue(
+            client.wait_for_ack_settings(),
+            "Tempesta did not forward the SETTINGS frame when the window size is 0.",
+        )
+
+        client.increment_flow_control_window(stream_id=1, flow_controlled_length=100)
+
+        # we are ready to receive body and trailers to that
+        client.valid_req_num = 1  # change the expected number of responses
+        client.wait_for_response(strict=True)
+
+        self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
+        self.assertEqual(
+            client.last_response.body,
+            resp_body,
+            "Tempesta returned invalid response body.",
+        )
+
+        # check correctness of the new table size
+        self.assertTrue(
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x0f"),
+            error_msg.format(new_table_size),
+        )
+
+        # ensure that new table size is applied by Tempesta and the client
+        self.assertEqual(client.h2_connection.decoder.header_table_size, new_table_size)
+        self.assertEqual(client.last_response.trailer.get("trail-hash", None), "0123456789abcdef")
+
+    def test_bytes_of_table_size_in_header_frame_not_sent(self):
+        """
+        This dynamic table size update MUST occur at the beginning of the first header
+        block following the change to the dynamic table size.
+        RFC 7541 4.2
+
+        This test checks that Tempesta FW doesn't send table size update if encoder and
+        decoder have the same size.
+        """
+        self.start_all_services()
+
+        table_size = 4096
+        client = self.get_client("deproxy")
+        error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
+
+        # Client set HEADER_TABLE_SIZE = 4096 bytes and Tempesta works with table 4096 bytes
+        # therefore Tempesta does not return bytes of table size in header frame.
+        client.update_initial_settings(header_table_size=table_size)
+        self.assertEqual(client.h2_connection.decoder.header_table_size, table_size)
         client.send_request(request=self.post_request, expected_status_code="200")
         self.assertFalse(
-            client.check_header_presence_in_last_response_buffer(
-                b"\x3f\xe1\x1f",
-            ),
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x1f"),
             "Tempesta added dynamic table size (4096) before first header block.",
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
