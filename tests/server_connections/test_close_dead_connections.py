@@ -70,7 +70,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
     ]
 
     @marks.check_memory_consumption
-    def test_drop_server_connection_for_rst_stream(self):
+    async def test_drop_server_connection_for_rst_stream(self):
         """
         Tempesta FW must close server connections
         when a client closes http2 streams using RST_STREAM
@@ -81,7 +81,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
 
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client.start()
 
         server_conn_list_before = set(server.connections)
@@ -89,21 +89,22 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         for _ in range(CONNS_N):
             client.make_request(request)
 
-        server.wait_for_requests(strict=True, n=CONNS_N)
+        await server.wait_for_requests(strict=True, n=CONNS_N)
 
         for i in range(CONNS_N):
             client.send_reset_stream(stream_id=i * 2 + 1)
 
-        self.assertWaitUntilTrue(
+        await self.assertWaitUntilTrue(
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
             f"Tempesta FW must close dead connections.",
         )
         self.assertTrue(
-            server.wait_for_connections(timeout=5), f"Tempesta FW must recreate dead connections."
+            await server.wait_for_connections(timeout=5),
+            f"Tempesta FW must recreate dead connections.",
         )
 
     @marks.check_memory_consumption
-    def test_drop_server_connection_for_goaway(self):
+    async def test_drop_server_connection_for_goaway(self):
         """
         Tempesta FW must close server connections
         when a client closes http2 connection using GOAWAY with any Last-Stream-ID
@@ -114,7 +115,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
 
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
         client.start()
 
         server_conn_list_before = set(server.connections)
@@ -122,16 +123,17 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         for _ in range(CONNS_N):
             client.make_request(request)
 
-        server.wait_for_requests(strict=True, n=CONNS_N)
+        await server.wait_for_requests(strict=True, n=CONNS_N)
 
         client.send_goaway(error_code=ErrorCodes.PROTOCOL_ERROR, last_stream_id=CONNS_N * 2 + 1)
 
-        self.assertWaitUntilTrue(
+        await self.assertWaitUntilTrue(
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
             f"Tempesta FW must close dead connections.",
         )
         self.assertTrue(
-            server.wait_for_connections(timeout=5), f"Tempesta FW must recreate dead connections."
+            await server.wait_for_connections(timeout=5),
+            f"Tempesta FW must recreate dead connections.",
         )
 
 
@@ -165,7 +167,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         ]
     )
     @marks.check_memory_consumption
-    def test_drop_server_connection_for(self, name, close_with_rst):
+    async def test_drop_server_connection_for(self, name, close_with_rst):
         """
         Tempesta FW must close server connections
         when a client closes a connection using RST/FIN TCP
@@ -174,7 +176,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         server = self.get_server("deproxy")
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
-        self.start_all_services()
+        await self.start_all_services()
 
         server_conn_list_before = set(server.connections)
 
@@ -187,14 +189,15 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
                 client.set_rst_tcp_to_closing_connection()
         for client in self.get_clients():
             client.make_request(request)
-        server.wait_for_requests(strict=True, n=CONNS_N)
+        await server.wait_for_requests(strict=True, n=CONNS_N)
         for client in self.get_clients():
             client.stop()
 
-        self.assertWaitUntilTrue(
+        await self.assertWaitUntilTrue(
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
             f"Tempesta FW must close dead connections.",
         )
         self.assertTrue(
-            server.wait_for_connections(timeout=5), f"Tempesta FW must recreate dead connections."
+            await server.wait_for_connections(timeout=5),
+            f"Tempesta FW must recreate dead connections.",
         )
