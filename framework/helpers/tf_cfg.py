@@ -167,6 +167,10 @@ class TestFrameworkCfg:
                     "log_path": "/tmp/tfw_logger.log",
                     "logger_config": "/tmp/tfw_logger.json",
                 },
+                "Proxy": {
+                    "ip": os.getenv("PROXY_IP", None),
+                    "ipv6": os.getenv("PROXY_IPv6", None),
+                },
             }
         )
 
