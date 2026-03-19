@@ -110,7 +110,7 @@ http {
         super().tearDownClass()
         remote.server.remove_file(cls.response_file_path)
 
-    def test_cve_2019_9511(self):
+    async def test_cve_2019_9511(self):
         """
         CVE-2019-9511 - “Data Dribble”
         Some HTTP/2 implementations are vulnerable to window size manipulation
@@ -119,7 +119,7 @@ http {
         They manipulate window size and stream priority to force the server to queue the data in 1-byte chunks.
         Depending on how efficiently this data is queued, this can consume excess CPU, memory, or both.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         request = self.get_clients()[0].create_request(
             method="GET",
@@ -131,13 +131,13 @@ http {
         for client in self.get_clients():
             client.update_initial_settings(initial_window_size=1)
             client.send_bytes(client.h2_connection.data_to_send())
-            self.assertTrue(client.wait_for_ack_settings())
+            self.assertTrue(await client.wait_for_ack_settings())
             client.make_requests([request] * 100)
 
         for client in self.get_clients():
-            client.wait_for_connection_close(strict=True)
+            await client.wait_for_connection_close(strict=True)
 
-    def test_cve_2019_9517(self):
+    async def test_cve_2019_9517(self):
         """
         CVE-2019-9517 - “Internal Data Buffering”
         Some HTTP/2 implementations are vulnerable to unconstrained internal data buffering,
@@ -147,7 +147,7 @@ http {
         The attacker sends a stream of requests for a large response object.
         Depending on how the servers queue the responses, this can consume excess memory, CPU, or both.
         """
-        self.start_all_services()
+        await self.start_all_services()
 
         request = self.get_clients()[0].create_request(
             method="GET",
@@ -159,12 +159,12 @@ http {
         for client in self.get_clients():
             client.update_initial_settings()
             client.send_bytes(client.h2_connection.data_to_send())
-            self.assertTrue(client.wait_for_ack_settings())
+            self.assertTrue(await client.wait_for_ack_settings())
             client.set_size_of_receiving_buffer(new_buffer_size=1)
             client.make_requests([request] * 100)
 
         for client in self.get_clients():
-            client.wait_for_connection_close(timeout=20, strict=True)
+            await client.wait_for_connection_close(timeout=20, strict=True)
 
 
 class TestHttp2FrameFlood(tester.TempestaTest):
@@ -242,7 +242,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
             stream_id = stream_id - 1 if stream_id == max_id else stream_id + 1
         return stream_id
 
-    def test_cve_2019_9513(self):
+    async def test_cve_2019_9513(self):
         """
         CVE-2019-9513 “Resource Loop”
         Some HTTP/2 implementations are vulnerable to resource loops, potentially leading to a denial of service.
@@ -256,7 +256,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
 
         server.set_response("")
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         request = client.create_request(uri="/", method="GET", headers=[])
 
@@ -279,10 +279,10 @@ class TestHttp2FrameFlood(tester.TempestaTest):
                     exclusive=bool(random.randint(0, 1)),
                 ).serialize()
             )
-        client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close(strict=True)
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_cve_2024_2758(self):
+    async def test_cve_2024_2758(self):
         """
         CVE-2024-2758 "Continuation flood"
         Many HTTP/2 implementations do not properly limit or sanitize the amount of CONTINUATION frames sent within
@@ -290,12 +290,12 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         frames that will not be appended to the header list in memory but will still be processed and decoded
         by the server or will be appended to the header list, causing an out of memory (OOM) crash.
         """
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         client = self.get_client("gflood")
 
         client.start()
-        self.wait_while_busy(client)
+        await self.wait_while_busy(client)
         client.stop()
 
         self.assertEqual(0, client.returncode)
@@ -360,7 +360,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         ]
     )
     @dmesg.unlimited_rate_on_tempesta_node
-    def test_cve(self, name, cmd_args, stat_name):
+    async def test_cve(self, name, cmd_args, stat_name):
         """
         CVE-2019-9512 “Ping Flood”
         Some HTTP/2 implementations are vulnerable to ping floods, potentially leading to a denial of service.
@@ -408,11 +408,11 @@ class TestHttp2FrameFlood(tester.TempestaTest):
             + (2000 * "a")
         )
 
-        self.start_all_services(client=False)
+        await self.start_all_services(client=False)
 
         flood_client.options = flood_client.options + [cmd_args]
         flood_client.start()
-        self.wait_while_busy(flood_client)
+        await self.wait_while_busy(flood_client)
         flood_client.stop()
 
         self.assertEqual(0, flood_client.returncode)
@@ -501,7 +501,7 @@ http {
         return "".join(random.choice(letters) for i in range(length))
 
     @dmesg.limited_rate_on_tempesta_node
-    def test_2019_9516(self):
+    async def test_2019_9516(self):
         """
         CVE-2019-9516 “0-Length Headers Leak”
         Some HTTP/2 implementations are vulnerable to a header leak, potentially leading to a denial of service.
@@ -515,7 +515,7 @@ http {
         the connection when the response arrives from the backend,
         so no further effect too.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client("deproxy")
 
         request = client.create_request(
@@ -546,9 +546,9 @@ http {
                     expect_response=True,
                 )
 
-            self.assertTrue(client.wait_for_response(120))
+            self.assertTrue(await client.wait_for_response(120))
 
         # close first stream and http2 connection and finish test
         client.stream_id = 1
         client.make_request("data", end_stream=True)
-        self.assertTrue(client.wait_for_response())
+        self.assertTrue(await client.wait_for_response())
