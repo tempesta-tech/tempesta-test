@@ -192,13 +192,13 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             segment_gap=client.get("segment_gap", 0),
             is_ipv6=client.get("is_ipv6", False),
             # BaseDeproxyClient
-            conn_addr=fill_template(client["addr"], client),
+            conn_addr=self.__get_server_addr(client),
             is_ssl=ssl,
             server_hostname=fill_template(client.get("ssl_hostname", None), client),
         )
 
     def __create_client_wrk(self, client, ssl):
-        addr = fill_template(client["addr"], client)
+        addr = self.__get_server_addr(client)
         wrk = wrk_client.Wrk(id_=client["id"], server_addr=addr, ssl=ssl)
         wrk.set_script(client["id"] + "_script", content="")
         return wrk
@@ -217,13 +217,24 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     def __create_client_curl(self, client, interface):
         # extract arguments that are supported by cURL client
         kwargs = {k: client[k] for k in curl_client.CurlArguments.get_arg_names() if k in client}
-        kwargs["addr"] = fill_template(
-            client.get("addr", "${tempesta_ip}"), client  # Address is Tempesta IP by default
-        )
+        kwargs["addr"] = self.__get_server_addr(client)
         kwargs["cmd_args"] = fill_template(client.get("cmd_args", ""), client)
         kwargs.setdefault("curl_iface", interface)
         curl = curl_client.CurlClient(**kwargs)
         return curl
+
+    @staticmethod
+    def __get_server_addr(client: dict[str, str]) -> str:
+        is_ipv6 = client.get("is_ipv6", False)
+        ip_key = "ipv6" if is_ipv6 else "ip"
+
+        proxy_ip = tf_cfg.cfg.get("Proxy", ip_key)
+
+        if proxy_ip:
+            return proxy_ip
+
+        addr_key = client.get("addr", "${tempesta_ip}")
+        return fill_template(addr_key, client)
 
     def __create_client(self, client):
         tf_cfg.populate_properties(client)
