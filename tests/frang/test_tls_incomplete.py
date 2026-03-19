@@ -3,6 +3,7 @@
 import asyncio
 
 from framework.test_suite import marks
+from framework.helpers import dmesg
 from tests.frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -55,6 +56,7 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
             marks.Param(name="rate_on_the_limit", steps=4),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     async def test_tls_incomplete_connection(self, name, steps):
         """
         Create several client connections with fail.
