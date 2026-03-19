@@ -933,15 +933,15 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
         """
     }
 
-    def test_spaced_pattern(self):
+    async def test_spaced_pattern(self):
         """Test for matching rules which contains leading and trailing spaces.
         Expected that these spaces ignored and header matched.
         """
-        self.start_all_services()
+        await self.start_all_services()
         client = self.get_client(0)
 
         headers = [("raw_hdr1", "hdr_value_1")]
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/", headers=headers),
             expected_status_code="200",
         )
@@ -949,7 +949,7 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
         self.assertEqual(client.last_response.headers.get("vhost-name"), "vh1")
 
         headers = [("r", "v")]
-        client.send_request(
+        await client.send_request(
             request=client.create_request(method="GET", uri="/", headers=headers),
             expected_status_code="200",
         )
@@ -959,11 +959,9 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
 
 class TestHttpTablesEmptyHdrPattern(tester.TempestaTest):
     """
-    Empty pattertns are not allowed for header, Tempesta must report an error.
+    Empty patterns are not allowed for header, Tempesta must report an error.
     """
 
-    host = "tempesta-tech.com"
-    request_uri = "/static"
     tempesta = {
         "config": """
         listen 80;
@@ -990,34 +988,34 @@ class TestHttpTablesEmptyHdrPattern(tester.TempestaTest):
         [
             marks.Param(
                 name="only_spaces_in_name",
-                cfg=f"""hdr "  " == "qwer" -> vh1;""",
+                cfg=f'hdr "  " == "qwer" -> vh1;',
             ),
             marks.Param(
                 name="empty_name",
-                cfg=f"""hdr "" == "qwer" -> vh1;""",
+                cfg=f'hdr "" == "qwer" -> vh1;',
             ),
             marks.Param(
                 name="only_spaces_in_value",
-                cfg=f"""hdr "hdr1" == "   " -> vh1;""",
+                cfg=f'hdr "hdr1" == "   " -> vh1;',
             ),
             marks.Param(
                 name="empty_value",
-                cfg=f"""hdr "hdr1" == "" -> vh1;""",
+                cfg=f'hdr "hdr1" == "" -> vh1;',
             ),
         ]
     )
-    def test(self, name, cfg):
+    async def test(self, name, cfg):
         self.oops_ignore = ["ERROR"]
 
         tempesta = self.get_tempesta()
         tempesta.config.defconfig = tempesta.config.defconfig % cfg
 
-        try:
-            self.start_tempesta()
-            err_found = False
-        except Exception:
-            err_found = self.loggers.dmesg.find(
-                "ERROR: configuration parsing error:",
-                cond=dmesg.amount_positive,
-            )
-        self.assertTrue(err_found, "Tempesta started successfully, but failure expected")
+        with self.assertRaises(
+            error.ProcessBadExitStatusException,
+            msg="Tempesta started successfully with invalid config. See dmesg.",
+        ):
+            await self.start_tempesta()
+        await self.loggers.dmesg.find(
+            "ERROR: configuration parsing error:",
+            cond=dmesg.amount_positive,
+        )
