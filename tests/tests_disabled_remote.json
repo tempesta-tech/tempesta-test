@@ -105,21 +105,17 @@
             "name": "tests.frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run on remote setup. Local only."
         },
-	    {
-            "name": "tests.stress.test_stress.TestContinuationFlood",
-            "reason": "Disabled by test issue #817"
-        },
         {
             "name": "tests.stress.test_stress.H2LoadStressMTU80",
-            "reason": "Disabled by test issue #817"
+            "reason": "Disabled by test issue #816"
         },
         {
             "name": "tests.stress.test_stress.TlsWrkStressMTU80",
-            "reason": "Disabled by test issue #817"
+            "reason": "Disabled by test issue #816"
         },
         {
             "name": "tests.stress.test_stress.WrkStressMTU80",
-            "reason": "Disabled by test issue #817"
+            "reason": "Disabled by test issue #816"
         }
     ]
 }
