@@ -221,9 +221,7 @@ class TempestaTest(WaitUntilAsserts, unittest.TestCase):
     def __create_client_curl(self, client, interface):
         # extract arguments that are supported by cURL client
         kwargs = {k: client[k] for k in curl_client.CurlArguments.get_arg_names() if k in client}
-        kwargs["addr"] = self.__get_server_addr(
-            client,
-        )
+        kwargs["addr"] = self.__get_server_addr(client)
         kwargs["cmd_args"] = fill_template(client.get("cmd_args", ""), client)
         kwargs.setdefault("curl_iface", interface)
         curl = curl_client.CurlClient(**kwargs)
