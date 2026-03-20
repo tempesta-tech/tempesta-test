@@ -212,7 +212,7 @@ class DeproxyTestH2(tester.TempestaTest):
         client.make_request(client.create_request(method="GET", headers=[], uri="/large.txt"))
         self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
         self.assertIsNotNone(
-            client.active_responses.get(1, None),
+            client._active_responses.get(1, None),
             "`wait_for_headers_frame` returned True, "
             "but client did not add a new response to buffer.",
         )
@@ -463,10 +463,9 @@ server ${server_ip}:8000;
         request = ["GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" for _ in range(messages)]
 
         client.make_requests(request, pipelined=True)
-        client.valid_req_num = messages
         await client.wait_for_response(timeout=3)
 
-        self.assertEqual(client.nrreq, 1, "The estimated number of requests does not match.")
+        self.assertEqual(client._nrreq, 1, "The estimated number of requests does not match.")
         self.assertEqual(len(client.responses), messages)
         for res in client.responses:
             self.assertEqual(res.status, "200")

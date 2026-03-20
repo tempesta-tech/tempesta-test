@@ -631,8 +631,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
                 ).serialize(),
                 expect_response=False,
             )
-        client.valid_req_num += count
-        self.assertTrue(await client.wait_for_response(timeout))
+        self.assertTrue(await client.wait_for_response(timeout, n=count))
         self.assertFalse(client.connection_is_closed)
 
         for i in range(count):
