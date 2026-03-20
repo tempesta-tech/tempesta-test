@@ -946,7 +946,7 @@ class TestFramePayloadLength(H2Base):
     """
 
     @staticmethod
-    async def __make_request(client, data: bytes):
+    def init_h2_connection(client) -> None:
         # Create stream for H2Connection to escape error
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
         stream = client.init_stream_for_send(client.stream_id)
@@ -954,8 +954,6 @@ class TestFramePayloadLength(H2Base):
 
         # add method in list to escape IndexError
         client.methods.append("POST")
-        client.send_bytes(data, True)
-        await client.wait_for_response(1)
 
     async def test_small_frame_payload_length(self):
         await self.start_all_services()
@@ -964,12 +962,14 @@ class TestFramePayloadLength(H2Base):
         # Tempesta and deproxy must save headers in dynamic table.
         await client.send_request(self.get_request + [("asd", "qwe")], "200")
 
+        self.init_h2_connection(client)
         # Tempesta return 200 response because extra bytes will be ignored.
-        await self.__make_request(
-            client,
+        client.send_bytes(
             # header count - 5, headers - 8.
             b"\x00\x00\x05\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe\xbe\xbe\xbe",
+            expect_response=True,
         )
+        await client.wait_for_response(strict=True)
 
         client.stream_id += 2
         client.make_request(self.get_request)
@@ -985,13 +985,13 @@ class TestFramePayloadLength(H2Base):
         # Tempesta and deproxy must save headers in dynamic table.
         await client.send_request(self.get_request + [("asd", "qwe")], "200")
 
+        self.init_h2_connection(client)
         # Tempesta does not return response because it does not receive all bytes.
         # Therefore, client must not wait for response.
-        client.valid_req_num = 0
-        await self.__make_request(
-            client,
+        client.send_bytes(
             # header count - 7, headers - 5.
             b"\x00\x00\x07\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe",
+            expect_response=False,
         )
 
         client.stream_id += 2
@@ -1007,9 +1007,11 @@ class TestFramePayloadLength(H2Base):
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
 
+        self.init_h2_connection(client)
         # send headers frame with stream_id = 1, header count = 3
         # and headers bytes - \x09\x02\x00 (invalid bytes)
-        await self.__make_request(client, b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00")
+        client.send_bytes(b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00", expect_response=True)
+        await client.wait_for_response(strict=True)
 
         self.assertEqual(client.last_response.status, "400")
         self.assertTrue(await client.wait_for_connection_close())

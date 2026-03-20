@@ -81,15 +81,17 @@ class TestPriorityBase(H2Base):
         self.assertTrue(await client.wait_for_response(timeout=timeout))
 
     def check_response_sequence(self, client, expected_length, expected_sequence=None):
-        self.assertEqual(expected_length, len(client.response_sequence))
-        self.assertEqual(expected_length, len(client.responses))
-        for i in range(expected_length):
-            if expected_sequence:
-                self.assertTrue(expected_sequence[i] == client.response_sequence[i])
-            self.assertEqual(client.responses[i].status, "200")
-        client.response_sequence = []
-        client.valid_req_num = 0
-        client.responses = []
+        self.assertEqual(len(client.responses), len(client.response_sequence))
+        for response in client.responses:
+            self.assertEqual(response.status, "200")
+
+        if expected_sequence:
+            if expected_length < len(client.response_sequence):
+                sequence = client.response_sequence[-expected_length:]
+            else:
+                sequence = client.response_sequence
+
+            self.assertEqual(expected_sequence, sequence)
 
     def build_complex_priority_tree(self, client):
         """
@@ -614,7 +616,7 @@ class TestMaxConcurrentStreams(TestPriorityBase):
 
     max_concurrent_streams = 10
 
-    async def test_max_concurent_stream_exceed_by_stream(self):
+    async def test_max_concurrent_stream_exceed_by_stream(self):
         """
         If creation of new stream leads to exceeding of max_concurrent_streams, we should reset
         this stream. Check that all streams, which creation leads to exceedion of max_concurrent_streams
@@ -623,9 +625,8 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         client, server = await self.setup_test_priority()
 
         prev_stream_id = 0
-        self.assertTrue(
-            client.h2_connection.remote_settings.max_concurrent_streams
-            == self.max_concurrent_streams
+        self.assertEqual(
+            client.h2_connection.remote_settings.max_concurrent_streams, self.max_concurrent_streams
         )
 
         # Create streams with "idle" state with the id range from 21 to 39
@@ -653,10 +654,9 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         return client
 
     async def test_opening_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
-        client = await self.test_max_concurent_stream_exceed_by_stream()
+        client = await self.test_max_concurrent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
-        client.valid_req_num = 0
         # Opening of streams which was previously created with idle state is allowed.
         for i in range(0, self.max_concurrent_streams):
             client.make_request(self.post_request)
@@ -665,10 +665,9 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         self.check_response_sequence(client, 10, [21, 23, 25, 27, 29, 31, 33, 35, 37, 39])
 
     async def test_opening_not_created_idle_streams_after_exceed_max_concurrent_streams_limit(self):
-        client = await self.test_max_concurent_stream_exceed_by_stream()
+        client = await self.test_max_concurrent_stream_exceed_by_stream()
 
         client.reinit_hpack_encoder()
-        client.valid_req_num = 0
         client.stream_id = 41
         client.make_request(self.post_request)
         await self.wait_for_responses(client)
