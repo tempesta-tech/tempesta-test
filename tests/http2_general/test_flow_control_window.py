@@ -31,8 +31,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
     async def _wait_data_frame_and_check_response(
         self, client, response_body: str, valid_req_num: int
     ):
-        client.valid_req_num = valid_req_num  # change the expected number of responses
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response(strict=True, n=valid_req_num)
 
         self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
         self.assertEqual(
@@ -83,7 +82,6 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         """
         client, server = await self._initiate_client_and_server(response=(response_str))
 
-        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
         client.make_request(self.get_request)
         self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
 
@@ -118,7 +116,6 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             )
         )
 
-        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
         # send request and wait for an only HEADERS frame for stream 1
         client.make_request(self.get_request)
         self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
@@ -193,7 +190,6 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             )
         )
 
-        client.last_response_buffer = bytes()  # clearing the buffer after exchanging settings
         client.make_request(self.get_request)
         self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
 
