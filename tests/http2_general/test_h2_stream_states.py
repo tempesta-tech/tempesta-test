@@ -138,7 +138,9 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             self.assertTrue(await client.wait_for_reset_stream(stream_id=1))
 
         client.stream_id += 2
-        await client.send_request(self.get_request, "200")
+        client.make_request(self.get_request)
+        await client.wait_for_response(strict=True, n=1)
+        self.assertTrue(client.last_response.status, "200")
 
     async def test_priority_frame_in_half_closed_state(self):
         await self.__base_scenario(frame=PriorityFrame(stream_id=1))
