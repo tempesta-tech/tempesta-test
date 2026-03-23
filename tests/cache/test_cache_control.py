@@ -296,6 +296,20 @@ class RequestMaxAgeCached(TestCacheControl, SingleTest):
     should_be_cached = True
 
 
+class RequestMaxAgeCachedUseSecondDirective(TestCacheControl, SingleTest):
+    request_headers = {"Cache-control": "max-age=1, max-age=5"}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = True
+
+
+class RequestMaxAgeNoCachedUseSecondDirective(TestCacheControl, SingleTest):
+    request_headers = {"Cache-control": "max-age=5, max-age=1"}
+    response_headers = {}
+    sleep_interval = 2
+    should_be_cached = False
+
+
 # max-age, max-stale
 class RequestMaxAgeMaxStaleNotCached(TestCacheControl, SingleTest):
     request_headers = {"Cache-control": "max-age=5, max-stale=1"}
