@@ -1629,6 +1629,123 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             "400",
         )
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="max-age",
+                cache_control="max-age=4",
+                cache_control_ignored="max-age=1",
+                response_headers={},
+                sleep_interval=2,
+                should_be_cached=True,
+            ),
+            marks.Param(
+                name="max-stale",
+                cache_control="max-stale=4",
+                cache_control_ignored="max-stale=1",
+                response_headers={"Cache-control": "max-age=1"},
+                sleep_interval=3,
+                should_be_cached=True,
+            ),
+            marks.Param(
+                name="min-fresh",
+                cache_control="min-fresh=9",
+                cache_control_ignored="min-fresh=1",
+                response_headers={"Cache-control": "max-age=10"},
+                sleep_interval=2,
+                should_be_cached=False,
+            ),
+        ]
+    )
+    async def test_if_many_cache_control(
+        self,
+        name,
+        cache_control,
+        cache_control_ignored,
+        response_headers,
+        sleep_interval,
+        should_be_cached,
+    ):
+        """
+        RFC 9111 does not explicitly define the behavior of caches when multiple
+        identical Cache-Control directives are present within a single request
+        (e.g., "Cache-Control: max-age=1, max-age=5").
+        Empirical testing of the Apache HTTP Server indicates that, in such cases,
+        it prioritizes the last occurrence of the directive (in this example,
+        max-age=5). We follow the same behavior.
+        """
+        await self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        response_template = (
+            "HTTP/1.1 200 OK\r\n"
+            + "Server-id: deproxy\r\n"
+            + "Content-Length: 0\r\n"
+            + "".join(
+                "{0}: {1}\r\n".format(header, "" if header_value is None else header_value)
+                for header, header_value in response_headers.items()
+            )
+        )
+
+        server.set_response(response_template + f"Date: {HttpMessage.date_time_string()}\r\n\r\n")
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_cache["config"])
+        tempesta.reload()
+
+        await client.send_request(
+            client.create_request(method="GET", headers=[("cache-control", cache_control)]),
+            "200",
+        )
+
+        if sleep_interval:
+            await asyncio.sleep(sleep_interval)
+
+        await client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("cache-control", cache_control),
+                    ("a", '"aaaaaaaaaa"'),
+                    ("cache_control", cache_control_ignored),
+                    ("cache-control", cache_control),
+                ],
+            ),
+            "200",
+        )
+        if should_be_cached:
+            self.assertEqual(1, len(server.requests), "response not cached as expected")
+        else:
+            self.assertEqual(2, len(server.requests), "response is cached while it should not be")
+
+    async def test_if_many_cache_control_stale_if_error(self):
+        """
+        Same as previous but, just check that we don't catch BUG
+        during restoring stale-if-error from cache.
+        """
+        await self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        cache_control = "stale-if-error=30"
+        await client.send_request(
+            client.create_request(method="GET", headers=[("cache-control", cache_control)]),
+            "200",
+        )
+
+        await client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("cache-control", cache_control),
+                    ("a", '"aaaaaaaaaa"'),
+                    ("cache-control", cache_control),
+                ],
+            ),
+            "200",
+        )
+
     async def test_big_header_and_header_from_hpack(self):
         """
         Tempesta FW allocates extra memory during hpack
