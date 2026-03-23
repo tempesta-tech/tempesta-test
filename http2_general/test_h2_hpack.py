@@ -26,6 +26,11 @@ from http2_general.helpers import H2Base
 from test_suite import marks
 
 
+def randomword(length):
+    letters = string.ascii_lowercase
+    return "".join(random.choice(letters) for i in range(length))
+
+
 class TestHpackBase(H2Base):
     def change_header_table_size(self, client, new_table_size):
         client.send_settings_frame(header_table_size=new_table_size)
@@ -1589,3 +1594,234 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         # Request which was previously successful is blocked.
         self.__send_add_check_req_with_huffman(client, first_request, huffman, "403")
+
+    def test_if_many_if_modify_since_from_hpack(self):
+        """
+        Check that we drop request with several `if-modify-since` headers
+        during restoring it from hpack table.
+        RFC 7230 3.2.2:
+        A sender MUST NOT generate multiple header fields with the same field
+        name in a message unless either the entire field value for that
+        header field is defined as a comma-separated list [i.e., #(values)]
+        or the header field is a well-known exception.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            client.create_request(
+                method="GET", headers=[("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT")]
+            ),
+            "200",
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    ("if-none-match", '"asdfqwerty"'),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                ],
+            ),
+            "400",
+        )
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="max-age",
+                cache_control="max-age=4",
+                cache_control_ignored="max-age=1",
+                response_headers={},
+                sleep_interval=2,
+                expected_requests_to_server=1,
+            ),
+            marks.Param(
+                name="max-stale",
+                cache_control="max-stale=4",
+                cache_control_ignored="max-stale=1",
+                response_headers={"Cache-control": "max-age=1"},
+                sleep_interval=3,
+                expected_requests_to_server=1,
+            ),
+            marks.Param(
+                name="min-fresh",
+                cache_control="min-fresh=9",
+                cache_control_ignored="min-fresh=1",
+                response_headers={"Cache-control": "max-age=10"},
+                sleep_interval=2,
+                expected_requests_to_server=2,
+            ),
+        ]
+    )
+    def test_if_many_cache_control(
+        self,
+        name,
+        cache_control,
+        cache_control_ignored,
+        response_headers,
+        sleep_interval,
+        expected_requests_to_server,
+    ):
+        """
+        RFC 9111 does not explicitly define the behavior of caches when multiple
+        identical Cache-Control directives are present within a single request
+        (e.g., "Cache-Control: max-age=1, max-age=5").
+        Empirical testing of the Apache HTTP Server indicates that, in such cases,
+        it prioritizes the last occurrence of the directive (in this example,
+        max-age=5). We follow the same behavior.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        response_template = (
+            "HTTP/1.1 200 OK\r\n"
+            + "Server-id: deproxy\r\n"
+            + "Content-Length: 0\r\n"
+            + "".join(
+                "{0}: {1}\r\n".format(header, "" if header_value is None else header_value)
+                for header, header_value in response_headers.items()
+            )
+        )
+
+        server.set_response(response_template + f"Date: {HttpMessage.date_time_string()}\r\n\r\n")
+
+        tempesta = self.get_tempesta()
+        tempesta.config.set_defconfig(self.tempesta_cache["config"])
+        tempesta.reload()
+
+        client.send_request(
+            client.create_request(method="GET", headers=[("cache-control", cache_control)]),
+            "200",
+        )
+
+        time.sleep(sleep_interval)
+
+        """
+        Send request with several cache control headers (One of these
+        headers will be restored from hpack dynamic table). Check that
+        header will be correctly restored and we use last cach-control
+        directive.
+        """
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("cache-control", cache_control),
+                    ("cache_control", cache_control_ignored),
+                    ("cache-control", cache_control),
+                ],
+            ),
+            "200",
+        )
+        self.assertEqual(
+            expected_requests_to_server, len(server.requests), "Invalid count of requests"
+        )
+
+    def test_if_many_cache_control_stale_if_error(self):
+        """
+        Same as `test_if_many_cache_control` but, just check that we don't
+        catch BUG during restoring stale-if-error from cache.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        cache_control = "stale-if-error=30"
+        client.send_request(
+            client.create_request(method="GET", headers=[("cache-control", cache_control)]),
+            "200",
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("cache-control", cache_control),
+                    ("cache-control", cache_control),
+                ],
+            ),
+            "200",
+        )
+
+    def test_big_header_and_header_from_hpack(self):
+        """
+        Tempesta FW allocates extra memory during hpack
+        decoding. This test checks how Tempesta FW uses
+        this memory for decoding headers from hpack
+        dynamic table.
+        """
+        self.start_all_services()
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    ("b", "aaaaaaaaaa"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("p", "p" * 500),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                ],
+            ),
+            "200",
+        )
+
+        client.send_request(
+            client.create_request(
+                method="GET",
+                headers=[
+                    (randomword(10), randomword(3000)),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("b", "aaaaaaaaaa"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("q", "qqqqqqqqqqqqqqq"),
+                    ("p", "p" * 500),
+                    ("if-modified-since", "Sat, 29 Oct 2222 19:43:31 GMT"),
+                    (randomword(10), randomword(100)),
+                ],
+            ),
+            "200",
+        )
