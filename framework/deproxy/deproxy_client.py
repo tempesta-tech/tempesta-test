@@ -553,8 +553,8 @@ class DeproxyClientH2(BaseDeproxyClient):
     def req_body_buffers(self) -> List[ReqBodyBuffer]:
         return self._req_body_buffers
 
-    def run_start(self):
-        super(DeproxyClientH2, self).run_start()
+    async def run_start(self):
+        await super(DeproxyClientH2, self).run_start()
         self.update_initial_settings()
 
     def reinit_hpack_encoder(self):

@@ -119,7 +119,7 @@ class BaseClient(stateful.Stateful, metaclass=abc.ABCMeta):
                 + "Queue is empty and timeout is over."
             )
 
-    def run_start(self):
+    async def run_start(self):
         """Run client"""
         self.prepare()
         self.proc = multiprocessing.Process(target=_run_client, args=(self, self.resq))
