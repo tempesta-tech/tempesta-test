@@ -129,7 +129,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
         await self.set_frang_config(frang_config="http_strict_host_checking true;")
 
         client = self.get_client("deproxy-2")
-        client.start()
+        await client.start()
         client.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
         await client.wait_for_response()
         await self.check_response(client, status_code="403", warning_msg=WARN_PORT)
@@ -142,7 +142,7 @@ class FrangHostRequiredTestCase(FrangTestCase):
         await self.set_frang_config(frang_config="http_strict_host_checking true;")
 
         client = self.get_client("deproxy-2")
-        client.start()
+        await client.start()
         client.make_request(
             "GET http://tempesta-tech.com:80/ HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n"
         )
@@ -230,7 +230,7 @@ block_action error reply;
         """Test with header `host`, success."""
         await self.set_frang_config(frang_config="http_strict_host_checking true;")
         client = self.get_client("deproxy-1")
-        client.start()
+        await client.start()
         client.parsing = False
 
         first_headers = [(":authority", "localhost"), (":path", "/")]
@@ -318,7 +318,7 @@ block_action error reply;
         await self.set_frang_config(frang_config="http_strict_host_checking true;")
 
         client = self.get_client("deproxy-2")
-        client.start()
+        await client.start()
         client.make_request(
             [
                 (":scheme", "https"),

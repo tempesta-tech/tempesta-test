@@ -49,7 +49,7 @@ class TestForwardedBase(tester.TempestaTest, base=True):
                     request=client.create_request(method="GET", headers=[("Forwarded", param)]),
                     expected_status_code=self.response_status,
                 )
-                client.restart()
+                await client.restart()
 
 
 class TestForwardedBaseAllowed(TestForwardedBase):
@@ -149,4 +149,4 @@ class TestForwardedBaseMalicious(TestForwardedBase):
                         ),
                         expected_status_code=self.response_status,
                     )
-                    client.restart()
+                    await client.restart()

@@ -103,21 +103,13 @@ class X509(tester.TempestaTest):
         """
         Tempesta normally loads a certificate, but fails on TLS handshake.
         """
-        deproxy_srv = self.get_server("deproxy")
-        deproxy_srv.start()
-
         # We have to copy the certificate and key on our own.
         cert_path, key_path = self.cgen.get_file_paths()
         remote.tempesta.copy_file(cert_path, self.cgen.serialize_cert().decode())
         remote.tempesta.copy_file(key_path, self.cgen.serialize_priv_key().decode())
-        await self.start_tempesta()
 
         # Collect warnings before start w/ a bad certificate.
-        self.start_all_clients()
-        self.deproxy_manager.start()
-        self.assertTrue(
-            await deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT), "Cannot start Tempesta"
-        )
+        await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = await client.wait_for_response(timeout=X509.TIMEOUT)
@@ -439,11 +431,8 @@ class TlsCertSelect(tester.TempestaTest):
         self.gen_cert("tempesta_ec")
         self.gen_cert("tempesta_rsa", "rsa")
         self.gen_cert("tempesta_global", "rsa")
-        deproxy_srv = self.get_server("0")
-        deproxy_srv.start()
-        await self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(await deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
+
+        await self.start_all_services(client=False)
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
         res = self.get_tls_handshake().do_12()
@@ -869,10 +858,10 @@ http {
         self.set_first_config()
         await self.start_all_services(client=False)
         wrk = self.get_client("wrk")
-        wrk.start()
+        await wrk.start()
         self.config_changer(10)
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
         self.assertNotEqual(
             0,
             wrk.requests,

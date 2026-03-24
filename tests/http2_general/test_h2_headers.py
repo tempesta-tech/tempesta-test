@@ -889,7 +889,7 @@ class TestTrailers(H2Base):
             ("user-agent", "Mozilla/5.0 (Windows NT 6.1;) Gecko/20100101 Firefox/47.0"),
         ]:
             with self.subTest(msg=f"The request with trailer - `{header[0]}: {header[1]}`"):
-                client.restart()
+                await client.restart()
                 await self.initiate_h2_connection(client)
                 client.init_stream_for_send(1)
                 self.__send_headers_and_data_frames(client)
@@ -1070,17 +1070,17 @@ class CurlTestBase(tester.TempestaTest):
     async def run_test(self, served_from_cache=False):
         curl = self.get_client("curl")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         self.assertIn("200", curl.response_msg)
 
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         self.assertIn("200", curl.response_msg)
 
         nginx = self.get_server("nginx")
@@ -1096,12 +1096,12 @@ class CurlTestBase(tester.TempestaTest):
 
         await self.start_all_services()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         self.assertIn("200", curl.response_msg)
 
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         self.assertIn("200", curl.response_msg)
 
         srv = self.get_server("deproxy")
@@ -1184,15 +1184,15 @@ return 200;
     async def test(self, served_from_cache=True):
         curl = self.get_client("curl")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(curl)
         self.assertEqual(
             0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
         )
-        curl.stop()
+        await curl.stop()
 
         setcookie_count = 0
         lines = curl.stderr.decode().split("\n")
@@ -1202,7 +1202,7 @@ return 200;
                 self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
         self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
 
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(curl)
         self.assertEqual(
             0, curl.returncode, msg=("Curl return code is not 0 (%d)." % (curl.returncode))
@@ -1714,7 +1714,7 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
 
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         for status in self.statuses:
             with self.subTest(status=status):

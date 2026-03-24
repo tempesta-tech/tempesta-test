@@ -313,9 +313,9 @@ class AllDefaults(tester.TempestaTest):
         else:
             client_1.options[0] += ' -H "Host: example.com"'
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.start_all_clients()
+        await self.start_all_clients()
         await self.wait_while_busy(client_1, client_2)
 
         servers = self.get_servers()

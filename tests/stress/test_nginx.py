@@ -88,15 +88,15 @@ class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
     async def test(self):
         # Start servers, but not Tempesta
         self.create_cert()
-        self.start_all_servers()
+        await self.start_all_servers()
         self.deproxy_manager.start()
         wrk = self.get_client("wrk")
         wrk.set_script("foo", content='wrk.method="GET"')
         wrk.timeout = 0
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk, timeout=20)
-        wrk.stop()
+        await wrk.stop()
 
         self.assertGreater(wrk.statuses[200], 0)
 

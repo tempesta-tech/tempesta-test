@@ -249,7 +249,7 @@ class TestFrangRequestRateBurst(FrangTestCase):
         await self.start_all_services(client=False)
 
         client = self.get_client(self.client_name)
-        client.start()
+        await client.start()
 
         start_time = time.monotonic()
         for _ in range(req_n):
@@ -286,7 +286,7 @@ class TestFrangRequestRateBurst(FrangTestCase):
         await self.start_all_services(client=False)
 
         client = self.get_client(self.client_name)
-        client.start()
+        await client.start()
 
         start_time = time.monotonic()
         for _ in range(req_n):

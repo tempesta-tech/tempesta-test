@@ -103,7 +103,7 @@ block_action attack drop;
         self.assertTrue(c4.conn_is_active)
         await c4.send_request(self.GOOD_REQ, "200")
         # New clients with blocked IP won't be accepted
-        c5.start()
+        await c5.start()
         # don't adjust timeout. At this moment Tempesta doesn't accepts SYN from blocked client
         # and network not heavy loaded, thus doesn't make sense to wait 60 seconds on tcp
         # segmentation, 5 sec must be enough
@@ -145,14 +145,14 @@ block_action attack drop;
         self.assertTrue(await c2.wait_for_connection_close(timeout=2))
         # New clients with blocked IP won't be accepted
         # wait 3 seconds timeout - client is blocked
-        c2.restart()
+        await c2.restart()
         self.assertFalse(await c2.wait_for_connection_open(timeout=3, adjust_timeout=False))
         self.assertFalse(c2.conn_is_active)
         # Wait 12 seconds to have in most fastest case atleast 12 seconds wait that greater
         # than block duration
         await asyncio.sleep(12)
 
-        c2.restart()
+        await c2.restart()
         # block duration is 2 seconds, thus expect successful connection
         await c2.send_request(self.GOOD_REQ, "200")
 
@@ -172,8 +172,8 @@ block_action attack drop;
 
         await self.sniffer.start()
         await self.start_all_services(client=False)
-        c1.start()
-        c2.start()
+        await c1.start()
+        await c2.start()
 
         # Blocking is off: clients with the same IPs
         # handled separately
@@ -222,12 +222,12 @@ block_action attack drop;
         await self.sniffer.start()
         await self.start_all_services(client=False)
         for cl in [c1, c2, c3]:
-            cl.start()
+            await cl.start()
             self.assertTrue(await cl.wait_for_connection_open())
 
         await c2.send_request(self.REQ, "200")
         # On connection to c4 client - block expected
-        c4.start()
+        await c4.start()
         self.assertTrue(await c4.wait_for_connection_close(timeout=2))
         self.assertFalse(c4.conn_is_active)
 
@@ -238,7 +238,7 @@ block_action attack drop;
         self.assertTrue(c3.conn_is_active)
 
         # New clients with blocked IP won't be accepted
-        c5.start()
+        await c5.start()
         # don't adjust timeout. At this moment Tempesta doesn't accepts SYN from blocked client
         # and network not heavy loaded, thus doesn't make sense to wait 60 seconds on tcp
         # segmentation, 5 sec must be enough
@@ -264,14 +264,14 @@ block_action attack drop;
         await self.sniffer.start()
         await self.start_all_services(client=False)
         for cl in [c1, c2, c3]:
-            cl.start()
+            await cl.start()
             await cl.wait_for_connection_open(strict=True)
 
         # Reset all current clients with the same IPs
         # New clients with blocked IP won't be accepted
-        c4.start()
+        await c4.start()
         for cl in [c1, c2, c4]:
-            cl.start()
+            await cl.start()
             await cl.wait_for_connection_close(strict=True)
 
         # Client with different IP wasn't blocked
@@ -283,7 +283,7 @@ block_action attack drop;
         # ip will be blocked. But we can't be sure that it being blocked or it just disconnected, to
         # be sure that ip is blocked we do this connection attempt. At this moment connection will
         # not be established and SYN from client "c5" will be dropped
-        c5.start()
+        await c5.start()
         self.assertTrue(
             await c5.wait_for_connection_close(timeout=3, adjust_timeout=False),
             "Client has not been blocked",
@@ -293,7 +293,7 @@ block_action attack drop;
         # than block duration
         await asyncio.sleep(11)
 
-        c4.restart()
+        await c4.restart()
         await c4.send_request(self.REQ, "200")
 
         self.sniffer.stop()
@@ -314,7 +314,7 @@ block_action attack drop;
         await asyncio.sleep(self.timeout)
         await self.start_all_services(client=False)
         for cl in [c1, c2, c3]:
-            cl.start()
+            await cl.start()
             # The last connection triggers block by concurrent_tcp_connections.
             await cl.wait_for_connection_open()
 

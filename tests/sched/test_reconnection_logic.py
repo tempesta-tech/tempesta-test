@@ -103,7 +103,7 @@ http_chain {
             "TempestaFW first send a request to the backup server.",
         )
 
-        primary_server.stop()
+        await primary_server.stop()
 
         await client.send_request(request, "200")
         self.assertTrue(
@@ -111,7 +111,7 @@ http_chain {
             "TempestaFW doesn't send a request to the backup server when the primary server is down.",
         )
 
-        primary_server.start()
+        await primary_server.start()
         self.assertTrue(
             await primary_server.wait_for_connections(),
             "TempestaFW doesn't reconnect to the primary server.",

@@ -126,7 +126,7 @@ class BindToServer(tester.TempestaTest):
 
         await self.start_all_services()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.__check_load_distribution_between_servers()
 

@@ -101,7 +101,7 @@ block_action attack reply;
 
         client = self.get_client("deproxy-1")
         client.parsing = False
-        client.start()
+        await client.start()
         for request in requests:
             if isinstance(client, DeproxyClientH2):
                 client.make_request(request, huffman=huffman)

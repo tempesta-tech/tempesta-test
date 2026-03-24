@@ -177,9 +177,9 @@ class TestCurlClient(tester.TempestaTest):
         await self.start_all_services(client=False)
 
     async def get_response(self, client) -> CurlResponse:
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         return client.last_response
 
     async def test_check_curl_binary_version(self):

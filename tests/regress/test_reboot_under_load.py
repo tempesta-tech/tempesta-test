@@ -134,10 +134,10 @@ class TestRebootUnderLoad(tester.TempestaTest):
         await asyncio.sleep(self.warm_timeout)
         for i in range(self.restart_cycles):
             await asyncio.sleep(self.restart_timeout)
-            tempesta.stop()
+            await tempesta.stop()
             # Run random command on remote node to see if it is still alive.
             remote.tempesta.run_cmd("uname")
-            tempesta.start()
+            await tempesta.start()
             self._check_tfw_log()
 
     async def make_curl_request(self, curl_client_id: str) -> str:
@@ -151,14 +151,14 @@ class TestRebootUnderLoad(tester.TempestaTest):
             str: server response to the request as string
         """
         client = self.get_client(curl_client_id)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
         self.assertEqual(
             0,
             client.returncode,
             msg=f"Curl return code is not 0. Received - {client.returncode}.",
         )
-        client.stop()
+        await client.stop()
         return client.response_msg
 
     async def test_reboot_under_load(self) -> None:
@@ -167,7 +167,7 @@ class TestRebootUnderLoad(tester.TempestaTest):
 
         # launch h2load
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         # sending curl requests before reboot Tempesta
         response = await self.make_curl_request("curl")
@@ -181,7 +181,7 @@ class TestRebootUnderLoad(tester.TempestaTest):
 
         # h2load stop
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     def _check_tfw_log(self) -> None:

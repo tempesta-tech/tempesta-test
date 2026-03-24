@@ -241,13 +241,13 @@ class StickySessionsPersistense(StickySessions):
         # session.
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
-        srv.stop()
+        await srv.stop()
         # Remove after 2111 in Tempesta will be implemented
         await asyncio.sleep(1)
         req = client.create_request(method="GET", headers=[("cookie", f"{cookie[0]}={cookie[1]}")])
         for _ in range(ATTEMPTS):
             await client.send_request(req, "502")
-        srv.start()
+        await srv.start()
         self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
@@ -390,7 +390,7 @@ class StickySessionsFailover(StickySessions):
 
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
-        srv.stop()
+        await srv.stop()
         # Remove after 2111 in Tempesta will be implemented
         await asyncio.sleep(1)
 
@@ -399,7 +399,7 @@ class StickySessionsFailover(StickySessions):
             failovered_s_id, ["server-1", "server-2"], "session is pinned to unexpected server"
         )
 
-        srv.start()
+        await srv.start()
         self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
@@ -420,9 +420,9 @@ class StickySessionsFailover(StickySessions):
         await self.client_send_next_req(client, cookie)
 
         srv1 = self.get_server("server-1")
-        srv1.stop()
+        await srv1.stop()
         srv2 = self.get_server("server-2")
-        srv2.stop()
+        await srv2.stop()
 
         # We need this sleep to be shure that srv1 and srv2 is
         # really stopped and all connections is closed.
@@ -434,8 +434,8 @@ class StickySessionsFailover(StickySessions):
             failovered_s_id, ["server-3", "server-4"], "session is pinned to unexpected server"
         )
 
-        srv1.start()
-        srv2.start()
+        await srv1.start()
+        await srv2.start()
         self.assertTrue(await srv1.wait_for_connections(timeout=3), "Can't restart backend server")
         self.assertTrue(await srv2.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
