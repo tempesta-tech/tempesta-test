@@ -82,7 +82,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
         await self.start_all_services(client=False)
-        client.start()
+        await client.start()
 
         server_conn_list_before = set(server.connections)
         request = client.create_request(method="GET", headers=[])
@@ -116,7 +116,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
         await self.start_all_services(client=False)
-        client.start()
+        await client.start()
 
         server_conn_list_before = set(server.connections)
         request = client.create_request(method="POST", headers=[])

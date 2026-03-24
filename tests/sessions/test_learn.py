@@ -177,7 +177,7 @@ class LearnSessions(LearnSessionsBase):
         s_id, cookie = await self.client_send_first_req(client)
         srv = self.get_server(s_id)
         self.assertIsNotNone(srv, "Backend server is not known")
-        srv.stop()
+        await srv.stop()
         # Remove after 2111 in Tempesta will be implemented
         await asyncio.sleep(1)
         for _ in range(ATTEMPTS):
@@ -194,7 +194,7 @@ class LearnSessions(LearnSessionsBase):
         self.assertEqual(len(client.responses), ATTEMPTS + 1)
         for resp in client.responses[1:]:
             self.assertEqual(resp.status, "502", "unexpected response status code")
-        srv.start()
+        await srv.start()
         self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)

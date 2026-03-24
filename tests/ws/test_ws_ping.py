@@ -361,7 +361,7 @@ class TestWssPingProxy(BaseWsPing):
         remote.server.copy_file(cert_generator.f_key, cert_generator.serialize_priv_key().decode())
 
     async def test(self):
-        self.start_all_servers()
+        await self.start_all_servers()
         await self._test(tempesta_port=82, is_ssl=True)
 
 
@@ -427,7 +427,7 @@ class TestWssStress(BaseWsPing):
         for i in range(4000):
             results[await self.ws_ping_stress(82, True)] += 1
             if i in self.fibo(4000):
-                self.get_tempesta().restart()
+                await self.get_tempesta().restart()
         self.assertGreater(
             results[http.HTTPStatus.OK],
             results[http.HTTPStatus.GATEWAY_TIMEOUT],
@@ -564,7 +564,7 @@ class TestRestartOnUpgrade(BaseWsPing):
         for i in range(1500):
             results[await self.ws_ping_stress(81, False)] += 1
             if i in self.fibo(1500):
-                self.get_tempesta().restart()
+                await self.get_tempesta().restart()
         self.assertGreater(
             results[http.HTTPStatus.OK],
             results[http.HTTPStatus.GATEWAY_TIMEOUT],

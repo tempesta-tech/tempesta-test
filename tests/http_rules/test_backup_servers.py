@@ -97,13 +97,13 @@ http_chain {
         await client.send_request(request, "200")
         got_requests = len(primary_server.requests)
 
-        primary_server.stop()
+        await primary_server.stop()
         # Sleep to be shure that server is stopped and connection
         # is closed (Remove after #2111 in Tempesta)
         await asyncio.sleep(1)
         await client.send_request(request, "200")
 
-        primary_server.start()
+        await primary_server.start()
         self.assertTrue(await primary_server.wait_for_connections(3))
         await client.send_request(request, "200")
         got_requests += len(primary_server.requests)

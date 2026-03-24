@@ -275,9 +275,9 @@ frang_limits {
 
         wrk = self.get_client("wrk")
         wrk.set_script("wrk", lua)
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
 
         self.assertIn(405, wrk.statuses)
         self.assertNotIn(403, wrk.statuses)
@@ -335,9 +335,9 @@ frang_limits {
         wrk = self.get_client("wrk")
         wrk.set_script("wrk", lua_trace)
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
         self.assertNotIn(200, wrk.statuses)
         self.assertIn(405, wrk.statuses)
         self.assertGreater(wrk.statuses[405], 0)

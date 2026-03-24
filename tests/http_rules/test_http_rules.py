@@ -204,7 +204,7 @@ class TestHostBase(tester.TempestaTest):
         for step in range(3)
     ]
 
-    async def send_request_and_check_server_request(self, request: str or list, server_id: int):
+    async def send_request_and_check_server_request(self, request: str | list, server_id: int):
         await self.start_all_services()
         client = self.get_client("deproxy")
         client.parsing = False

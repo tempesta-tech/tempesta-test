@@ -73,9 +73,9 @@ class TestDockerServer(tester.TempestaTest):
         client = self.get_client("default")
         client.headers["Host"] = host
         client.set_uri(uri)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         return client.last_response
 
     async def test_request_to_server_completed(self):
@@ -122,7 +122,7 @@ class TestHealthCheck(tester.TempestaTest):
         server = self.get_server("default")
         server.cmd_args = "-c 'import time ; time.sleep(3); import hello'"
 
-        server.start()
+        await server.start()
         self.assertEqual(server.health_status, "starting")
 
         await self.start_tempesta()
@@ -135,7 +135,7 @@ class TestHealthCheck(tester.TempestaTest):
         server = self.get_server("default")
         server.cmd_args = "-c 'import time ; time.sleep(10)'"
 
-        server.start()
+        await server.start()
 
         self.assertEqual(server.health_status, "starting")
         self.assertFalse(await server.wait_for_connections(timeout=7))
@@ -146,7 +146,7 @@ class TestHealthCheck(tester.TempestaTest):
         server.options = "--health-interval 0.1s --health-cmd 'exit 0'"
         server.cmd_args = "-c 'import time ; time.sleep(10)'"
 
-        server.start()
+        await server.start()
 
         await server.wait_for_connections(timeout=1)
         self.assertEqual(server.health_status, "healthy")

@@ -860,9 +860,9 @@ class TestHpackCache(TestHpackBase):
         await self.initiate_h2_connection(client)
 
         await client.send_request(self.get_request, "200")
-        client.stop()
+        await client.stop()
 
-        client.start()
+        await client.start()
         await client.send_request(self.get_request, "200")
 
         self.assertEqual(1, len(server.requests))
@@ -1116,8 +1116,8 @@ class TestHpackBomb(TestHpackBase):
         # Max table size 4096 bytes, see RFC 7540 6.5.2
         for bomb_size in [(2**8), (2**14 - 9)]:
             with self.subTest(bomb_size=bomb_size):
-                client.stop()
-                client.start()
+                await client.stop()
+                await client.start()
                 client.make_request(
                     request=self.post_request + [HeaderTuple(b"a", b"a" * 4063)],
                     end_stream=False,
@@ -1590,7 +1590,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         # Cookie was reloaded from hpack table, count is 6 blocked.
         await self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
 
-        client.restart()
+        await client.restart()
         await self.initiate_h2_connection(client)
 
         # Request which was previously successful is blocked.

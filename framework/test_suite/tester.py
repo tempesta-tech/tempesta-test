@@ -14,17 +14,17 @@ from unittest.util import strclass
 import run_config
 from framework.deproxy import deproxy_client, deproxy_manager
 from framework.deproxy.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy.deproxy_server import deproxy_srv_factory
+from framework.deproxy.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.helpers import clickhouse, dmesg, error, remote, tf_cfg, util
 from framework.helpers.memworker import MemoryChecker
 from framework.helpers.networker import NetWorker
 from framework.helpers.tf_cfg import test_logger
 from framework.helpers.util import fill_template
-from framework.services import base_server, curl_client, external_client
+from framework.services import curl_client, external_client
 from framework.services import tempesta as tfw
 from framework.services import wrk_client
-from framework.services.docker_server import docker_srv_factory
-from framework.services.nginx_server import nginx_srv_factory
+from framework.services.docker_server import DockerServer, docker_srv_factory
+from framework.services.nginx_server import Nginx, nginx_srv_factory
 from framework.services.stateful import Stateful
 
 __author__ = "Tempesta Technologies, Inc."
@@ -282,7 +282,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid: str | int) -> base_server.BaseServer:
+    def get_server(self, sid: str | int) -> Nginx | StaticDeproxyServer | DockerServer:
         """Return client with specified id"""
         server = self.__servers.get(sid, None)
         if server is None:
@@ -347,12 +347,9 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             tfw_config=config.get("tfw_config", None),
         )
 
-    async def start_all_servers(self) -> None:
-        tasks = []
-        for sid in self.__servers:
-            srv = self.__servers[sid]
-            tasks.append(asyncio.create_task(srv.start()))
-        await asyncio.gather(*tasks)
+    async def start_all_servers(self, servers: list[Stateful] = None) -> None:
+        servers = servers or self.__servers
+        await asyncio.gather(*[asyncio.create_task(srv.start()) for srv in servers])
 
     async def start_tempesta(self):
         """Start Tempesta and wait until the initialization process finish."""
@@ -368,12 +365,9 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
-    async def start_all_clients(self):
-        tasks = []
-        for cid in self.__clients:
-            client = self.__clients[cid]
-            tasks.append(asyncio.create_task(client.start()))
-        await asyncio.gather(*tasks)
+    async def start_all_clients(self, clients: list[Stateful] = None) -> None:
+        clients = clients or self.__clients
+        await asyncio.gather(*[asyncio.create_task(client.start()) for client in clients])
 
     async def asyncSetUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't

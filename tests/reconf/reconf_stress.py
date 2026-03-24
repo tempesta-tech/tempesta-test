@@ -49,14 +49,14 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
             str: server response to the request as string
         """
         client = self.get_client(curl_client_id)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
         self.assertEqual(
             0,
             client.returncode,
             msg=(f"Curl return code is not 0. Received - {client.returncode}."),
         )
-        client.stop()
+        await client.stop()
         return client.response_msg
 
     async def make_curl_client_request(
@@ -84,14 +84,14 @@ class LiveReconfStressTestBase(tester.TempestaTest, base=True):
             for key, val in headers.items():
                 curl.headers[key] = val
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
         self.assertEqual(
             0,
             curl.returncode,
             msg=(f"Curl return code is not 0. Received - {curl.returncode}."),
         )
-        curl.stop()
+        await curl.stop()
         return curl.last_response
 
     def reload_tfw_config(

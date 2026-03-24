@@ -168,12 +168,6 @@ return 200;
         },
     ]
 
-    def wait_for_server(self, srv):
-        srv.start()
-        while srv.state != "started":
-            pass
-        srv.wait_for_connections()
-
     def run_curl(self, n=1):
         res = defaultdict(int)
         for _ in range(n):
@@ -201,8 +195,8 @@ return 200;
         )
 
         # 2
-        self.wait_for_server(back1)
-        self.wait_for_server(back2)
+        await back1.wait_for_connections()
+        await back2.wait_for_connections()
         res = self.run_curl(REQ_COUNT)
         self.assertEqual(
             list(res.values()),
@@ -211,7 +205,7 @@ return 200;
         )
 
         # 3
-        self.wait_for_server(back3)
+        await back3.wait_for_connections()
         res = self.run_curl(REQ_COUNT)
         self.assertGreater(
             res["200"],
@@ -226,7 +220,7 @@ return 200;
             res["502"],
             f"TempestaFW or server are not stable. Response statuses - {res.items()}",
         )
-        back3.stop()
+        await back3.stop()
 
 
 DEPROXY_CLIENT = {

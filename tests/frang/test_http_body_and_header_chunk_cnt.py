@@ -30,7 +30,7 @@ class HttpHeaderChunkCnt(FrangTestCase):
 
         client = self.get_client("deproxy-1")
         client.parsing = False
-        client.start()
+        await client.start()
         for data in requests:
             client.make_request(data)
         client.valid_req_num = 1
@@ -113,7 +113,7 @@ class HttpHeaderChunkCntH2Base(H2Config, FrangTestCase, base=True):
 
         client = self.get_client("deproxy-1")
         client.parsing = False
-        client.start()
+        await client.start()
 
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())

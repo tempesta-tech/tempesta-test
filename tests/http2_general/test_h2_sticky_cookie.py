@@ -91,12 +91,12 @@ class H2StickyCookieBaseTestCase(tester.TempestaTest):
         """Check for presents `set-cookie` header."""
         curl = self.get_client("curl-1")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
         response = curl.response_msg
         self.assertIn(
@@ -165,12 +165,12 @@ class H2StickyCookieTestCase(tester.TempestaTest):
         """Send request with many `Cookie` headers and enforced option."""
         curl = self.get_client("curl-2")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
         response = curl.response_msg
         self.assertIn(
@@ -199,12 +199,12 @@ class H2StickyCookieTestCase(tester.TempestaTest):
         """Send request with no `Cookie` headers and enforced option."""
         curl = self.get_client("curl-3")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
         response = curl.response_msg
         self.assertIn(

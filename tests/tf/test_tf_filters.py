@@ -111,9 +111,9 @@ class BaseTFTestSuite(tester.TempestaTest):
 
     async def get_client_fingerprint(self, name: str) -> AccessLogLine:
         client = self.get_client(name)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertEqual(client.stdout, self.response_ok)
 
@@ -328,21 +328,21 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         Verify the default tf filters
         does not affect the application
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
         self.deproxy_manager.start()
 
         limited_1 = self.get_client("limited-1")
         limited_2 = self.get_client("limited-2")
 
-        limited_1.start()
-        limited_2.start()
+        await limited_1.start()
+        await limited_2.start()
 
         await self.wait_while_busy(limited_1)
         await self.wait_while_busy(limited_2)
 
-        limited_1.stop()
-        limited_2.stop()
+        await limited_1.stop()
+        await limited_2.stop()
 
         self.assertEqual(limited_1.stdout, self.response_ok)
         self.assertEqual(limited_2.stdout, self.response_ok)
@@ -424,16 +424,16 @@ class TestRestartAppWithUpdatedHash(BaseTFTestSuite):
         Verify successful application restart with
         tf configuration
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.get_tempesta().restart()
+        await self.get_tempesta().restart()
 
     async def test_reload_ok(self):
         """
         Verify successful application reload with
         tf configuration
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
         self.get_tempesta().reload()
 
@@ -482,9 +482,9 @@ class TestClearHashes(BaseTFTestSuite):
         self.set_config_tf_hash(self.get_hash(fingerprint))
 
         blocked_client = self.get_client("blocked")
-        blocked_client.start()
+        await blocked_client.start()
         await self.wait_while_busy(blocked_client)
-        blocked_client.stop()
+        await blocked_client.stop()
         self.assertIn(
             "Connection reset by peer",
             blocked_client.stderr.decode(),
@@ -493,9 +493,9 @@ class TestClearHashes(BaseTFTestSuite):
 
         self.update_config_with_tf_hash_limit()
         client = self.get_client("curl")
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertEqual(
             client.stdout,
             self.response_ok,
