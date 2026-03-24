@@ -78,7 +78,7 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
             self._tcp_logger.error(os_err_msg, exc_info=True)
             raise OSError(os_err_msg) from os_exc
 
-    def run_start(self):
+    async def run_start(self):
         self.__acquire()
 
         try:
