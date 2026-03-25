@@ -37,13 +37,17 @@ class BaseServer(stateful.Stateful, abc.ABC):
         Wait until the container becomes healthy
         and Tempesta establishes connections to the server ports.
         """
+        # print(f"wait for {self}")
         result = await util.wait_until(
             self._wait_for_connections,
             timeout=timeout,
         )
 
+        # print(f"result for {self} - {result}")
         if strict:
+            # print("if")
             assert result, msg or f"Tempesta FW don't create connection to {self}."
+            # print('assert complete')
         return result
 
     @abc.abstractmethod
