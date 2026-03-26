@@ -1639,7 +1639,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 cache_control_ignored="max-age=1",
                 response_headers={},
                 sleep_interval=2,
-                should_be_cached=True,
+                expected_requests_to_server=1,
             ),
             marks.Param(
                 name="max-stale",
@@ -1647,7 +1647,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 cache_control_ignored="max-stale=1",
                 response_headers={"Cache-control": "max-age=1"},
                 sleep_interval=3,
-                should_be_cached=True,
+                expected_requests_to_server=1,
             ),
             marks.Param(
                 name="min-fresh",
@@ -1655,7 +1655,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 cache_control_ignored="min-fresh=1",
                 response_headers={"Cache-control": "max-age=10"},
                 sleep_interval=2,
-                should_be_cached=False,
+                expected_requests_to_server=2,
             ),
         ]
     )
@@ -1666,7 +1666,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         cache_control_ignored,
         response_headers,
         sleep_interval,
-        should_be_cached,
+        expected_requests_to_server,
     ):
         """
         RFC 9111 does not explicitly define the behavior of caches when multiple
@@ -1701,30 +1701,33 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
             "200",
         )
 
-        if sleep_interval:
-            await asyncio.sleep(sleep_interval)
+        await asyncio.sleep(sleep_interval)
 
+        """
+        Send request with several cache control headers (One of these
+        headers will be restored from hpack dynamic table). Check that
+        header will be correctly restored and we use last cach-control
+        directive.
+        """
         await client.send_request(
             client.create_request(
                 method="GET",
                 headers=[
                     ("cache-control", cache_control),
-                    ("a", '"aaaaaaaaaa"'),
                     ("cache_control", cache_control_ignored),
                     ("cache-control", cache_control),
                 ],
             ),
             "200",
         )
-        if should_be_cached:
-            self.assertEqual(1, len(server.requests), "response not cached as expected")
-        else:
-            self.assertEqual(2, len(server.requests), "response is cached while it should not be")
+        self.assertEqual(
+            expected_requests_to_server, len(server.requests), "response not cached as expected"
+        )
 
     async def test_if_many_cache_control_stale_if_error(self):
         """
-        Same as previous but, just check that we don't catch BUG
-        during restoring stale-if-error from cache.
+        Same as "test_if_many_cache_control"  but, just check that we
+        don't catch BUG during restoring stale-if-error from cache.
         """
         await self.start_all_services()
         client = self.get_client("deproxy")
@@ -1741,7 +1744,6 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 method="GET",
                 headers=[
                     ("cache-control", cache_control),
-                    ("a", '"aaaaaaaaaa"'),
                     ("cache-control", cache_control),
                 ],
             ),
