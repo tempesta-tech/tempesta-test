@@ -66,6 +66,7 @@ class TLSMatchHostSni(tester.TempestaTest):
 
     TLS_WARN = "Warning: frang: vhost by SNI doesn't match vhost by authority"
 
+    @dmesg.unlimited_rate_on_tempesta_node
     async def test_host_sni_mismatch(self):
         """With the `http_strict_host_checking` limit, the host header and SNI name
         must be identical. Otherwise request will be filtered. After client
