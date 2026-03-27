@@ -277,22 +277,23 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def make_request(self, request, **kwargs): ...
 
     async def send_request(
-        self, request, expected_status_code: Optional[str] = None, timeout=5
+        self,
+        request,
+        expected_status_code: Optional[str] = None,
+        timeout=5,
+        msg: Optional[str] = None,
     ) -> None:
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
         """
-        curr_responses = len(self.responses)
-
         self.make_request(request)
-        await self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
+        await self.wait_for_response(timeout=timeout, strict=bool(expected_status_code), msg=msg)
 
         if expected_status_code:
-            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
             assert expected_status_code in self.last_response.status, (
                 f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-                + f"Received - {self.last_response.status}"
+                + f"Received - {self.last_response.status}\nThe last response:\n{self.last_response}\n"
             )
 
     def send_bytes(self, data: bytes, expect_response=False):
@@ -336,7 +337,12 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         return timeout_not_exceeded
 
     async def wait_for_response(
-        self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
+        self,
+        timeout=5,
+        strict=False,
+        adjust_timeout=True,
+        n: Optional[int] = None,
+        msg: Optional[str] = None,
     ):
         """
         Try to use strict mode whenever it's possible
@@ -349,9 +355,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             adjust_timeout=adjust_timeout,
         )
         if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting response: {timeout}"
+            assert timeout_not_exceeded != False, (
+                msg or f"Timeout exceeded while waiting response: {timeout}"
+            )
         return timeout_not_exceeded
 
     def receive_response(self, response: deproxy_message.Response) -> None:

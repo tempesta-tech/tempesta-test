@@ -275,6 +275,9 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         elif isinstance(response, deproxy_message.Response):
             self.__response = response.msg.encode()
 
+        if self.__response and len(self.__response.decode()) < 1024:
+            self._http_logger.info(f"Set response:\n{self.__response.decode()}")
+
     @property
     def last_request(self) -> Optional[deproxy_message.Request]:
         if not self.requests:
