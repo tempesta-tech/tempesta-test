@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import time
+
 from framework.deproxy_client import DeproxyClient
 from framework.deproxy_server import StaticDeproxyServer
 from helpers.deproxy import HttpMessage
@@ -314,7 +316,7 @@ cache_methods GET HEAD POST;
             marks.Param(
                 name="last_modified_nc",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
-                if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
+                if_modified_since=lambda timestamp: "Mon, 5 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
             marks.Param(
@@ -326,7 +328,7 @@ cache_methods GET HEAD POST;
             marks.Param(
                 name="last_modified_and_date_nc",
                 response_headers="",
-                if_modified_since=lambda: "Mon, 5 Dec 2016 13:59:39 GMT",
+                if_modified_since=lambda timestamp: "Mon, 5 Dec 2016 13:59:39 GMT",
                 expected_status="200",
             ),
         ]
@@ -348,11 +350,17 @@ cache_methods GET HEAD POST;
             request=client.create_request(method="GET", uri="/page.html", headers=[]),
             expected_status_code="200",
         )
+        request = client.create_request(
+            method="GET",
+            uri="/page.html",
+            headers=[("If-Modified-Since", if_modified_since(timestamp=time.time() + 5))],
+        )
         client.send_request(
-            request=client.create_request(
-                method="GET", uri="/page.html", headers=[("If-Modified-Since", if_modified_since())]
-            ),
+            request=request,
             expected_status_code=expected_status,
+            msg=f"Unexpected response status for:\n"
+            f" - response Date header - {client.last_response.headers.get("Date")};\n"
+            f" - request If-Modified-Since header - {request.headers.get("If-Modified-Since")}\n",
         )
 
         self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
