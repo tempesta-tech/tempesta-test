@@ -251,7 +251,7 @@ class TestStreamState(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_headers_frame_for_other_stream_between_header_blocks(self):
         """
@@ -271,7 +271,7 @@ class TestStreamState(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_headers_frame_for_other_stream_after_rst(self):
         """
@@ -402,7 +402,7 @@ class TestIdleState(H2Base):
         )
 
         self.assertTrue(client.wait_for_connection_close())
-        self.assertIn(ErrorCodes.PROTOCOL_ERROR, client.error_codes)
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     def test_not_closing_idle_stream(self):
         """
