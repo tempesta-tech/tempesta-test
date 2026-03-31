@@ -739,7 +739,8 @@ class TestHpack(TestHpackBase):
 
 
 class TestHpackMethod(TestHpackBase):
-    tempesta = {"config": """
+    tempesta = {
+        "config": """
             listen 443 proto=h2;
             srv_group default {
                 server ${server_ip}:8000;
@@ -750,7 +751,8 @@ class TestHpackMethod(TestHpackBase):
 
             block_action attack reply;
             block_action error reply;
-        """}
+        """
+    }
 
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
@@ -833,7 +835,8 @@ class TestHpackMethod(TestHpackBase):
 
 
 class TestHpackStickyCookie(TestHpackBase):
-    tempesta = {"config": """
+    tempesta = {
+        "config": """
             listen 443 proto=h2;
             srv_group default {
                 server ${server_ip}:8000;
@@ -858,7 +861,8 @@ class TestHpackStickyCookie(TestHpackBase):
                 host == "bad.com"   -> block;
                 host == "example.com" -> v_good;
             }
-        """}
+        """
+    }
 
     async def test_h2_cookie_after_setting_header_table_size(self):
         """
@@ -881,7 +885,8 @@ class TestHpackStickyCookie(TestHpackBase):
 
 
 class TestHpackCache(TestHpackBase):
-    tempesta = {"config": """
+    tempesta = {
+        "config": """
             listen 443 proto=h2;
             srv_group default {
                 server ${server_ip}:8000;
@@ -902,7 +907,8 @@ class TestHpackCache(TestHpackBase):
                 host == "bad.com"   -> block;
                 host == "example.com" -> v_good;
             }
-        """}
+        """
+    }
 
     async def test_h2_cache_304_after_setting_header_table_size(self):
         await self.__test_h2_cache_after_setting_header_table_size(
@@ -1174,7 +1180,8 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
 
 
 class TestHpackBomb(TestHpackBase):
-    tempesta = {"config": """
+    tempesta = {
+        "config": """
             listen 443 proto=h2;
             srv_group default {
                 server ${server_ip}:8000;
@@ -1194,7 +1201,8 @@ class TestHpackBomb(TestHpackBase):
                 host == "bad.com"   -> block;
                                     -> good;
             }
-        """}
+        """
+    }
 
     @marks.Parameterize.expand(
         [marks.Param(name="huffman", huffman=True), marks.Param(name="no_huffman", huffman=False)]
@@ -1247,7 +1255,8 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
     dynamic table.
     """
 
-    tempesta = {"config": f"""
+    tempesta = {
+        "config": f"""
             listen 443 proto=h2;
             access_log dmesg;
             srv_group default {{
@@ -1272,9 +1281,11 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 host == \"bad.com\" -> block;
                                     -> good;
             }}
-        """}
+        """
+    }
 
-    tempesta_cache = {"config": f"""
+    tempesta_cache = {
+        "config": f"""
             listen 443 proto=h2;
             access_log dmesg;
             srv_group default {{
@@ -1302,9 +1313,11 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 host == \"bad.com\" -> block;
                                     -> good;
             }}
-        """}
+        """
+    }
 
-    tempesta_override_allowed = {"config": f"""
+    tempesta_override_allowed = {
+        "config": f"""
             listen 443 proto=h2;
             access_log dmesg;
             srv_group default {{
@@ -1330,7 +1343,8 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
                 host == \"bad.com\" -> block;
                                     -> good;
             }}
-        """}
+        """
+    }
 
     def __check_server_resp(self, server, header, expected):
         for server_req in server.requests:
@@ -1446,11 +1460,13 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
 
         last_response = self.loggers.dmesg.access_log_last_message()
         # Do not allow requests with same hash from the client.
-        self.__reload_tempesta_with_tfh(f"""
+        self.__reload_tempesta_with_tfh(
+            f"""
             tfh {{
                 hash {last_response.tfh} 0 0;
             }}
-        """)
+        """
+        )
 
         # Referer is false allow request
         request = client.create_request(method="GET", headers=[])
@@ -1667,11 +1683,13 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
 
         # Block requests with refer and 'n' cookies
-        self.__reload_tempesta_with_tfh(f"""
+        self.__reload_tempesta_with_tfh(
+            f"""
             tfh {{
                 hash {tfh} 0 0;
             }}
-            """)
+            """
+        )
 
         # Cookie was reloaded from hpack table, count is 6 blocked.
         await self.__send_add_check_req_with_huffman(client, second_request, huffman, "403")
