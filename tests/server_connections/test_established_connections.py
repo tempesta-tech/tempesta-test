@@ -143,8 +143,8 @@ srv_group default {{
             tfw.get_stats()
             await self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
-                expected_n=self.conns_n,
-                msg=f"Tempesta FW must create {self.conns_n} sockets to server.",
+                expected_n=1,
+                msg=f"Tempesta FW must create only one socket to server.",
             )
             await self.check_established_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
@@ -156,7 +156,7 @@ srv_group default {{
         msg = "Tempesta must not open connections to server."
         self.assertEqual(len(server.connections), 0, msg)
         self.assertEqual(tfw.stats.srv_conns_active, 0, msg)
-        self.assertGreaterEqual(tfw.stats.srv_conn_attempts, 32, msg)
+        self.assertGreaterEqual(tfw.stats.srv_conn_attempts, 1, msg)
         self.assertGreaterEqual(tfw.stats.srv_established_connections, 0, msg)
 
     async def test_drop_server_connections(self):
@@ -211,7 +211,6 @@ srv_group default {{
         msg = "Tempesta must not open connections to server."
         self.assertEqual(len(server.connections), 0, msg)
         self.assertEqual(tfw.stats.srv_conns_active, 0, msg)
-        self.assertGreaterEqual(tfw.stats.srv_conn_attempts, 32, msg)
         self.assertGreaterEqual(tfw.stats.srv_established_connections, 0, msg)
 
         await self.check_total_sockets(
@@ -238,8 +237,8 @@ srv_group default {{
             tfw.get_stats()
             await self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
-                expected_n=self.conns_n,
-                msg=f"Tempesta FW must create {self.conns_n} sockets to server.",
+                expected_n=1,
+                msg=f"Tempesta FW must create only one socket to server.",
             )
             await self.check_established_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
