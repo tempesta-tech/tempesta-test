@@ -66,7 +66,6 @@ cache_fulfill * *;
             deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp1_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -89,7 +88,6 @@ cache_fulfill * *;
             deproxy_message.Response.create(
                 status=resp_status,
                 headers=[("Content-Length", "0")] + resp2_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -297,7 +295,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")],
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -320,7 +317,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="400",
                 headers=[("Content-Length", "0")],
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -389,7 +385,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -422,12 +417,14 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         # expect non stale
         self.assertIsNone(client.last_response.headers.get("age", None))
 
+        # Response from backend was received, wait while response become
+        # stale again
+        await asyncio.sleep(3)
+
         for status in resp_codes:
             server.set_response(
                 deproxy_message.Response.create(
-                    status=status,
-                    headers=[("Content-Length", "0")] + resp_headers,
-                    date=deproxy_message.HttpMessage.date_time_string(),
+                    status=status, headers=[("Content-Length", "0")] + resp_headers
                 )
             )
 
@@ -477,7 +474,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0"), ("cache-control", "max-age=1")] + resp_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -500,7 +496,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="500",
                 headers=[("Content-Length", "0")] + resp_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
@@ -564,7 +559,6 @@ class TestCacheUseStale(TestCacheUseStaleBase):
             deproxy_message.Response.create(
                 status="200",
                 headers=[("Content-Length", "0")] + resp_headers,
-                date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
 
