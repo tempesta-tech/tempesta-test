@@ -883,6 +883,70 @@ http_chain {{
                 module_name_preload=None,
                 retval=0,
             ),
+            marks.Param(
+                name="tfw_alloc_percpu_gfp",
+                func_name="tfw__alloc_percpu_gfp",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+client_lru_size 5;
+client_mem 500000 1000000;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+""",
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
+            marks.Param(
+                name="tfw_percpu_ref_init",
+                func_name="tfw_percpu_ref_init",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+client_lru_size 5;
+client_mem 500000 1000000;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+""",
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=-12,
+            ),
+            marks.Param(
+                name="tfw_get_free_pages",
+                func_name="tfw__get_free_pages",
+                config=f"""
+listen 80;
+listen 443 proto=h2,https;
+client_lru_size 5;
+client_mem 500000 1000000;
+tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
+tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
+server {SERVER_IP}:8000 conns_n=10;
+
+health_check h_monitor1 {{
+    request "GET / HTTP/1.1\r\n\r\n";
+    request_url "/";
+    resp_code   200;
+    resp_crc32  auto;
+    timeout     1;
+}}
+
+srv_group test {{
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+
+    health h_monitor1;
+}}
+
+""",
+                module_path="lib",
+                module_name_preload="tempesta_lib",
+                retval=0,
+            ),
         ]
     )
     async def test_init_modules(
