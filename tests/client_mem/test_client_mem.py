@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import run_config
 from framework.helpers import error
 from framework.test_suite import marks, tester
@@ -74,6 +75,39 @@ listen 80;
             tempesta.start()
 
 
+class TestBlockByMemExceededBase(TestClientMemBase):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+
+server ${server_ip}:8000;
+
+block_action attack reply;
+block_action error reply;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+    expect_response = None
+
+    async def send_request_and_check_response_and_conn_close(self, client, request):
+        client.make_request(request)
+        if self.expect_response:
+            await client.wait_for_response(strict=True)
+            self.assertTrue(client.last_response.status, "403")
+        """
+        For http2 connection Tempesta FW adjust memory on
+        frame level, so connection will be closed with
+        TCP RST without any response
+        """
+        await client.wait_for_connection_close(strict=True)
+
+
 @marks.parameterize_class(
     [
         {
@@ -96,26 +130,7 @@ listen 80;
         },
     ]
 )
-class TestBlockByMemExceeded(TestClientMemBase):
-    tempesta = {
-        "config": """
-listen 80;
-listen 443 proto=h2,https;
-
-server ${server_ip}:8000;
-
-block_action attack reply;
-block_action error reply;
-
-tls_certificate ${tempesta_workdir}/tempesta.crt;
-tls_certificate_key ${tempesta_workdir}/tempesta.key;
-tls_match_any_server_name;
-""",
-    }
-
-    backends = [DEPROXY_SERVER]
-    expect_response = None
-
+class TestBlockByMemExceeded(TestBlockByMemExceededBase):
     async def test_request(self):
         self.update_tempesta_config(self.client_mem)
         await self.start_all_services()
@@ -125,16 +140,7 @@ tls_match_any_server_name;
             method="POST", uri="/", headers=[("Content-Length", "10000")], body="a" * 10000
         )
 
-        client.make_request(request)
-        if self.expect_response:
-            await client.wait_for_response(strict=True)
-            self.assertTrue(client.last_response.status, "403")
-        """
-        For http2 connection Tempesta FW adjust memory on
-        frame level, so connection will be closed with
-        TCP RST without any response
-        """
-        await client.wait_for_connection_close(strict=True)
+        await self.send_request_and_check_response_and_conn_close(client, request)
 
     async def test_response(self):
         self.update_tempesta_config(self.client_mem)
@@ -161,6 +167,115 @@ tls_match_any_server_name;
             await client.wait_for_response(strict=True)
             self.assertTrue(client.last_response.status, "403")
         await client.wait_for_connection_close(strict=True)
+
+
+class TestReconfigClientMemStress(tester.TempestaTest):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+
+server ${server_ip}:8000;
+
+block_action attack reply;
+block_action error reply;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+
+    clients = [
+        {
+            "id": "gflood",
+            "type": "external",
+            "binary": "gflood",
+            "ssl": True,
+            "cmd_args": "-address ${tempesta_ip}:443 -host tempesta-tech.com -threads 4 -connections 100 -streams 100",
+        },
+    ]
+
+    stop = False
+
+    async def _do_reload(self):
+        base_config = self.get_tempesta().config.defconfig
+        i = 0
+        while not self.stop:
+            if i % 2 == 0:
+                config = base_config + "client_mem 10000 20000;\n"
+            else:
+                config = base_config
+            i = i + 1
+            self.get_tempesta().config.defconfig = config
+            self.get_tempesta().reload()
+            await asyncio.sleep(1)
+
+    async def test_under_load(self):
+        await self.start_all_services(client=False)
+        client = self.get_client("gflood")
+        task = asyncio.create_task(self._do_reload())
+        client.start()
+        await self.wait_while_busy(client)
+        client.stop()
+        self.stop = True
+        await task
+
+
+@marks.parameterize_class(
+    [
+        {
+            "name": "Http",
+            "clients": [DEPROXY_CLIENT],
+            "expect_response": True,
+            "client_mem": "client_mem 10000 20000;\n",
+        },
+        {
+            "name": "Https",
+            "clients": [DEPROXY_CLIENT_SSL],
+            "expect_response": True,
+            "client_mem": "client_mem 10000 20000;\n",
+        },
+        {
+            "name": "H2",
+            "clients": [DEPROXY_CLIENT_H2],
+            "expect_response": False,
+            "client_mem": "client_mem 20000 40000;\n",
+        },
+    ]
+)
+class TestReconfigClientMem(TestBlockByMemExceededBase):
+    tempesta = {
+        "config": """
+listen 80;
+listen 443 proto=h2,https;
+
+server ${server_ip}:8000;
+
+block_action attack reply;
+block_action error reply;
+
+tls_certificate ${tempesta_workdir}/tempesta.crt;
+tls_certificate_key ${tempesta_workdir}/tempesta.key;
+tls_match_any_server_name;
+""",
+    }
+
+    backends = [DEPROXY_SERVER]
+
+    async def test(self):
+        await self.start_all_services()
+        client = self.get_client("deproxy")
+        request = client.create_request(
+            method="POST", uri="/", headers=[("Content-Length", "10000")], body="a" * 10000
+        )
+
+        await client.send_request(request, "200")
+        self.update_tempesta_config("client_mem 10000 20000;\n")
+        self.get_tempesta().reload()
+        await self.send_request_and_check_response_and_conn_close(client, request)
 
 
 class TestBlockByMemExceededByPing(tester.TempestaTest):
