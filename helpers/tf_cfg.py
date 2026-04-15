@@ -14,7 +14,8 @@ import logging
 from typing import TYPE_CHECKING, Union
 
 from rich import pretty
-from rich.logging import Console, RichHandler
+from rich.console import Console
+from rich.logging import RichHandler
 
 if TYPE_CHECKING:
     from helpers.remote import ANode
