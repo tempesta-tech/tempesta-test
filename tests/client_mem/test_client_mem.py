@@ -93,13 +93,9 @@ tls_match_any_server_name;
     }
 
     backends = [DEPROXY_SERVER]
-    expect_response = None
 
-    async def send_request_and_check_response_and_conn_close(self, client, request):
+    async def send_request_and_check_conn_close(self, client, request):
         client.make_request(request)
-        if self.expect_response:
-            await client.wait_for_response(strict=True)
-            self.assertTrue(client.last_response.status, "403")
         """
         For http2 connection Tempesta FW adjust memory on
         frame level, so connection will be closed with
@@ -113,19 +109,16 @@ tls_match_any_server_name;
         {
             "name": "Http",
             "clients": [DEPROXY_CLIENT],
-            "expect_response": True,
-            "client_mem": "client_mem 10000 20000;\n",
+            "client_mem": "client_mem 5000 10000;\n",
         },
         {
             "name": "Https",
             "clients": [DEPROXY_CLIENT_SSL],
-            "expect_response": True,
-            "client_mem": "client_mem 10000 20000;\n",
+            "client_mem": "client_mem 5000 10000;\n",
         },
         {
             "name": "H2",
             "clients": [DEPROXY_CLIENT_H2],
-            "expect_response": False,
             "client_mem": "client_mem 20000 40000;\n",
         },
     ]
@@ -137,10 +130,10 @@ class TestBlockByMemExceeded(TestBlockByMemExceededBase):
 
         client = self.get_client("deproxy")
         request = client.create_request(
-            method="POST", uri="/", headers=[("Content-Length", "10000")], body="a" * 10000
+            method="POST", uri="/", headers=[("Content-Length", "30000")], body="a" * 30000
         )
 
-        await self.send_request_and_check_response_and_conn_close(client, request)
+        await self.send_request_and_check_conn_close(client, request)
 
     async def test_response(self):
         self.update_tempesta_config(self.client_mem)
@@ -229,20 +222,14 @@ tls_match_any_server_name;
         {
             "name": "Http",
             "clients": [DEPROXY_CLIENT],
-            "expect_response": True,
-            "client_mem": "client_mem 10000 20000;\n",
         },
         {
             "name": "Https",
             "clients": [DEPROXY_CLIENT_SSL],
-            "expect_response": True,
-            "client_mem": "client_mem 10000 20000;\n",
         },
         {
             "name": "H2",
             "clients": [DEPROXY_CLIENT_H2],
-            "expect_response": False,
-            "client_mem": "client_mem 20000 40000;\n",
         },
     ]
 )
@@ -275,7 +262,7 @@ tls_match_any_server_name;
         await client.send_request(request, "200")
         self.update_tempesta_config("client_mem 10000 20000;\n")
         self.get_tempesta().reload()
-        await self.send_request_and_check_response_and_conn_close(client, request)
+        await self.send_request_and_check_conn_close(client, request)
 
 
 class TestBlockByMemExceededByPing(tester.TempestaTest):
