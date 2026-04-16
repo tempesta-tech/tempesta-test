@@ -38,14 +38,14 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
         self.segment_gap = segment_gap
         self.__polling_lock: Optional[threading.Lock] = None
 
-        Stateful.__init__(self, id_=id_)
-
         self._tcp_logger = logging.LoggerAdapter(
             logging.getLogger("tcp"), extra={"service": f"{self}"}
         )
         self._http_logger = logging.LoggerAdapter(
             logging.getLogger("http"), extra={"service": f"{self}"}
         )
+
+        Stateful.__init__(self, id_=id_)
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
