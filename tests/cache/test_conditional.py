@@ -310,7 +310,7 @@ cache_methods GET HEAD POST;
             marks.Param(
                 name="last_modified",
                 response_headers="Date: Mon, 12 Dec 2016 13:59:39 GMT\r\n",
-                if_modified_since=HttpMessage.date_time_string,
+                if_modified_since=lambda: "Mon, 12 Dec 5016 13:59:39 GMT",
                 expected_status="304",
             ),
             marks.Param(
@@ -322,7 +322,7 @@ cache_methods GET HEAD POST;
             marks.Param(
                 name="last_modified_and_date",
                 response_headers="",
-                if_modified_since=HttpMessage.date_time_string,
+                if_modified_since=lambda: "Mon, 12 Dec 5016 13:59:39 GMT",
                 expected_status="304",
             ),
             marks.Param(
