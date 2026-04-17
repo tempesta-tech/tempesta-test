@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
+from h2.errors import ErrorCodes
 from h2.events import (
     ConnectionTerminated,
     DataReceived,
@@ -73,7 +74,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self.conn_addr = conn_addr
         self.conn_is_closed = True
         self.conn_was_opened = False
-        self.error_codes = []
+        self._error_codes = []
 
         self.rps = 0
         self.parsing = True
@@ -130,6 +131,20 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
 
+    def assert_error_code(
+        self, *, expected_error_code: Exception | ErrorCodes, msg: str = ""
+    ) -> None:
+        """
+        We should not check error codes for TCP segmentation
+        because we cannot control the sequence of receiving from Tempesta.
+        In some cases, RST TCP will be received earlier.
+        It should call after `wait_for_connection_close` or `wait_for_reset_stream`.
+        """
+        if not self.segment_size:
+            assert (
+                expected_error_code in self._error_codes
+            ), f"{expected_error_code} not found in {self._error_codes}\n{msg}"
+
     def handle_connect(self):
         if self.ssl:
             self.socket = self._context.wrap_socket(
@@ -146,7 +161,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def handle_error(self):
         type_error, v, _ = sys.exc_info()
-        self.error_codes.append(type_error)
+        self._error_codes.append(type_error)
         dbg(self, 2, f"Receive error - {type_error} with message - {v}", prefix="\t")
 
         if type_error == ParseError:
@@ -230,7 +245,13 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     @abc.abstractmethod
     def make_request(self, request, **kwargs): ...
 
-    def send_request(self, request, expected_status_code: Optional[str] = None, timeout=5) -> None:
+    def send_request(
+        self,
+        request,
+        expected_status_code: Optional[str] = None,
+        timeout=5,
+        msg: Optional[str] = None,
+    ) -> None:
         """
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
@@ -238,13 +259,13 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         curr_responses = len(self.responses)
 
         self.make_request(request)
-        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code))
+        self.wait_for_response(timeout=timeout, strict=bool(expected_status_code), msg=msg)
 
         if expected_status_code:
             assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
             assert expected_status_code in self.last_response.status, (
                 f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
-                + f"Received - {self.last_response.status}"
+                + f"Received - {self.last_response.status}\nThe last response:\n{self.last_response}\n"
             )
 
     def send_bytes(self, data: bytes, expect_response=False):
@@ -271,7 +292,12 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         return timeout_not_exceeded
 
     def wait_for_response(
-        self, timeout=5, strict=False, adjust_timeout=True, n: Optional[int] = None
+        self,
+        timeout=5,
+        strict=False,
+        adjust_timeout=True,
+        n: Optional[int] = None,
+        msg: Optional[str] = None,
     ):
         """
         Try to use strict mode whenever it's possible
@@ -284,9 +310,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             adjust_timeout=adjust_timeout,
         )
         if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting response: {timeout}"
+            assert timeout_not_exceeded != False, (
+                msg or f"Timeout exceeded while waiting response: {timeout}"
+            )
         return timeout_not_exceeded
 
     def receive_response(self, response: deproxy.Response) -> None:
@@ -701,9 +727,9 @@ class DeproxyClientH2(BaseDeproxyClient):
                     self.receive_response(response)
                     self.nrresp += 1
                 elif isinstance(event, StreamReset):
-                    self.error_codes.append(event.error_code)
+                    self._error_codes.append(event.error_code)
                 elif isinstance(event, ConnectionTerminated):
-                    self.error_codes.append(event.error_code)
+                    self._error_codes.append(event.error_code)
                     self.last_stream_id = event.last_stream_id
                 elif isinstance(event, SettingsAcknowledged):
                     self.ack_settings = True
