@@ -320,8 +320,8 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
 
     def get_all_services(self) -> typing.List[Stateful]:
         return (
-            self.get_clients()
-            + ([self.__tempesta] if self.__tempesta is not None else [])
+            ([self.__tempesta] if self.__tempesta is not None else [])
+            + self.get_clients()
             + list(self.get_servers())
             + [self.deproxy_manager]
         )
@@ -359,8 +359,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         # should not run `wait_for_msg` if Tempesta FW is running.
         if self.__tempesta.is_running():
             return
-        # "modules are started" string is only logged in debug builds while
-        # "Tempesta FW is ready" is logged at all levels.
         async with dmesg.wait_for_msg(
             re.escape("[tempesta fw] Tempesta FW is ready"), strict=False
         ):
