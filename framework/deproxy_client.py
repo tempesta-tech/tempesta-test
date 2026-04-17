@@ -256,10 +256,13 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         Form and send one HTTP request. And also check that the client has received a response and
         the status code matches.
         """
+        curr_responses = len(self.responses)
+
         self.make_request(request)
         self.wait_for_response(timeout=timeout, strict=bool(expected_status_code), msg=msg)
 
         if expected_status_code:
+            assert curr_responses + 1 == len(self.responses), "Deproxy client has lost response."
             assert expected_status_code in self.last_response.status, (
                 f"HTTP response status codes mismatch. Expected - {expected_status_code}. "
                 + f"Received - {self.last_response.status}\nThe last response:\n{self.last_response}\n"
@@ -303,7 +306,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = util.wait_until(
             lambda: len(self.responses) < (n or self.valid_req_num),
             timeout,
-            abort_cond=lambda: self.connection_is_closed and not self._connecting,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
             adjust_timeout=adjust_timeout,
         )
         if strict:

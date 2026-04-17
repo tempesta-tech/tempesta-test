@@ -56,7 +56,7 @@ class TestBlockActionH2(BlockActionH2Base):
             self.assertTrue(client.wait_for_response())
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
-            client.assert_error_code(expected_goaway_code)
+            client.assert_error_code(expected_error_code=expected_goaway_code)
 
     def test_block_action_attack_reply(self):
         client = self.get_client("deproxy")
