@@ -359,8 +359,8 @@ cache_methods GET HEAD POST;
             request=request,
             expected_status_code=expected_status,
             msg=f"Unexpected response status for:\n"
-            f" - response Date header - {client.last_response.headers.get("Date")};\n"
-            f" - request If-Modified-Since header - {request.headers.get("If-Modified-Since")}\n",
+            f" - response Date header - {client.last_response.headers.get('Date')};\n"
+            f" - request If-Modified-Since header - {request.headers.get('If-Modified-Since')}\n",
         )
 
         self.assertEqual(len(srv.requests), 1, "Server has received unexpected number of requests.")
