@@ -269,3 +269,80 @@ frang_limits {
                 client.stop()
 
             await self.assertWaitUntilEqual(self._get_num_active_conns, 0, timeout=3)
+
+
+class TestFrangMaxConnWhileUpstreamHasPendingResponses(FrangTestCase):
+    tempesta = {
+        "config": """
+server ${server_ip}:8000;
+
+frang_limits {
+    %(frang_config)s
+}
+
+""",
+    }
+
+    clients = [
+        {
+            "id": f"deproxy-{id_}",
+            "type": "deproxy",
+            "addr": "${tempesta_ip}",
+            "port": "80",
+        }
+        for id_ in range(3)
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "delay_before_sending_response": 5,
+            "response_content": (
+                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n"
+            ),
+        },
+    ]
+
+    async def test_three_requests(self):
+        """
+        This test verifies that frang counter of active connections for client is not decrements
+        while client has pending responses from upstream even when client already disconnected.
+
+        Example: concurrent_tcp_connections is 2. Client established two connections, has sent
+        the request in each connection, upstream received two reqeusts then cleint closed these two
+        connections not waiting for response. Client tries to establish the new third connection
+        but it will be dropped by frang, because upstream still not respond to Tempesta and counter
+        of active connections still not decremented.
+        """
+        await self.set_frang_config(frang_config="concurrent_tcp_connections 2;\n")
+
+        clients = [
+            self.get_client("deproxy-0"),
+            self.get_client("deproxy-1"),
+        ]
+
+        for client in clients:
+            client.start()
+
+        for client in clients:
+            await client.wait_for_connection_open(timeout=2)
+
+        for client in clients:
+            client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+
+        server = self.get_server("deproxy")
+        await server.wait_for_requests(n=2, timeout=2)
+
+        # Disconnect first clients
+        for client in clients:
+            client.stop()
+            await client.wait_for_connection_close(timeout=2)
+
+        # This client expected to be dropped by Tempesta with limits violation
+        client_to_block = self.get_client("deproxy-2")
+        client_to_block.start()
+        await client.wait_for_connection_close(timeout=2)
+        await self.assertFrangWarning(warning=ERROR, expected=1)
