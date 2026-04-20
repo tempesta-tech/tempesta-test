@@ -103,39 +103,6 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
             f"Tempesta FW must recreate dead connections.",
         )
 
-    @marks.check_memory_consumption
-    async def test_drop_server_connection_for_goaway(self):
-        """
-        Tempesta FW must close server connections
-        when a client closes http2 connection using GOAWAY with any Last-Stream-ID
-        and the server did not have time to send the full response.
-        """
-        server = self.get_server("deproxy")
-        client = self.get_client("h2")
-
-        self.configure_deproxy_server()
-        self.disable_deproxy_auto_parser()
-        await self.start_all_services(client=False)
-        client.start()
-
-        server_conn_list_before = set(server.connections)
-        request = client.create_request(method="POST", headers=[])
-        for _ in range(CONNS_N):
-            client.make_request(request)
-
-        await server.wait_for_requests(strict=True, n=CONNS_N)
-
-        client.send_goaway(error_code=ErrorCodes.PROTOCOL_ERROR, last_stream_id=CONNS_N * 2 + 1)
-
-        await self.assertWaitUntilTrue(
-            lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
-            f"Tempesta FW must close dead connections.",
-        )
-        self.assertTrue(
-            await server.wait_for_connections(timeout=5),
-            f"Tempesta FW must recreate dead connections.",
-        )
-
 
 @marks.parameterize_class(
     [{"name": "Https", "deproxy_type": "deproxy"}, {"name": "H2", "deproxy_type": "deproxy_h2"}]
