@@ -165,13 +165,13 @@ class StaticDeproxyServer(base_server.BaseServer):
 
         self.port = port
         self.bind_addr = bind_addr
-        super().__init__(id_=id_)
         self._tcp_logger = logging.LoggerAdapter(
             logging.getLogger("tcp"), extra={"service": f"{self}"}
         )
         self._http_logger = logging.LoggerAdapter(
             logging.getLogger("http"), extra={"service": f"{self}"}
         )
+        super().__init__(id_=id_)
         self._deproxy_auto_parser = deproxy_auto_parser
         self.is_ipv6 = is_ipv6
         self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
