@@ -13,7 +13,7 @@ from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_message import IncompleteMessage, ParseError, Request
 from framework.helpers import tf_cfg, util
 from framework.helpers.util import fill_template
-from framework.services import base_server, stateful, tempesta
+from framework.services import base_server, stateful
 
 
 class ServerConnection:
@@ -31,6 +31,8 @@ class ServerConnection:
         self._responses_done: int = 0
         self._write_func = None
         self.update_segment_size()
+        self._readwrite = asyncio.Event()
+        self._readwrite.set()
 
         peername = writer.get_extra_info("peername")
         self._dst_ip, self._dst_port = peername[0], peername[1]
@@ -58,6 +60,7 @@ class ServerConnection:
             self._write_func = self._send_bytes
 
     def close(self) -> None:
+        self._readwrite.clear()
         self._writer.close()
         if self._server and self in self._server.connections:
             self._server.remove_connection(connection=self)
@@ -89,9 +92,21 @@ class ServerConnection:
             f"A response was send. The current number of a response - {self._responses_done}"
         )
 
+    @staticmethod
+    def __safe_readwrite(func):
+        async def wrapper(self: "ServerConnection"):
+            try:
+                await func(self)
+            except BrokenPipeError:
+                self._tcp_logger.info("Close TCP connection from Tempesta FW.")
+                self.close()
+
+        return wrapper
+
+    @__safe_readwrite
     async def _read_loop(self):
         req_buffer = b""
-        while True:
+        while self._readwrite.is_set():
             req_buffer += await self._reader.read(1024 * 64)
             while req_buffer:
                 try:
@@ -125,8 +140,9 @@ class ServerConnection:
 
             await asyncio.sleep(run_config.asyncio_freq)
 
+    @__safe_readwrite
     async def _write_loop(self):
-        while True:
+        while self._readwrite.is_set():
             if self._response_buffer:
                 await asyncio.sleep(self._server.delay_before_sending_response)
 
@@ -182,7 +198,6 @@ class StaticDeproxyServer(base_server.BaseServer):
         self.delay_before_sending_response = delay_before_sending_response
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
-        self._accepting = False
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
@@ -215,7 +230,6 @@ class StaticDeproxyServer(base_server.BaseServer):
         self._server_task = asyncio.create_task(self._server.serve_forever())
 
     async def _stop_deproxy(self):
-        self._accepting = False
         self._server.close()
         for conn in self._connections[:]:
             conn.close()
@@ -235,7 +249,6 @@ class StaticDeproxyServer(base_server.BaseServer):
             conn.flush()
 
     async def _accept_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        self._accepting = True
         conn = self._connection_factory(self, reader, writer)
         self._connections.append(conn)
         await asyncio.gather(conn._read_loop(), conn._write_loop())
@@ -314,7 +327,6 @@ class StaticDeproxyServer(base_server.BaseServer):
         timeout_not_exceeded = await util.wait_until(
             lambda: len(self.requests) < n,
             timeout=timeout,
-            abort_cond=lambda: not self._accepting,
             adjust_timeout=adjust_timeout,
         )
         if strict:
