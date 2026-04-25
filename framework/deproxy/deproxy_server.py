@@ -97,7 +97,7 @@ class ServerConnection:
         async def wrapper(self: "ServerConnection"):
             try:
                 await func(self)
-            except BrokenPipeError:
+            except (BrokenPipeError, ConnectionResetError):
                 self._tcp_logger.info("Close TCP connection from Tempesta FW.")
                 self.close()
 
