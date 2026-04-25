@@ -132,8 +132,8 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
     async def arrange(self, c1, c2):
         await self.sniffer.start()
         await self.set_frang_config(self.frang_config)
-        c1.start()
-        c2.start()
+        await c1.start()
+        await c2.start()
 
     async def do_requests(self, c1, c2, request_cnt_1: int, request_cnt_2: int):
         for _ in range(request_cnt_1):

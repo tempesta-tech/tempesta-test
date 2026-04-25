@@ -181,9 +181,9 @@ block_action attack reply;
         client.options = [
             f" -address {tempesta_ip}:443 -connections {conn_n} -sni tempesta-tech.com -conn_type {ctype}"
         ]
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertEqual(0, client.returncode)
 
 

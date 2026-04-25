@@ -90,7 +90,7 @@ block_action attack drop;
 
         await self.sniffer.start()
         await self.start_all_services(client=False)
-        four.start()
+        await four.start()
 
         # Good request: all is good
         await four.send_request(self.GOOD_REQ, "200")
@@ -129,7 +129,7 @@ block_action attack drop;
 
         await self.sniffer.start()
         await self.start_all_services(client=False)
-        three.start()
+        await three.start()
 
         # Good request: all is good
         await three.send_request(self.GOOD_REQ, "200")
