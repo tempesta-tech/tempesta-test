@@ -75,7 +75,7 @@ class TLSMatchHostSni(tester.TempestaTest):
         klog = dmesg.DmesgFinder(disable_ratelimit=True)
 
         deproxy_cl = self.get_client("usual-client")
-        deproxy_cl.start()
+        await deproxy_cl.start()
 
         # case 1.1 (sni match)
         deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")

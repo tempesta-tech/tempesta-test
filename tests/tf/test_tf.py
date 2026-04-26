@@ -253,10 +253,10 @@ class TestTFtStress(tester.TempestaTest):
     async def test(self, name, client_id: str):
         await self.start_all_services()
         client = self.get_client(client_id)
-        client.start()
+        await client.start()
         self.change_cfg()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         if client_id == "wrk":
             self.assertGreater(client.statuses[200], 0)

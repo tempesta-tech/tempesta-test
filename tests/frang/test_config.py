@@ -78,7 +78,7 @@ block_action error reply;
         await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
-        client.start()
+        await client.start()
         client.make_request(client.create_request(method="POST", headers=[]), end_stream=False)
 
         default_size = 1073741824  # 1 GB
@@ -105,7 +105,7 @@ block_action error reply;
         client = self.get_client("deproxy-1")
         client.parsing = False
 
-        client.start()
+        await client.start()
         await client.send_request(
             request=client.create_request(
                 method="GET", headers=[("host", "otherhost")], authority="localhost"
@@ -125,7 +125,7 @@ block_action error reply;
         await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
-        client.start()
+        await client.start()
         await client.send_request(
             request=client.create_request(method="POST", headers=[]),
             expected_status_code="200",
@@ -141,7 +141,7 @@ block_action error reply;
         await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
-        client.start()
+        await client.start()
         client.make_request(
             request=client.create_request(
                 method="POST", headers=[("trailer", "x-my-hdr"), ("x-my-hdr", "value")]
@@ -171,7 +171,7 @@ block_action error reply;
         await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
-        client.start()
+        await client.start()
         await client.send_request(
             request=client.create_request(method="PUT", headers=[]),
             expected_status_code="403",
@@ -189,9 +189,9 @@ block_action error reply;
         client.connections = 1010
         client.options.append(f"--header 'Host: tempesta-tech.com'")
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertTrue(
             await self.loggers.dmesg.find(
@@ -209,7 +209,7 @@ block_action error reply;
         await self.start_all_services(client=False)
         client = self.get_client("deproxy-1")
 
-        client.start()
+        await client.start()
         await client.send_request(
             request=client.create_request(
                 method="POST", headers=[("x-my-hdr", "value") for _ in range(60)]
@@ -229,13 +229,13 @@ block_action error reply;
         client_1 = self.get_client("deproxy-1")
         client_2 = self.get_client("deproxy-2")
 
-        client_1.start()
+        await client_1.start()
         await client_1.send_request(
             request=client_1.create_request(method="PUT", headers=[]),
             expected_status_code="403",
         )
 
-        client_2.start()
+        await client_2.start()
         await client_2.send_request(
             request=client_2.create_request(method="POST", headers=[]),
             expected_status_code="200",
@@ -422,7 +422,7 @@ block_action error reply;
         self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
         self.assertTrue(await self.loggers.dmesg.find("Warning: block client"))
         await asyncio.sleep(2)
-        client.restart()
+        await client.restart()
         await client.send_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a")]), "200"
         )
@@ -728,15 +728,15 @@ block_action error reply;
 
     async def _test_not_override_http_methods(self):
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(client.create_request(method="GET", headers=[]), "403")
         self.assertTrue(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     async def _test_not_override_concurrent_tcp_connections(self):
         client = self.get_client("deproxy")
         client_1 = self.get_client("deproxy_1")
-        client.start()
-        client_1.start()
+        await client.start()
+        await client_1.start()
 
         client.make_request(client.create_request(method="GET", headers=[]))
         client_1.make_request(client.create_request(method="GET", headers=[]))
@@ -749,7 +749,7 @@ block_action error reply;
 
     async def _test_not_override_http_body_len_0(self):
         client = self.get_client("deproxy_http")
-        client.start()
+        await client.start()
         request = (
             f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1000\r\n\r\n{'x' * 1000}"
         )
@@ -758,21 +758,21 @@ block_action error reply;
 
     async def _test_not_override_http_body_len_1(self):
         client = self.get_client("deproxy_http")
-        client.start()
+        await client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         await client.send_request(request, "403")
         self.assertTrue(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     async def _test_not_override_http_body_len_2(self):
         client = self.get_client("deproxy_http")
-        client.start()
+        await client.start()
         request = f"POST /1234 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{'x' * 2}"
         await client.send_request(request, "200")
         self.assertFalse(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
     async def _test_not_override_http_resp_code_block_1(self):
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
@@ -783,7 +783,7 @@ block_action error reply;
 
     async def _test_not_override_http_resp_code_block_2(self):
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         client.make_request(client.create_request(method="GET", headers=[]))
         client.make_request(client.create_request(method="GET", headers=[]))
         await client.wait_for_response(5)
@@ -923,13 +923,13 @@ block_action error reply;
 
     async def _test_override_http_methods_after_reload(self):
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(client.create_request(method="GET", headers=[]), "200")
         self.assertFalse(await self.loggers.dmesg.find("frang: restricted HTTP method for"))
 
     async def _test_override_ct_vals_after_reload(self):
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(method="POST", headers=[("content-type", "text/html")]), "200"
         )

@@ -113,9 +113,9 @@ class TestStressPipeline(tester.TempestaTest):
 
         await self.start_all_services(client=False)
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
         return wrk
 
     def assert_client(self, req, err, statuses) -> None:

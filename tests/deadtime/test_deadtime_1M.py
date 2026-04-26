@@ -137,11 +137,11 @@ class TestModifyServerGroup(tester.TempestaTest):
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
-        client.start()
+        await client.start()
         await server.wait_for_requests(n=self.requests_n // 3)
         tfw.reload()
         self.assertTrue(await client.wait_for_finish())
-        client.stop()
+        await client.stop()
 
         self.assertGreater(
             client.statuses.get(200, 0), 0, "Tempesta FW doesn't forward requests to server."
@@ -161,12 +161,12 @@ class TestModifyServerGroup(tester.TempestaTest):
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
-        client.start()
+        await client.start()
         await server.wait_for_requests(n=self.requests_n // 3)
         self._generate_tempesta_config_with_multiple_srv_group(server_listeners)
         tfw.reload()
         self.assertTrue(await client.wait_for_finish())
-        client.stop()
+        await client.stop()
 
         self.assertGreater(
             client.statuses.get(200, 0), 0, "Tempesta FW doesn't forward requests to server."
@@ -186,12 +186,12 @@ class TestModifyServerGroup(tester.TempestaTest):
         tfw = self.get_tempesta()
         server = self.get_server("nginx")
 
-        client.start()
+        await client.start()
         await server.wait_for_requests(n=self.requests_n // 3)
         self._generate_tempesta_config_with_multiple_srv_group(first_part)
         tfw.reload()
         self.assertTrue(await client.wait_for_finish())
-        client.stop()
+        await client.stop()
 
         self.assertGreater(
             client.statuses.get(200, 0), 0, "Tempesta FW doesn't forward requests to server."

@@ -334,7 +334,7 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
 
         deproxy_cl = self.get_client("client")
         deproxy_cl.server_hostname = "tempesta-tech.com"
-        deproxy_cl.start()
+        await deproxy_cl.start()
         deproxy_cl.make_request(self.requests)
         if self.resp_status:
             self.assertTrue(await deproxy_cl.wait_for_response())

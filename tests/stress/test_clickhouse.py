@@ -67,13 +67,13 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
 
     async def test_all_logs_under_load(self):
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         half_of_duration = run_config.DURATION / 2
         await asyncio.sleep(int(half_of_duration))
 
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
         self.assertTrue(h2_total_requests)
@@ -87,7 +87,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
 
     async def test_all_logs_with_reload(self):
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         tempesta = self.get_tempesta()
 
@@ -96,7 +96,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         tempesta.reload()
 
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
         self.assertTrue(h2_total_requests)
@@ -110,7 +110,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
 
     async def test_tfw_logger_stop_cont(self):
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         half_of_duration = run_config.DURATION / 2
         await asyncio.sleep(int(half_of_duration))
@@ -119,7 +119,7 @@ class TestClickHouseLogsUnderLoad(tester.TempestaTest):
         self.get_tempesta().tfw_logger_signal("CONT")
 
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         h2_total_requests = self.h2load_total_requests(client.stdout.decode())
         self.assertTrue(h2_total_requests)

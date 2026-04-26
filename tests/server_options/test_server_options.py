@@ -97,11 +97,11 @@ class TestRescheduling(TestServerOptionsBase):
         client.make_request(client.create_request(method="GET", headers=[]))
         # Sleep until Tempesta FW received response.
         await asyncio.sleep(3)
-        server.stop()
+        await server.stop()
         server.set_response(
             b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
         )
-        server.start()
+        await server.start()
         self.assertTrue(await client.wait_for_response())
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(client.last_response.body, "xxxxxxxxxx")
@@ -132,22 +132,22 @@ class TestRescheduling(TestServerOptionsBase):
         for _ in range(0, 3):
             client.make_request(client.create_request(method="GET", headers=[]))
         await server.wait_for_requests(3, strict=True)
-        server.stop()
+        await server.stop()
 
-        server.start()
+        await server.start()
         await server.wait_for_requests(1, strict=True)
-        server.stop()
+        await server.stop()
 
-        server.start()
+        await server.start()
         await server.wait_for_requests(1, strict=True)
-        server.stop()
+        await server.stop()
 
         server.pipelined = 0
         server.set_response(
             b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
             + b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
         )
-        server.start()
+        await server.start()
 
         self.assertTrue(
             await self.loggers.dmesg.find(
@@ -184,9 +184,9 @@ class TestRescheduling(TestServerOptionsBase):
         for _ in range(0, 3):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
         await server.wait_for_requests(3, strict=True)
-        server.stop()
+        await server.stop()
         server.pipelined = 2
-        server.start()
+        await server.start()
         await server.wait_for_requests(1, strict=True)
 
         client_2 = self.get_client("deproxy-2")
@@ -220,10 +220,10 @@ class TestRescheduling(TestServerOptionsBase):
         for _ in range(0, 4):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
         await server.wait_for_requests(3, strict=True)
-        server.stop()
+        await server.stop()
         server.pipelined = 2
         server.send_after_conn_established = True
-        server.start()
+        await server.start()
 
         self.assertTrue(
             await self.loggers.dmesg.find(
@@ -823,7 +823,7 @@ class TestServerOptions(TestServerOptionsBase):
 
         await asyncio.sleep(2)
         # Do not call the start method here because it reset all variables
-        server.run_start()
+        await server.run_start()
 
         self.assertTrue(await client.wait_for_response(5))
         self.assertEqual(client.last_response.status, "200")

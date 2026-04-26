@@ -114,7 +114,7 @@ srv_group default {{
             server_ip_and_port=self.get_server_ip_and_port(server), expected_n=self.conns_n, msg=msg
         )
 
-        tfw.stop()
+        await tfw.stop()
         msg = "Tempesta FW must close all connections after stop."
         self.assertEqual(len(server.connections), 0, msg)
         await self.check_total_sockets(
@@ -138,8 +138,8 @@ srv_group default {{
             ],
             node=remote.server,
         ):
-            server.start()
-            tfw.start()
+            await server.start()
+            await tfw.start()
             tfw.get_stats()
             await self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),
@@ -205,7 +205,7 @@ srv_group default {{
         server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
-        tfw.start()
+        await tfw.start()
         tfw.get_stats()
 
         msg = "Tempesta must not open connections to server."
@@ -225,7 +225,7 @@ srv_group default {{
         server = self.get_server("deproxy")
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
-        server.start()
+        await server.start()
         self.deproxy_manager.start()
 
         with netfilter.block_ports_on_node(
@@ -234,7 +234,7 @@ srv_group default {{
             ],
             node=remote.server,
         ):
-            tfw.start()
+            await tfw.start()
             tfw.get_stats()
             await self.check_total_sockets(
                 server_ip_and_port=self.get_server_ip_and_port(server),

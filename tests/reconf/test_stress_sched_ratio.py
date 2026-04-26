@@ -109,7 +109,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
 
         # get statistics on expected requests
@@ -137,10 +137,10 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
         )
 
         # h2load stop
-        client.stop()
+        await client.stop()
 
         # launch h2load after Tempesta reload
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
 
         # get statistics on expected requests
@@ -161,7 +161,7 @@ class TestSchedRatioLiveReconf(LiveReconfStressTestBase):
             )
 
         # h2load stop
-        client.stop()
+        await client.stop()
 
     def get_n_expected_reqs(self, servers) -> float:
         tempesta = self.get_tempesta()

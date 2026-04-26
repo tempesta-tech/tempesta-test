@@ -93,7 +93,7 @@ class TestRespCodeBlockOneClient(FrangTestCase):
         client = self.get_client("deproxy-1")
 
         await self.set_frang_config("http_resp_code_block 404 405 6 2;")
-        client.start()
+        await client.start()
 
         for rps, requests in [
             (2.8, [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 7),
@@ -115,7 +115,7 @@ class TestRespCodeBlockOneClient(FrangTestCase):
         await self.set_frang_config_no_shc("http_resp_code_block 404 405 6 2;")
 
         client = self.get_client("deproxy-1")
-        client.start()
+        await client.start()
         client.make_requests(
             [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 3
             + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
@@ -134,7 +134,7 @@ class TestRespCodeBlockOneClient(FrangTestCase):
         await self.set_frang_config("http_resp_code_block 404 405 5 2;")
 
         client = self.get_client("deproxy-1")
-        client.start()
+        await client.start()
         client.make_requests(
             [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg]
             + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
@@ -233,10 +233,10 @@ tls_match_any_server_name;
         await self.start_all_services(client=False)
 
         deproxy_cl = self.get_client("deproxy3")
-        deproxy_cl.start()
+        await deproxy_cl.start()
 
         deproxy_cl2 = self.get_client("deproxy4")
-        deproxy_cl2.start()
+        await deproxy_cl2.start()
 
         request_1 = deproxy_cl.create_request(method="GET", uri="/uri1", headers=[])
         request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])
@@ -267,10 +267,10 @@ tls_match_any_server_name;
         await self.start_all_services(client=False)
 
         deproxy_cl = self.get_client("deproxy")
-        deproxy_cl.start()
+        await deproxy_cl.start()
 
         deproxy_cl2 = self.get_client("deproxy2")
-        deproxy_cl2.start()
+        await deproxy_cl2.start()
 
         request_1 = deproxy_cl.create_request(method="GET", uri="/uri1", headers=[])
         request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])

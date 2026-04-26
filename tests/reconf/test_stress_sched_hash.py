@@ -137,9 +137,9 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
         )
 
         # launch h2load after Tempesta reload
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
         self.assertNotAlmostEqual(

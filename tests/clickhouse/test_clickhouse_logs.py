@@ -111,7 +111,7 @@ class TestClickhouseLogsBufferConfiguration(tester.TempestaTest):
             expected_exception=error.ProcessBadExitStatusException,
             msg="Tempesta FW started with mmap_log_buffer_size > 128 MB or < 4 KB.",
         ):
-            self.get_tempesta().start()
+            await self.get_tempesta().start()
         self.assertTrue(
             await self.loggers.dmesg.find(fail_pattern), "Not found ERROR msg in dmesg."
         )
@@ -151,7 +151,7 @@ class TestClickhouseLogsOnly(TestClickhouseLogsBaseTest):
         Toggle off the dmesg logs sending
         """
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await self.send_simple_request(client)
         await self.assertWaitUntilEqual(self.loggers.clickhouse.access_log_records_count, 1)
@@ -191,7 +191,7 @@ class TestNoLogs(TestClickhouseLogsBaseTest):
         Turn off all the logs
         """
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await self.send_simple_request(client)
         await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 0)
@@ -215,7 +215,7 @@ class TestDmesgLogsOnly(TestClickhouseLogsBaseTest):
         Turn on the only dmesg logging
         """
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await self.send_simple_request(client)
         await self.assertWaitUntilEqual(self.loggers.dmesg.access_log_records_count, 1)
@@ -289,7 +289,7 @@ class TestClickHouseLogsCorrectnessData(TestClickhouseLogsBaseTest):
         deproxy_server.set_response(response)
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await self.send_simple_request(
             client,
@@ -352,7 +352,7 @@ class TestClickHouseLogsCorrectnessDataPostRequest(TestClickhouseLogsBaseTest):
         Verify the clickhouse log record data
         """
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await self.send_simple_request(
             client, client.create_request(uri="/", method="POST", headers=[]), expected_status="500"
@@ -376,7 +376,7 @@ class TestClickHouseLogsDelay(TestClickhouseLogsBaseTest):
         server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         time_before = datetime.now(tz=timezone.utc)
 
@@ -428,13 +428,13 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         """
         This test demonstrates the original problem
         """
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
 
         client = self.get_client("curl")
 
-        client.start()
+        await client.start()
         self.assertTrue(await client.wait_for_finish())
-        client.stop()
+        await client.stop()
 
         await self.assertWaitUntilEqual(
             func=self.loggers.clickhouse.access_log_records_count, second=1
@@ -444,13 +444,13 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         """
         Test that multiple requests are send
         """
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
 
         client = self.get_client("parallel")
 
-        client.start()
+        await client.start()
         self.assertTrue(await client.wait_for_finish())
-        client.stop()
+        await client.stop()
 
         await self.assertWaitUntilEqual(
             func=self.loggers.clickhouse.access_log_records_count, second=5

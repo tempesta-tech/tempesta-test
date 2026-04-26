@@ -78,7 +78,7 @@ server ${server_ip}:8000;
         FW stopping.
         """
         await self.disable_close_connection_and_send_requests()
-        self.get_tempesta().stop()
+        await self.get_tempesta().stop()
 
     async def test_tcp_fin_timeout(self):
         """
@@ -91,7 +91,7 @@ server ${server_ip}:8000;
         await asyncio.sleep(tcp_fin_timeout + 1)
 
         t = time.time()
-        self.get_tempesta().stop()
+        await self.get_tempesta().stop()
         self.assertLess(time.time() - t, 5)
 
         for client in self.get_clients():

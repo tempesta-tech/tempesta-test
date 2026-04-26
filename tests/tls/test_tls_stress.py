@@ -96,16 +96,16 @@ class StressTls(tester.TempestaTest):
 
     @dmesg.limited_rate_on_tempesta_node
     async def test(self):
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
         wrk = self.get_client("0")
         wrk.set_script("foo", content="")
         # Wrk can't handle very big amound of TLS connections.
         wrk.connections = min(int(CONCURRENT_CONNECTIONS), 100)
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
 
         self.assertTrue(200 in wrk.statuses)
         self.assertGreater(wrk.statuses[200], 0)
@@ -200,11 +200,11 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
     async def test(self, name, alg):
         tls_perf = self.get_client(alg)
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        tls_perf.start()
+        await tls_perf.start()
         await self.wait_while_busy(tls_perf)
-        tls_perf.stop()
+        await tls_perf.stop()
 
         self.assertFalse(tls_perf.stderr)
 
@@ -233,7 +233,7 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         updated.
         """
         tls_perf = self.get_client(alg)
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
         t = threading.Thread(target=self.__reload_tempesta)
@@ -243,8 +243,8 @@ class TlsHandshakeDheRsaTest(tester.TempestaTest):
         '5' runs usually enough to this purpose.
         """
         for i in range(0, 5):
-            tls_perf.start()
+            await tls_perf.start()
             await self.wait_while_busy(tls_perf)
-            tls_perf.stop()
+            await tls_perf.stop()
         self.stop_flag = True
         t.join()

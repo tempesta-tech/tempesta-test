@@ -14,8 +14,8 @@ TIMEOUT = 1
 
 
 class TestTimeoutBase(FrangTestCase):
-    request_segment_1: str or list
-    request_segment_2: str or list
+    request_segment_1: str | list
+    request_segment_2: str | list
     error: str
     frang_config: str
 
@@ -23,7 +23,7 @@ class TestTimeoutBase(FrangTestCase):
         self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
         client.parsing = False
-        client.start()
+        await client.start()
 
         client.make_request(request=self.request_segment_1, end_stream=False)
         await asyncio.sleep(sleep)
@@ -95,7 +95,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
     async def send_request_with_sleep(self, sleep: float, timeout_before_send=False):
         self.disable_deproxy_auto_parser()
         client = self.get_client("deproxy-1")
-        client.start()
+        await client.start()
         client.parsing = False
 
         self.__setup_connection(client)

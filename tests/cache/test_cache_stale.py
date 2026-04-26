@@ -71,7 +71,7 @@ cache_fulfill * *;
         )
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(
                 method="GET",
@@ -302,7 +302,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(
                 method="GET",
@@ -394,7 +394,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(
                 method="GET",
@@ -482,7 +482,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(
                 method="GET",
@@ -569,7 +569,7 @@ class TestCacheUseStale(TestCacheUseStaleBase):
         )
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(
                 method="GET",

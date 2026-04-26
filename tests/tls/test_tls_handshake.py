@@ -5,7 +5,7 @@ handshake messages.
 
 from framework.helpers import analyzer, dmesg, remote
 from framework.helpers.cert_generator_x509 import CertGenerator
-from framework.test_suite import marks, tester
+from framework.test_suite import tester
 
 from .fuzzer import tls_record_fuzzer
 from .handshake import *
@@ -535,11 +535,7 @@ class TlsCertReconfig(tester.TempestaTest):
         remote.tempesta.copy_file(key_path, cgen.serialize_priv_key().decode())
 
     async def test(self):
-        deproxy_srv = self.get_server("0")
-        deproxy_srv.start()
-        await self.start_tempesta()
-        self.deproxy_manager.start()
-        self.assertTrue(await deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
+        await self.start_all_services()
 
         vhs = TlsHandshake()
         res = vhs.do_12()

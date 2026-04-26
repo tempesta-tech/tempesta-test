@@ -123,9 +123,9 @@ class LongBodyInRequest(tester.TempestaTest):
 
         client = self.get_client(client_id)
         client.options = [f" --data-binary @'{self.abs_path}' -H '{header}' -H 'Expect: '"]
-        client.start()
+        await client.start()
         await client.wait_for_finish()
-        client.stop()
+        await client.stop()
 
         self.assertIsNotNone(client.last_response)
         self.assertEqual(client.last_response.status, 200)

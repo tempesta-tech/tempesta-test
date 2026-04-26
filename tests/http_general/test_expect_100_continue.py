@@ -50,7 +50,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await client.send_request(
             request=client.create_request(
@@ -77,7 +77,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         await client.send_request(
             request=client.create_request(
@@ -114,7 +114,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[
@@ -172,7 +172,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[
@@ -219,7 +219,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[
@@ -279,7 +279,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         server.delay_before_sending_response = 2
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[
@@ -326,7 +326,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[
@@ -374,7 +374,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         client.make_requests(
             requests=[

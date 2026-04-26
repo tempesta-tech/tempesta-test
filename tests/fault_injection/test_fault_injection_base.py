@@ -242,9 +242,9 @@ class TestStress(TestFailFunctionBaseStress):
         client = self.get_client(client_id)
 
         self.oops_ignore = ["ERROR"]
-        client.start()
+        await client.start()
         await self.wait_while_busy(client, timeout=50)
-        client.stop()
+        await client.stop()
 
 
 class TestSchedConfig(TestFailFunctionBase):
@@ -515,7 +515,7 @@ sched hash;
     )
     async def test(self, name, func_name, extra_config, space, retval):
         self.get_tempesta().config.set_defconfig(self.base_tempesta_config)
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
 
         self.oops_ignore = ["ERROR"]
@@ -898,14 +898,14 @@ http_chain {{
                 self.get_tempesta().load_module(module_path, module_name_preload)
             TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
             try:
-                self.get_tempesta().start()
+                await self.get_tempesta().start()
             except error.ProcessBadExitStatusException:
                 pass
             except:
                 self.assertTrue(False)
             else:
                 need_stop = True
-            self.get_tempesta().stop()
+            await self.get_tempesta().stop()
             """
             Because we setup fail function in the loop we should call teardown here
             at the end of the each loop iteration. If test fails teardown will be
@@ -952,7 +952,7 @@ http_chain {{
 }}
 """
         )
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
         for server in self.get_servers():
             server.conns_n = 10
@@ -964,9 +964,9 @@ http_chain {{
                 )
             )
 
-            server.start()
+            await server.start()
 
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
             self.assertTrue(await server.wait_for_connections(timeout=5))
@@ -1024,7 +1024,7 @@ http_chain {{
 }}
 """
         )
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, -1, 0, -12)
         for server in self.get_servers():
             server.conns_n = 10
@@ -1036,9 +1036,9 @@ http_chain {{
                 )
             )
 
-            server.start()
+            await server.start()
 
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
             self.assertTrue(await server.wait_for_connections(timeout=5))
@@ -1076,7 +1076,7 @@ http_chain {{
 }}
 """
         )
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test("__tfw_wq_push", 100, 50, 7, -12)
         server = self.get_server("deproxy_1")
         server.conns_n = 10
@@ -1087,14 +1087,14 @@ http_chain {{
                 date=deproxy_message.HttpMessage.date_time_string(),
             )
         )
-        server.start()
-        self.deproxy_manager.start()
+        await server.start()
+        await self.deproxy_manager.start()
         self.assertTrue(await server.wait_for_connections(timeout=5))
 
         client = self.get_client("deproxy_h2")
-        client.start()
+        await client.start()
         await client.send_request(client.create_request(method="GET", headers=[]), "200")
-        self.get_tempesta().stop()
+        await self.get_tempesta().stop()
 
     @marks.Parameterize.expand(
         [
@@ -1132,7 +1132,7 @@ server {SERVER_IP}:8000 conns_n=10;
     )
     async def test_tls(self, name, func_name, base_config, new_config, space, retval):
         self.get_tempesta().config.set_defconfig(base_config)
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
 
         self.oops_ignore = ["ERROR"]
@@ -1194,7 +1194,7 @@ grace_shutdown_time 5;
     )
     async def test_learn(self, name, func_name, extra_config_1, extra_config_2, space, retval):
         self.get_tempesta().config.set_defconfig(self.base_tempesta_config + extra_config_1)
-        self.get_tempesta().start()
+        await self.get_tempesta().start()
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, -1, space, retval)
 
         server = self.get_server("deproxy_1")
@@ -1210,13 +1210,13 @@ grace_shutdown_time 5;
             )
         )
 
-        server.start()
-        self.deproxy_manager.start()
+        await server.start()
+        await self.deproxy_manager.start()
         self.assertTrue(await server.wait_for_connections(timeout=5))
 
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
-        client.start()
+        await client.start()
 
         cookie = await self.client_send_first_req(client)
         request = (
@@ -1300,9 +1300,9 @@ class TestSched(TestFailFunctionBaseStress):
         client = self.get_client("h2load")
 
         self.oops_ignore = ["ERROR"]
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
 
 class TestFailFunction(TestFailFunctionBase):
@@ -1765,7 +1765,7 @@ class TestFailFunction(TestFailFunctionBase):
         TestFailFunctionBaseStress.setup_fail_function_test(func_name, 100, times, space, retval)
         client = self.get_client(id)
         request = client.create_request(method="GET", headers=[])
-        client.start()
+        await client.start()
 
         self.oops_ignore = ["ERROR"]
         client.make_request(request)
@@ -1812,7 +1812,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         client = self.get_client("deproxy_h2")
         request1 = client.create_request(method="GET", headers=[])
         request2 = client.create_request(method="GET", headers=[("Content-Type", "!!!!")])
-        client.start()
+        await client.start()
 
         client.update_initial_settings(max_header_list_size=1600000)
         client.send_bytes(client.h2_connection.data_to_send())
@@ -1869,7 +1869,7 @@ class TestFailFunctionPrepareResp(TestFailFunctionBase):
         )
         client = self.get_client("deproxy_h2")
         request = client.create_request(method="GET", headers=[("accept", "text/html")])
-        client.start()
+        await client.start()
 
         self.oops_ignore = ["ERROR"]
         client.make_request(request)
@@ -1933,7 +1933,7 @@ class TestFailFunctionPipelinedResponses(TestFailFunctionBase):
             i = i + 1
             client = self.get_client(id)
             request = client.create_request(method="GET", headers=[])
-            client.start()
+            await client.start()
             client.make_request(request)
             await srv.wait_for_requests(i)
 

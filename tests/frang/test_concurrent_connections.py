@@ -75,16 +75,14 @@ frang_limits {
         server = self.get_server("deproxy")
         server.bind_addr = ip
 
-        self.start_all_servers()
-        await self.start_tempesta()
-        self.deproxy_manager.start()
+        await self.start_all_services(client=False)
         for client in self.get_clients():
             """
             Set the same address as for standalone deproxy server.
             Try to connect to this server directly avoid Tempesta.
             """
             client.conn_addr = ip
-            client.start()
+            await client.start()
             """
             We need to be sure that previous client is establish or fail
             to establish connection because of limit exceeded. Otherwise
@@ -140,7 +138,7 @@ frang_limits {
     async def _base_scenario(self, clients: list, responses: int):
         self.disable_deproxy_auto_parser()
         for client in clients:
-            client.start()
+            await client.start()
             """
             We need to be sure that previous client is establish or fail
             to establish connection because of limit exceeded. Otherwise
@@ -250,11 +248,11 @@ frang_limits {
 
         for n in [warning_n, warning_n * 2]:
             for client in non_blocked_clients:
-                client.start()
+                await client.start()
                 await client.wait_for_connection_open(strict=True)
 
             for client in blocked_clients:  # establish 2 or more connections
-                client.start()
+                await client.start()
                 self.assertTrue(
                     await client.wait_for_connection_close(),
                     "Tempesta did not block concurrent TCP connections.",
@@ -266,6 +264,6 @@ frang_limits {
             await self.assertFrangWarning(warning=ERROR, expected=n)
 
             for client in non_blocked_clients + blocked_clients:
-                client.stop()
+                await client.stop()
 
             await self.assertWaitUntilEqual(self._get_num_active_conns, 0, timeout=3)

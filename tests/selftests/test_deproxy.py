@@ -320,12 +320,12 @@ server ${server_ip}:8000;
         remote.client.run_cmd("sysctl -w net.ipv4.tcp_syn_linear_timeouts=4")
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-interface")
-        client.start()
+        await client.start()
         await client.wait_for_connection_open(timeout=2)
         client.make_request("GET /qwerty HTTP/1.1\r\nHost: localhost\r\n\r\n")
         await client.wait_for_connection_close(timeout=2)
         # Connect one more time during block duration.
-        client.restart()
+        await client.restart()
         if timeout > 0:
             await client.wait_for_connection_open(timeout=timeout)
         # If wait less than block_duration time thus expected not established connection.
@@ -446,13 +446,11 @@ server ${server_ip}:8000;
 
         await self.start_all_services(client=False)
 
+        request = client.create_request(method="GET", uri="/", headers=[])
         for _ in range(5):
-            try:
-                client.start()
-                client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-                client.stop()
-            except OSError:
-                raise AssertionError("Deproxy client launch: IP address is not available.")
+            await client.start()
+            await client.send_request(request, "200")
+            await client.stop()
 
     async def test_pipeline_request(self):
         await self.start_all_services()

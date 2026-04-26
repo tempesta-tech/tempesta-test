@@ -183,7 +183,7 @@ frang_limits {
             msg="TempestaFW reloads with wrong config",
         ):
             self.oops_ignore = ["ERROR"]
-            self.get_tempesta().start()
+            await self.get_tempesta().start()
 
 
 @marks.parameterize_class(
@@ -746,9 +746,9 @@ class TestPurgeGet(TempestaTest):
             with self.subTest("PURGE+GET", uri=uri):
                 client.set_uri(uri)
 
-                client.start()
+                await client.start()
                 await self.wait_while_busy(client)
-                client.stop()
+                await client.stop()
                 response = client.last_response
 
                 self.assertEqual(response.status, 200, response)
@@ -765,9 +765,9 @@ class TestPurgeGet(TempestaTest):
         client = self.get_client("purge")
         client.set_uri("/server1")
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         response = client.last_response
 
         self.assertEqual(response.status, 200, response)

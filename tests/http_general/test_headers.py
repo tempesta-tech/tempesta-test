@@ -193,12 +193,12 @@ class TestSmallHeader(tester.TempestaTest):
 
         for length in range(1, 5):
             header = "X" * length
-            client.start()
+            await client.start()
             with self.subTest(header=header):
                 client.make_request(f"GET / HTTP/1.1\r\nHost: deproxy\r\n{header}: test\r\n\r\n")
                 self.assertTrue(await client.wait_for_response(timeout=1))
                 self.assertEqual(client.last_response.status, "200")
-            client.stop()
+            await client.stop()
 
 
 class TestHostBase(tester.TempestaTest):
@@ -1048,7 +1048,7 @@ class TestNoContentLengthInMethod(tester.TempestaTest):
 
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
-        client.start()
+        await client.start()
 
         for status in self.statuses:
             with self.subTest(status=status):

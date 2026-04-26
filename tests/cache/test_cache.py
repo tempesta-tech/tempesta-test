@@ -1677,9 +1677,9 @@ class TestChunkedResponse(tester.TempestaTest):
     ]
 
     async def get_response(self, client) -> CurlResponse:
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         return client.last_response
 
     async def test_h2_cached_data_equal_to_original(self):
@@ -1800,9 +1800,9 @@ class TestCacheVhost(tester.TempestaTest):
     }
 
     async def get_response(self, client) -> CurlResponse:
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         return client.response_msg
 
     @marks.Parameterize.expand(
@@ -2150,7 +2150,7 @@ http_chain {
         # Expected response to HEAD from upstream
         self.assertIsNone(client.last_response.headers.get("age"))
 
-        client.restart()
+        await client.restart()
         second_request = client.create_request(method="GET", headers=[])
         await client.send_request(second_request, "200")
         # Expected response to GET from upstream

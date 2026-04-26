@@ -88,7 +88,7 @@ class TestH2Responses(tester.TempestaTest):
 
     async def __setup_h2_responses_test(self):
         curl = self.get_client("curl")
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
         return curl
 

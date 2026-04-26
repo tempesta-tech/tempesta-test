@@ -133,7 +133,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
 
         # launch H2Load
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         stats_srvs: list[ServerStats] = [
             ServerStats(tempesta, "main", cfg.get("Server", "ip"), port) for port in (8000, 8001)
@@ -152,7 +152,7 @@ class TestHealthMonitorLiveReconf(LiveReconfStressTestBase):
 
         # H2Load stop
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     def check_servers_stats(
