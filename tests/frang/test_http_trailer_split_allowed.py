@@ -85,7 +85,7 @@ class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
         await self.set_frang_config(f"{config}http_strict_host_checking false;")
 
         client = self.get_client("deproxy-1")
-        client.start()
+        await client.start()
         client.make_request(
             request=client.create_request(
                 method="POST", headers=[("trailer", "x-my-hdr"), ("x-my-hdr", "value")]

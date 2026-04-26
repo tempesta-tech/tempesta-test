@@ -271,7 +271,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
 
         request = client.create_request(uri="/", method="GET", headers=[])
 
-        client.start()
+        await client.start()
         client.make_request(request)
         for stream_id in range(3, 200, 2):
             client.make_request(
@@ -307,9 +307,9 @@ class TestHttp2FrameFlood(tester.TempestaTest):
 
         client = self.get_client("gflood")
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertEqual(0, client.returncode)
 
@@ -416,9 +416,9 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         await self.start_all_services(client=False)
 
         flood_client.options = flood_client.options + [cmd_args]
-        flood_client.start()
+        await flood_client.start()
         await self.wait_while_busy(flood_client)
-        flood_client.stop()
+        await flood_client.stop()
 
         self.assertEqual(0, flood_client.returncode)
         tempesta.get_stats()

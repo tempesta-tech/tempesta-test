@@ -148,9 +148,9 @@ class RatioDynamic(tester.TempestaTest):
         configuration.
         """
         if new_server_name:
-            srv_dyn.stop()
+            await srv_dyn.stop()
             srv_dyn = self.get_server(new_server_name)
-            srv_dyn.start()
+            await srv_dyn.start()
 
         client = self.get_client("client")
         if isinstance(client, Wrk):
@@ -158,9 +158,9 @@ class RatioDynamic(tester.TempestaTest):
         else:
             client.options[0] += f" --duration {self.min_duration}"
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         return (srv_const, srv_dyn)
 
@@ -198,8 +198,8 @@ class RatioDynamic(tester.TempestaTest):
         """
         srv_const = self.get_server("nginx_constant")
         srv_dyn = self.get_server("nginx_dynamic")
-        srv_const.start()
-        srv_dyn.start()
+        await srv_const.start()
+        await srv_dyn.start()
         await self.start_tempesta()
 
         perfstat = {

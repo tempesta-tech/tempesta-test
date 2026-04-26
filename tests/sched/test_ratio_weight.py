@@ -229,9 +229,9 @@ class Ratio(tester.TempestaTest):
         """
         client = self.get_client("client")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.start_all_clients()
+        await self.start_all_clients()
 
         await self.wait_while_busy(client)
 

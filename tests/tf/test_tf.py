@@ -155,8 +155,8 @@ class TestTFt(tester.TempestaTest):
                 name="hash_for_client_block_by_rate",
                 tempesta_tf_config="""
 					tft {
-						hash 66cb9fd8d4250000 1 0;
-						hash 66cb8f00d4250002 1 0;
+						hash 66cb9fd8ef170000 1 0;
+						hash 66cb8f00ef170002 1 0;
 					}
 				""",
                 expected_block=True,
@@ -253,10 +253,10 @@ class TestTFtStress(tester.TempestaTest):
     async def test(self, name, client_id: str):
         await self.start_all_services()
         client = self.get_client(client_id)
-        client.start()
+        await client.start()
         self.change_cfg()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         if client_id == "wrk":
             self.assertGreater(client.statuses[200], 0)

@@ -80,7 +80,7 @@ listen 80;
         self.update_tempesta_config(client_mem_config)
         self.oops_ignore = ["ERROR"]
         with self.assertRaises(error.ProcessBadExitStatusException):
-            tempesta.start()
+            await tempesta.start()
 
 
 class TestBlockByMemExceededBase(TestClientMemBase):
@@ -229,9 +229,9 @@ tls_match_any_server_name;
         client = self.get_client("gflood")
         task = self.create_task(self.__do_reload)
         task.start()
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
 
 @marks.parameterize_class(
@@ -373,7 +373,7 @@ tls_match_any_server_name;
 
         i = 0
         for client in self.get_clients():
-            client.start()
+            await client.start()
             request = client.create_request(method="GET", uri="/", headers=[])
             client.make_requests([request] * 10)
             await server.wait_for_requests((i + 1) * 10)

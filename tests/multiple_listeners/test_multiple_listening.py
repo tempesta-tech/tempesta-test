@@ -1435,7 +1435,7 @@ class TestMultipleListening(tester.TempestaTest):
                     cli[ID],
                 )
                 await self.wait_while_busy(h2spec)
-                h2spec.stop()
+                await h2spec.stop()
                 self.assertIn(
                     H2SPEC_OK,
                     h2spec.response_msg,
@@ -1446,9 +1446,9 @@ class TestMultipleListening(tester.TempestaTest):
                 curl = self.get_client(
                     cli[ID],
                 )
-                curl.start()
+                await curl.start()
                 await self.wait_while_busy(curl)
-                curl.stop()
+                await curl.stop()
                 self.assertIn(
                     STATUS_OK,
                     curl.response_msg,

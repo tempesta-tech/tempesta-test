@@ -79,7 +79,7 @@ class TestLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
 
         # sending curl requests before reconfig Tempesta
         response = await self.make_curl_request("curl-0")
@@ -104,7 +104,7 @@ class TestLiveReconf(LiveReconfStressTestBase):
 
         # h2load stop
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
     async def check_non_working_socket(

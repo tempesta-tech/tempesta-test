@@ -93,7 +93,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="200",
@@ -104,7 +104,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(uri="/", method="GET", headers=[("x-forwarded-for", "1.2.3.4")]),
             expected_status_code="200",
@@ -115,7 +115,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-        client.start()
+        await client.start()
         await client.send_request(
             # very long uri
             client.create_request(uri="/" + "a" * 25, method="GET", headers=[]),
@@ -127,7 +127,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-        client.start()
+        await client.start()
         await client.send_request(
             # very long uri
             client.create_request(
@@ -147,9 +147,9 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
 
         await self.start_all_services()
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         # we expect all requests to receive 200
         self.assertEqual(
             curl.statuses,
@@ -161,7 +161,7 @@ class FrangWhitelistMarkTestCase(NetfilterMarkMixin, tester.TempestaTest):
         await self.start_all_services(client=False)
 
         client: deproxy_client.DeproxyClient = self.get_client("deproxy-cl")
-        client.start()
+        await client.start()
         await client.send_request(
             client.create_request(uri="/", method="GET", headers=[]),
             expected_status_code="403",

@@ -43,7 +43,7 @@ def generate_h2_request(optional_headers=[]) -> list:
 
 def get_expected_response(
     optional_headers: list, expected_headers: list, client, cache: bool, directive: str
-) -> Response or H2Response:
+) -> Response | H2Response:
     if client.is_http2:
         tempesta_headers = [
             ("via", f"2.0 tempesta_fw (Tempesta FW {tempesta.version()})"),

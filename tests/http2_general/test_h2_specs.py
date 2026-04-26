@@ -100,6 +100,6 @@ class H2Spec(tester.TempestaTest):
 
         h2spec = self.get_client("h2spec")
         await self.wait_while_busy(h2spec)
-        h2spec.stop()
+        await h2spec.stop()
         self.assertEqual(0, h2spec.returncode)
         assert "0 failed" in h2spec.response_msg, h2spec.response_msg

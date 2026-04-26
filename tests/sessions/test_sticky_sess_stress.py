@@ -96,9 +96,9 @@ frang_limits {http_strict_host_checking false;}
         wrk.set_script("cookie-one-client")
         wrk.threads = 1
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
         self.assertIsNotNone(wrk.statuses.get(200))
 
         for server in self.get_servers():
@@ -129,9 +129,9 @@ frang_limits {http_strict_host_checking false;}
         wrk.set_script("cookie-many-clients")
         wrk.threads = wrk.connections
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk)
-        wrk.stop()
+        await wrk.stop()
         self.assertIsNotNone(wrk.statuses.get(200))
 
         for server in self.get_servers():

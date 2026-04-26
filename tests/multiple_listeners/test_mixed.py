@@ -170,9 +170,9 @@ class TestMixedListeners(tester.TempestaTest):
             str: server response to the request as string
         """
         client: ExternalTester = self.get_client(curl_client_id)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         return client.response_msg
 
     def check_curl_response(self, response: str, fail=False):

@@ -78,7 +78,7 @@ server ${server_ip}:8000;
         FW stopping.
         """
         await self.disable_close_connection_and_send_requests()
-        self.get_tempesta().stop()
+        await self.get_tempesta().stop()
 
     async def test_tcp_fin_timeout(self):
         """
@@ -91,11 +91,11 @@ server ${server_ip}:8000;
         await asyncio.sleep(tcp_fin_timeout + 1)
 
         t = time.time()
-        self.get_tempesta().stop()
+        await self.get_tempesta().stop()
         self.assertLess(time.time() - t, 5)
 
         for client in self.get_clients():
-            client.stop()
+            await client.stop()
             self.assertTrue(
                 client.is_rst_received, "Client don't receive TCP RST when Tempesta FW closes."
             )
@@ -111,6 +111,6 @@ server ${server_ip}:8000;
         request = self.get_client("deproxy-0").create_request(method="GET", headers=[])
 
         for client in self.get_clients():
-            client.start()
+            await client.start()
             await client.send_request(request, "200")
-            client.stop()
+            await client.stop()

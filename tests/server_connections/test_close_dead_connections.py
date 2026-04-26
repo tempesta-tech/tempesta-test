@@ -80,7 +80,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         self.configure_deproxy_server()
         self.disable_deproxy_auto_parser()
         await self.start_all_services(client=False)
-        client.start()
+        await client.start()
 
         server_conn_list_before = set(server.connections)
         request = client.create_request(method="GET", headers=[])
@@ -146,7 +146,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
 
         request = self.get_client(0).create_request(method="GET", headers=[])
         for client in self.get_clients():
-            client.start()
+            await client.start()
 
         if close_with_rst:
             for client in self.get_clients():
@@ -155,7 +155,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
             client.make_request(request)
         await server.wait_for_requests(n=CONNS_N)
         for client in self.get_clients():
-            client.stop()
+            await client.stop()
 
         await self.assertWaitUntilTrue(
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),

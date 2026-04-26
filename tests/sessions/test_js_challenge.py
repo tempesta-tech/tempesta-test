@@ -414,14 +414,14 @@ class JSChallenge(BaseJSChallenge):
         await client.send_request(
             self.prepare_second_req(client, cookie_1), expected_status_code="200"
         )
-        client.stop()
+        await client.stop()
 
-        self.get_tempesta().restart()
+        await self.get_tempesta().restart()
 
         # browser create a new session with an existing cookie.
         # This cookie valid for browser, but invalid for Tempesta
         # because it has other timestamp after reboot
-        client.start()
+        await client.start()
         await client.send_request(
             self.prepare_second_req(client, cookie_1), expected_status_code="503"
         )
@@ -443,7 +443,7 @@ class JSChallenge(BaseJSChallenge):
         await client.send_request(
             self.prepare_second_req(client, cookie_1), expected_status_code="200"
         )
-        client.restart()
+        await client.restart()
         await client.send_request(
             self.prepare_second_req(client, cookie_1), expected_status_code="200"
         )

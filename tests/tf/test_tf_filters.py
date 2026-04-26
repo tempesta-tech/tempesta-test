@@ -5,7 +5,7 @@ Tests for TF Hash Filtering and Configuration Parsing
 import asyncio
 import typing
 
-from framework.helpers import remote, tf_cfg
+from framework.helpers import remote, tf_cfg, util
 from framework.helpers.access_log import AccessLogLine
 from framework.helpers.error import ProcessBadExitStatusException
 from framework.test_suite import marks, tester
@@ -111,9 +111,9 @@ class BaseTFTestSuite(tester.TempestaTest):
 
     async def get_client_fingerprint(self, name: str) -> AccessLogLine:
         client = self.get_client(name)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertEqual(client.stdout, self.response_ok)
 
@@ -271,7 +271,7 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
         await self.start_all_services(client=False)
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
-        clients = list(map(self.get_client, client_names))
+        clients = util.ForEach(*self.get_clients())
         fingerprints = []
         for name in client_names:
             fingerprint = await self.get_client_fingerprint(name)
@@ -283,9 +283,9 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
 
         self.set_config_tf_hash(self.get_hash(fingerprints[0]))
 
-        list(map(lambda __client: __client.start(), clients))
-        await asyncio.gather(*[self.wait_while_busy(client) for client in clients])
-        list(map(lambda __client: __client.stop(), clients))
+        await clients.start()
+        await clients.wait_for_finish()
+        await clients.stop()
 
         self.assertEqual(
             self.count_equal(client_names, "limited", self.response_ok),
@@ -328,21 +328,21 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         Verify the default tf filters
         does not affect the application
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         limited_1 = self.get_client("limited-1")
         limited_2 = self.get_client("limited-2")
 
-        limited_1.start()
-        limited_2.start()
+        await limited_1.start()
+        await limited_2.start()
 
         await self.wait_while_busy(limited_1)
         await self.wait_while_busy(limited_2)
 
-        limited_1.stop()
-        limited_2.stop()
+        await limited_1.stop()
+        await limited_2.stop()
 
         self.assertEqual(limited_1.stdout, self.response_ok)
         self.assertEqual(limited_2.stdout, self.response_ok)
@@ -424,16 +424,16 @@ class TestRestartAppWithUpdatedHash(BaseTFTestSuite):
         Verify successful application restart with
         tf configuration
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.get_tempesta().restart()
+        await self.get_tempesta().restart()
 
     async def test_reload_ok(self):
         """
         Verify successful application reload with
         tf configuration
         """
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
         self.get_tempesta().reload()
 
@@ -482,9 +482,9 @@ class TestClearHashes(BaseTFTestSuite):
         self.set_config_tf_hash(self.get_hash(fingerprint))
 
         blocked_client = self.get_client("blocked")
-        blocked_client.start()
+        await blocked_client.start()
         await self.wait_while_busy(blocked_client)
-        blocked_client.stop()
+        await blocked_client.stop()
         self.assertIn(
             "Connection reset by peer",
             blocked_client.stderr.decode(),
@@ -493,9 +493,9 @@ class TestClearHashes(BaseTFTestSuite):
 
         self.update_config_with_tf_hash_limit()
         client = self.get_client("curl")
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertEqual(
             client.stdout,
             self.response_ok,

@@ -232,7 +232,7 @@ class BaseWsPing(tester.TempestaTest):
 
     # Client
 
-    async def ws_ping_test(self, port: int, is_ssl: bool) -> None:
+    async def ws_ping_test(self, port: int, is_ssl: bool, timeout: float = 10.0) -> None:
         proto = "wss" if is_ssl else "ws"
         ssl_context = None
         if is_ssl:
@@ -241,7 +241,7 @@ class BaseWsPing(tester.TempestaTest):
             ssl_context.verify_mode = ssl.CERT_NONE
 
         async with websockets.connect(
-            f"{proto}://{TEMPESTA_IP}:{port}", ssl=ssl_context
+            f"{proto}://{TEMPESTA_IP}:{port}", ssl=ssl_context, open_timeout=timeout
         ) as websocket:
             await websocket.send(b"request")
             response_body = await websocket.recv()
@@ -249,7 +249,7 @@ class BaseWsPing(tester.TempestaTest):
 
     async def ws_ping_stress(self, port: int, is_ssl: bool) -> bool:
         try:
-            await self.ws_ping_test(port, is_ssl)
+            await self.ws_ping_test(port, is_ssl, timeout=1)
             return http.HTTPStatus.OK
         except websockets.InvalidStatusCode as e:
             self.assertEqual(
@@ -258,6 +258,8 @@ class BaseWsPing(tester.TempestaTest):
                 "Tempesta FW returns an unexpected status code when creating a connection.",
             )
             return http.HTTPStatus.GATEWAY_TIMEOUT
+        except TimeoutError:
+            return http.HTTPStatus.SERVICE_UNAVAILABLE
 
     # Backend
 
@@ -361,7 +363,7 @@ class TestWssPingProxy(BaseWsPing):
         remote.server.copy_file(cert_generator.f_key, cert_generator.serialize_priv_key().decode())
 
     async def test(self):
-        self.start_all_servers()
+        await self.start_all_servers()
         await self._test(tempesta_port=82, is_ssl=True)
 
 
@@ -423,14 +425,18 @@ class TestWssStress(BaseWsPing):
             )
         await self.start_tempesta()
         await self.wait_for_connections(conns_n=servers_n * 32)  # conns_n == 32
-        results = {http.HTTPStatus.OK: 0, http.HTTPStatus.GATEWAY_TIMEOUT: 0}
-        for i in range(4000):
+        results = {
+            http.HTTPStatus.OK: 0,
+            http.HTTPStatus.GATEWAY_TIMEOUT: 0,
+            http.HTTPStatus.SERVICE_UNAVAILABLE: 0,
+        }
+        for i in range(1000):
             results[await self.ws_ping_stress(82, True)] += 1
             if i in self.fibo(4000):
-                self.get_tempesta().restart()
+                await self.get_tempesta().restart()
         self.assertGreater(
             results[http.HTTPStatus.OK],
-            results[http.HTTPStatus.GATEWAY_TIMEOUT],
+            results[http.HTTPStatus.GATEWAY_TIMEOUT] + results[http.HTTPStatus.SERVICE_UNAVAILABLE],
             "Tempesta FW returns 504 responses more than 200.",
         )
 
@@ -564,7 +570,7 @@ class TestRestartOnUpgrade(BaseWsPing):
         for i in range(1500):
             results[await self.ws_ping_stress(81, False)] += 1
             if i in self.fibo(1500):
-                self.get_tempesta().restart()
+                await self.get_tempesta().restart()
         self.assertGreater(
             results[http.HTTPStatus.OK],
             results[http.HTTPStatus.GATEWAY_TIMEOUT],

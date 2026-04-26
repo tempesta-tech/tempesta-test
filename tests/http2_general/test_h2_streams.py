@@ -287,10 +287,10 @@ class TestMultiplexing(tester.TempestaTest):
             step += 1
 
         for client in clients:
-            client.start()
+            await client.start()
         await self.wait_while_busy(*clients)
         for client in clients:
-            client.stop()
+            await client.stop()
 
         step = 1
         for client, server in list(zip(clients, servers)):

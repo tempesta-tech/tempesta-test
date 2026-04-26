@@ -100,7 +100,7 @@ class CheckedResponses(tester.TempestaTest):
     async def send_request_and_get_dmesg(self, klog, request_as_str, response_as_str=HTTP_200_OK):
         self.get_server("0").response = response_as_str
         deproxy_cl = self.get_client("client")
-        deproxy_cl.start()
+        await deproxy_cl.start()
         deproxy_cl.make_request(request_as_str)
         await deproxy_cl.wait_for_response()
         return AccessLogLine.from_dmesg(klog)
@@ -116,7 +116,7 @@ class CheckedResponses(tester.TempestaTest):
         self.set_response(status, body)
 
         deproxy_cl = self.get_client("client")
-        deproxy_cl.start()
+        await deproxy_cl.start()
         deproxy_cl.make_request(request)
         await deproxy_cl.wait_for_response()
         self.assertEqual(int(deproxy_cl.last_response.status), status)
