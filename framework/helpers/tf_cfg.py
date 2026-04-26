@@ -94,7 +94,7 @@ class TestFrameworkCfg:
         self.config.read_dict(
             {
                 "General": {
-                    "asyncio_freq": "0.001",  # seconds
+                    "asyncio_freq": "0.01",  # seconds
                     "duration": "10",
                     "concurrent_connections": "100",
                     "log_file": "tests_log.log",
