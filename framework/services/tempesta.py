@@ -459,7 +459,7 @@ class Tempesta(stateful.Stateful):
     def load_module(self, path, module_name):
         remote.tempesta.run_cmd(f"insmod {self.srcdir}/{path}/{module_name}.ko")
 
-    def run_start(self):
+    async def run_start(self):
         self.clear_stats()
         self._do_run(f"{self.srcdir}/scripts/tempesta.sh --time-output --start")
 
@@ -534,7 +534,7 @@ class TempestaFI(Tempesta):
         if self.module_stap:
             self.node.run_cmd("rm -r %s" % self.modules_dir)
 
-    def run_start(self):
-        Tempesta.run_start(self)
+    async def run_start(self):
+        await Tempesta.run_start(self)
         self.inject_prepare()
         self.inject()

@@ -14,17 +14,17 @@ from unittest.util import strclass
 import run_config
 from framework.deproxy import deproxy_client, deproxy_manager
 from framework.deproxy.deproxy_auto_parser import DeproxyAutoParser
-from framework.deproxy.deproxy_server import deproxy_srv_factory
+from framework.deproxy.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.helpers import clickhouse, dmesg, error, remote, tf_cfg, util
 from framework.helpers.memworker import MemoryChecker
 from framework.helpers.networker import NetWorker
 from framework.helpers.tf_cfg import test_logger
 from framework.helpers.util import fill_template
-from framework.services import base_server, curl_client, external_client
+from framework.services import curl_client, external_client
 from framework.services import tempesta as tfw
 from framework.services import wrk_client
-from framework.services.docker_server import docker_srv_factory
-from framework.services.nginx_server import nginx_srv_factory
+from framework.services.docker_server import DockerServer, docker_srv_factory
+from framework.services.nginx_server import Nginx, nginx_srv_factory
 from framework.services.stateful import Stateful
 
 __author__ = "Tempesta Technologies, Inc."
@@ -282,15 +282,15 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             # Copy description to keep it clean between several tests.
             self.__create_backend(server.copy())
 
-    def get_server(self, sid: str | int) -> base_server.BaseServer:
+    def get_server(self, sid: str | int) -> Nginx | StaticDeproxyServer | DockerServer:
         """Return client with specified id"""
         server = self.__servers.get(sid, None)
         if server is None:
             raise error.ServerNotFound(sid) from None
         return server
 
-    def get_servers(self):
-        return self.__servers.values()
+    def get_servers(self) -> list:
+        return list(self.__servers.values())
 
     def get_servers_id(self):
         """Return list of registered servers id"""
@@ -347,12 +347,9 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             tfw_config=config.get("tfw_config", None),
         )
 
-    def start_all_servers(self):
-        for sid in self.__servers:
-            srv = self.__servers[sid]
-            srv.start()
-            if not srv.is_running():
-                raise Exception("Can not start server %s" % sid)
+    async def start_all_servers(self, servers: list[Stateful] = None) -> None:
+        servers = servers or self.get_servers()
+        await asyncio.gather(*[asyncio.create_task(srv.start()) for srv in servers])
 
     async def start_tempesta(self):
         """Start Tempesta and wait until the initialization process finish."""
@@ -364,16 +361,13 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         async with dmesg.wait_for_msg(
             re.escape("[tempesta fw] Tempesta FW is ready"), strict=False
         ):
-            self.__tempesta.start()
+            await self.__tempesta.start()
             if not self.__tempesta.is_running():
                 raise Exception("Can not start Tempesta")
 
-    def start_all_clients(self):
-        for cid in self.__clients:
-            client = self.__clients[cid]
-            client.start()
-            if not client.is_running():
-                raise Exception("Can not start client %s" % cid)
+    async def start_all_clients(self, clients: list[Stateful] = None) -> None:
+        clients = clients or self.get_clients()
+        await asyncio.gather(*[asyncio.create_task(client.start()) for client in clients])
 
     async def asyncSetUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't
@@ -417,8 +411,12 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     async def cleanup_services(self):
         test_logger.info("Cleanup: stopping all services...")
 
+        tasks = []
         for service in self.get_all_services():
-            service.stop()
+            tasks.append(asyncio.create_task(service.stop()))
+        await asyncio.gather(*tasks)
+
+        for service in self.get_all_services():
             service.clear_stats()
             if service.exceptions:
                 self.__exceptions.update({str(service): "\n".join(service.exceptions)})
@@ -508,21 +506,23 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
 
     async def start_all_services(self, client: bool = True) -> None:
         """Start all services."""
-        self.start_all_servers()
-        await self.start_tempesta()
+        tasks = [
+            asyncio.create_task(self.start_all_servers()),
+            asyncio.create_task(self.start_tempesta()),
+        ]
 
         if "deproxy" or "deproxy_h2" in [
             element["type"] for element in (self.clients + self.backends)
         ]:
-            self.deproxy_manager.start()
+            tasks.append(asyncio.create_task(self.deproxy_manager.start()))
 
         conn_task = asyncio.create_task(self.wait_all_connections())
         tfw_logger_task = asyncio.create_task(self.__tempesta.wait_while_logger_start())
 
-        await asyncio.gather(conn_task, tfw_logger_task, return_exceptions=True)
+        await asyncio.gather(conn_task, tfw_logger_task, *tasks, return_exceptions=False)
 
         if client:
-            self.start_all_clients()
+            await self.start_all_clients()
 
     def __run_tcpdump(self) -> None:
         """

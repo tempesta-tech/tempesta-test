@@ -118,7 +118,7 @@ class DockerServer(DockerServerArguments, base_server.BaseServer):
             self._logger.info(f"Status is unhealthy.")
         return status
 
-    def run_start(self):
+    async def run_start(self):
         self._logger.info(f"Start with {self.image} image")
         self.port_checker.check_ports_status()
         self._build_image()

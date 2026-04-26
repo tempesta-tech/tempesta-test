@@ -37,12 +37,8 @@ class BaseServer(stateful.Stateful, abc.ABC):
         Wait until the container becomes healthy
         and Tempesta establishes connections to the server ports.
         """
-        if self.state != stateful.STATE_STARTED:
-            return False
-
         result = await util.wait_until(
             self._wait_for_connections,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
             timeout=timeout,
         )
 
