@@ -1,10 +1,11 @@
 import abc
+import asyncio
 import logging
 import traceback
 import typing
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 STATE_BEGIN_START = "begin_start"
@@ -61,47 +62,50 @@ class Stateful(abc.ABC):
         self.state = STATE_ERROR
 
     @abc.abstractmethod
-    def run_start(self): ...
+    async def run_start(self): ...
 
     @abc.abstractmethod
     def clear_stats(self) -> None:
         """All counters or dynamic variables for the service should be reset here."""
 
-    def restart(self):
-        self.stop()
-        self.start()
+    async def restart(self):
+        await self.stop()
+        await self.start()
 
-    def start(self):
+    async def start(self):
         """Try to start object"""
         self._logger.info("Starting...")
         if self.state != STATE_STOPPED:
             self._logger.warning(f"Not stopped")
             return
         self.state = STATE_BEGIN_START
-        self.run_start()
+        await self.run_start()
         self.state = STATE_STARTED
         self._logger.info("Start completed")
 
-    def force_stop(self):
+    async def force_stop(self):
         """Stop object"""
         procedures_names = [procedure.__name__ for procedure in self._stop_procedures()]
         self._logger.info(f"Stop procedures list: {procedures_names}")
         for stop_proc in self._stop_procedures():
             try:
-                stop_proc()
+                if asyncio.iscoroutinefunction(stop_proc):
+                    await stop_proc()
+                else:
+                    stop_proc()
                 self.state = STATE_STOPPED
             except Exception as exc:
                 tb_msg = traceback.format_exc()
                 self._logger.error("Exception in stopping process: %s", exc, exc_info=True)
                 self.append_exception(tb_msg)
 
-    def stop(self):
+    async def stop(self):
         """Try to stop object"""
         self._logger.info("Stopping...")
         if self.state != STATE_STARTED and self.state != STATE_BEGIN_START:
             self._logger.warning(f"Not started")
             return
-        self.force_stop()
+        await self.force_stop()
         self._logger.info("Stop completed")
 
     def is_running(self):
