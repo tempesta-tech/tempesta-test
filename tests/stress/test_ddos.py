@@ -186,9 +186,9 @@ http_chain {{
     async def make_response(self, curl, uri: str) -> None:
         curl.headers["Host"] = "tempesta-tech.com"
         curl.set_uri(uri)
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
     @classmethod
     def setUpClass(cls):
@@ -305,7 +305,7 @@ http_chain {{
             + f"--rpc {RPC} "
             + f"--duration {DURATION} "
         ]
-        client.start()
+        await client.start()
 
         await asyncio.sleep(DURATION / 2)
         # Get a response from the cache after the attack started.
@@ -325,7 +325,7 @@ http_chain {{
         #  issue - add checks to receiving a response from upstream
 
         await client.wait_for_finish(timeout=DURATION + 5)
-        client.stop()
+        await client.stop()
 
         tempesta.get_stats()
         self.assertGreater(tempesta.stats.cl_msg_received, 3, "DDoS tool doesn't work.")

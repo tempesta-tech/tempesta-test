@@ -121,7 +121,7 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
         # launch H2Load
         client_h2 = self.get_client("h2load")
         client_h2.options[0] = self._change_uri_cmd_opt(client_h2, VHOSTS[0])
-        client_h2.start()
+        await client_h2.start()
 
         # sending curl requests before reconfig Tempesta
         response = await self.make_curl_request("curl-origin-h2")
@@ -147,7 +147,7 @@ class TestSchedHttpLiveReconf(LiveReconfStressTestBase):
 
         # H2Load stop
         await self.wait_while_busy(client_h2)
-        client_h2.stop()
+        await client_h2.stop()
 
     def _change_uri_cmd_opt(self, client: ExternalTester, path: str = None) -> str:
         """Changing the uri option in the options list of client.

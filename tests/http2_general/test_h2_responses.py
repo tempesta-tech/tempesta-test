@@ -88,15 +88,15 @@ class TestH2Responses(tester.TempestaTest):
 
     async def __setup_h2_responses_test(self):
         curl = self.get_client("curl")
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
         return curl
 
     async def __test_h2_response(self, curl, header_name, header_value, status):
         curl.headers[header_name] = header_value
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, status)
 

@@ -166,6 +166,7 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
 
     @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERDATA, prio=1)
     def should_handle_ServerData(self):
+        self.master_secret = self.cur_session.master_secret
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
@@ -278,11 +279,6 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             s = b"".join(p.raw_stateful() for p in self.buffer_out)
             self.socket.send(s)
         self.buffer_out = []
-
-    @ATMT.state()
-    def HANDLED_SERVERDATA(self):
-        self.master_secret = self.cur_session.master_secret
-        raise self.WAIT_CLIENTDATA()
 
     @ATMT.state()
     def HANDLED_SERVERFINISHED(self):

@@ -2,8 +2,8 @@
 
 import asyncio
 
-from framework.test_suite import marks
 from framework.helpers import dmesg
+from framework.test_suite import marks
 from tests.frang.frang_test_case import FrangTestCase
 
 __author__ = "Tempesta Technologies, Inc."
@@ -69,9 +69,9 @@ class FrangTlsIncompleteTestCase(FrangTestCase):
 
         await self.start_all_services(client=False)
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
         await asyncio.sleep(self.timeout)
 

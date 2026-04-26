@@ -359,11 +359,11 @@ max_concurrent_streams 10000;
                     f"--max-concurrent-streams {REQUESTS_COUNT} --duration {DURATION}"
                 ]
 
-                client.start()
+                await client.start()
                 await self.wait_while_busy(
                     client, timeout=DURATION * 10
                 )  # The MTU80 tests require more time
-                client.stop()
+                await client.stop()
 
                 self.assertEqual(client.returncode, 0)
                 self.assertNotIn(" 0 2xx, ", client.response_msg, client.response_msg)
@@ -422,9 +422,9 @@ class TlsWrkStressDocker(tester.TempestaTest):
         wrk.threads = THREADS
         wrk.timeout = 0
 
-        wrk.start()
+        await wrk.start()
         await self.wait_while_busy(wrk, timeout=20)
-        wrk.stop()
+        await wrk.stop()
 
         self.assertGreater(wrk.statuses.get(200, 0), 0)
 
@@ -496,9 +496,9 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
     async def make_requests(self, client_id):
         client = self.get_client(client_id)
         await self.start_all_services(client=False)
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertEqual(client.statuses[200], REQUESTS_COUNT)
         if client.last_response:
             self.assertFalse(client.last_response.stderr)
@@ -513,9 +513,9 @@ class BaseCurlStress(LargePageNginxBackendMixin, tester.TempestaTest, base=True)
         for i in range(1, REQUESTS_COUNT + 1):
             delta = time.time() - started
             client.set_uri("/" if uri_is_same else f"/{i}")
-            client.start()
+            await client.start()
             await self.wait_while_busy(client)
-            client.stop()
+            await client.stop()
 
             response = client.last_response
             self.assertFalse(response.stderr, f"Error after {delta} seconds and {i} requests.")
@@ -622,16 +622,16 @@ class TestTdbStress(LargePageNginxBackendMixin, tester.TempestaTest):
 
         for step in range(20):
             client.set_uri(f"/{step}/[1-256]")
-            client.start()
+            await client.start()
             await self.wait_while_busy(client)
-            client.stop()
+            await client.stop()
             tempesta.get_stats()
             self.assertGreater(tempesta.stats.cache_objects, 0)
 
             client_purge.set_uri(f"/{step}/[1-256]")
-            client_purge.start()
+            await client_purge.start()
             await self.wait_while_busy(client_purge)
-            client_purge.stop()
+            await client_purge.stop()
             tempesta.get_stats()
             self.assertEqual(tempesta.stats.cache_objects, 0)
 
@@ -757,9 +757,9 @@ class RequestStress(tester.TempestaTest):
         client.threads = THREADS
         client.timeout = 0
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertGreater(client.statuses[200], 0, "Client has not received 200 responses.")
 
@@ -770,9 +770,9 @@ class RequestStress(tester.TempestaTest):
         client = self.get_client("h2load")
         client.options[0] += f' -H ":method:{method}"'
 
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.assertEqual(client.returncode, 0)
         self.assertNotIn(" 0 2xx, ", client.response_msg)

@@ -223,12 +223,12 @@ class RatioDynamic(tester.TempestaTest):
         else:
             client.options[0] += f" --duration {self.min_duration}"
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
-        self.start_all_clients()
+        await self.start_all_clients()
 
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         tempesta = self.get_tempesta()
         servers = self.get_servers()

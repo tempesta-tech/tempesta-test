@@ -201,7 +201,7 @@ class FrangHttpHeaderCountH2(H2Config, FrangHttpHeaderCountTestCase):
 
         client = self.get_client("deproxy-1")
         client.parsing = False
-        client.start()
+        await client.start()
         client.make_request(
             request=self.post_request + [HeaderTuple(b"a", b"a" * 4000)],
             end_stream=False,

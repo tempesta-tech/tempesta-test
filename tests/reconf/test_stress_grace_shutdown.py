@@ -154,7 +154,7 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load
         client.options[0] += ' --header ":authority: app.com"'
-        client.start()
+        await client.start()
 
         # 2
         # config Tempesta change,
@@ -171,4 +171,4 @@ class TestGraceShutdownLiveReconf(LiveReconfStressTestBase):
 
         # h2load stop
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()

@@ -109,14 +109,14 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
         """
         curl = self.get_client("curl")
 
-        self.start_all_servers()
+        await self.start_all_servers()
         await self.start_tempesta()
 
         # perform `init` request
         curl.headers = {"Host": "good.com"}
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FOUND)
         self.assertIn("__tfw", response.headers["set-cookie"])
@@ -127,18 +127,18 @@ class H2StickySchedulerTestCase(tester.TempestaTest):
             "Cookie": response.headers["set-cookie"],
         }
 
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.OK)
 
         # perform `bad` request
         curl.headers["Host"] = "bad.com"
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
         response = curl.last_response
         self.assertEqual(response.status, http.HTTPStatus.FORBIDDEN)
 

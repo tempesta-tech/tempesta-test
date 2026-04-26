@@ -4,8 +4,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-import asyncio
-
 import run_config
 from framework.deproxy import deproxy_message
 from framework.deproxy.deproxy_client import BaseDeproxyClient

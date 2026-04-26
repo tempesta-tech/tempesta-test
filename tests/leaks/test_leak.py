@@ -179,11 +179,11 @@ frang_limits {http_strict_host_checking false;}
         tempesta = self.get_tempesta()
         await self.start_all_services()
         await self.wait_while_busy(client)
-        client.stop()
-        tempesta.stop()
+        await client.stop()
+        await tempesta.stop()
         backend.get_stats()
         self.assertGreater(backend.requests, 0)
-        backend.stop()
+        await backend.stop()
 
     async def test_kmemleak(self):
         """Detecting leaks with kmemleak"""

@@ -336,7 +336,7 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
 
         deproxy_cl = self.get_client("client")
         deproxy_cl.server_hostname = "tempesta-tech.com"
-        deproxy_cl.start()
+        await deproxy_cl.start()
         deproxy_cl.make_request(self.requests)
         if self.resp_status:
             await deproxy_cl.wait_for_response()
@@ -925,7 +925,7 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
             (("r", "v"), "vh2"),
         ):
             with self.subTest(headers=headers, expected_vhost=expected_vhost):
-                client.restart()
+                await client.restart()
                 await client.send_request(
                     request=client.create_request(method="GET", uri="/", headers=[headers]),
                     expected_status_code="200",

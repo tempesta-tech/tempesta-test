@@ -108,7 +108,7 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
 
         # launch h2load
         client = self.get_client("h2load")
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
 
         self.check_servers_weights()
@@ -121,12 +121,12 @@ class TestSchedRatioDynamicLiveReconf(LiveReconfStressTestBase):
         )
 
         # stop h2load
-        client.stop()
+        await client.stop()
 
         # launch h2load after Tempesta reload
-        client.start()
+        await client.start()
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
 
         self.check_servers_weights()
 

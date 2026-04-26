@@ -102,7 +102,7 @@ http_chain {
             1, msg="TempestaFW first send a request to the backup server."
         )
 
-        primary_server.stop()
+        await primary_server.stop()
 
         await client.send_request(request, "200")
         await backup_server.wait_for_requests(
@@ -110,7 +110,7 @@ http_chain {
             msg="TempestaFW doesn't send a request to the backup server when the primary server is down.",
         )
 
-        primary_server.start()
+        await primary_server.start()
         await primary_server.wait_for_connections(
             msg="TempestaFW doesn't reconnect to the primary server."
         )

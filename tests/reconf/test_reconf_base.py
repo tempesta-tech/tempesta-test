@@ -48,14 +48,14 @@ class TestListenCommonReconf(tester.TempestaTest):
         await self.start_tempesta()
 
         remote.tempesta.run_cmd("sysctl -e -w net.tempesta.state=stop")
-        tempesta.run_start()
+        await tempesta.run_start()
 
     async def test_reconf_busy_socks(self):
         """The user is trying to add listen to a busy port by another service."""
         tempesta = self.get_tempesta()
         port_checker = port_checks.FreePortsChecker()
 
-        self.start_all_servers()
+        await self.start_all_servers()
 
         # Tempesta listen 443 port and Nginx listen 8000 port
         tempesta.config.set_defconfig(self.tempesta_orig["config"])
@@ -164,7 +164,7 @@ frang_limits {{http_strict_host_checking false;}}
 
         client = self.get_client(proto)
         request = client.create_request(method="GET", headers=[])
-        client.start()
+        await client.start()
 
         with self.subTest(msg=f"Tempesta did not change listening proto after reload."):
             await client.send_request(request, "200")
@@ -178,13 +178,13 @@ frang_limits {{http_strict_host_checking false;}}
         client = self.get_client(self.proto)
         request = client.create_request(method="GET", headers=[])
         client.port = 4433
-        client.start()
+        await client.start()
 
         with self.subTest(msg=f"Tempesta did not change listening port after reload."):
             await client.send_request(request, "200")
 
         client.port = 443
-        client.restart()
+        await client.restart()
 
         with self.subTest(msg=f"Tempesta continued listening to the old port."):
             with self.assertRaises(AssertionError):
@@ -227,13 +227,13 @@ frang_limits {{http_strict_host_checking false;}}
         request = client.create_request(method="GET", headers=[])
         client.conn_addr = new_ip
         client.port = port
-        client.start()
+        await client.start()
 
         with self.subTest(msg=f"Tempesta did not change listening IP after reload."):
             await client.send_request(request, "200")
 
         client.conn_addr = old_ip
-        client.restart()
+        await client.restart()
 
         with self.subTest(msg=f"Tempesta continued listening to old IP after reload."):
             with self.assertRaises(AssertionError):
@@ -264,11 +264,11 @@ frang_limits {{http_strict_host_checking false;}}
         client = self.get_client(self.proto)
         request = client.create_request(method="GET", headers=[])
 
-        client.start()
+        await client.start()
         await client.send_request(request, "200")
 
         client.port = 444
-        client.restart()
+        await client.restart()
         client.make_request(request)
         await getattr(client, client_wait_method_for_444_port)()
 
@@ -294,13 +294,13 @@ class TestListenStartFail(tester.TempestaTest):
         },
     ]
 
-    def __heavy_load(self, stop_event):
+    async def __heavy_load(self, stop_event):
         curl = self.get_client("curl")
 
         while not stop_event.is_set():
-            curl.start()
-            time.sleep(0.1)
-            curl.stop()
+            await curl.start()
+            await asyncio.sleep(0.1)
+            await curl.stop()
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
@@ -316,8 +316,8 @@ class TestListenStartFail(tester.TempestaTest):
         unsuccessful start.
         """
         server = self.get_server("deproxy")
-        server.start()
-        self.deproxy_manager.start()
+        await server.start()
+        await self.deproxy_manager.start()
 
         task = self.create_task(self.__heavy_load)
         task.start()
@@ -337,7 +337,7 @@ class TestListenStartFail(tester.TempestaTest):
             error.ProcessBadExitStatusException,
             msg="Tempesta FW successfully start, although one of the port is already listened by deproxy server",
         ):
-            self.get_tempesta().start()
+            await self.get_tempesta().start()
 
 
 class TestServerReconf(tester.TempestaTest):
@@ -369,11 +369,11 @@ class TestServerReconf(tester.TempestaTest):
 
     async def _start_all(self, servers: list, client: bool):
         for server in servers:
-            server.start()
+            await server.start()
         await self.start_tempesta()
         if client:
-            self.start_all_clients()
-        self.deproxy_manager.start()
+            await self.start_all_clients()
+        await self.deproxy_manager.start()
 
         for server in servers:
             await server.wait_for_connections()
@@ -493,7 +493,7 @@ http_chain {{
             msg="Tempesta did not change number of connections with server after reload."
         )
 
-        client.start()
+        await client.start()
         await client.send_request(client.create_request(method="GET", headers=[]), "200")
 
     @marks.Parameterize.expand(
@@ -546,7 +546,7 @@ http_chain {{
             msg="Tempesta did not change number of connections with server after reload."
         )
 
-        client.start()
+        await client.start()
         await client.send_request(client.create_request(method="GET", headers=[]), "200")
 
     @marks.Parameterize.expand(
@@ -594,7 +594,7 @@ http_chain {{
 
         request = client.create_request(method="GET", headers=[], authority="grp1")
         for _ in range(10):
-            client.restart()
+            await client.restart()
             await client.send_request(request, "200")
 
         self.assertIsNotNone(
@@ -637,7 +637,7 @@ http_chain {{
         second_config(self)
 
         self.get_tempesta().reload()
-        server_2.start()
+        await server_2.start()
         await server_1.wait_for_connections(
             msg=(
                 "Tempesta removed connections to a old server/srv_group after reload. "
@@ -650,7 +650,7 @@ http_chain {{
         )
 
         for authority in ["grp1", "grp2"] * 5:
-            client.restart()
+            await client.restart()
             await client.send_request(
                 client.create_request(method="GET", headers=[], authority=authority), "200"
             )
@@ -1249,19 +1249,19 @@ class TestVhostReconf(tester.TempestaTest):
         srv1 = self.get_server("deproxy-1")
         srv2 = self.get_server("deproxy-2")
 
-        srv1.start()
-        srv2.start()
-        self.deproxy_manager.start()
+        await srv1.start()
+        await srv2.start()
+        await self.deproxy_manager.start()
 
         first_config(self)
-        tempesta.start()
+        await tempesta.start()
         second_config(self)
         tempesta.reload()
         await srv1.wait_for_connections()
         await getattr(srv2, srv2_wait_method)()
 
         for authority, server_header in zip(["grp1", "grp2"], server_headers):
-            client.restart()
+            await client.restart()
             await client.send_request(
                 client.create_request(method="GET", headers=[], authority=authority), "200"
             )
@@ -1293,11 +1293,11 @@ http_chain {{
 }}
 """
         )
-        server.start()
-        tempesta.start()
-        self.deproxy_manager.start()
+        await server.start()
+        await tempesta.start()
+        await self.deproxy_manager.start()
         await server.wait_for_connections()
-        client.start()
+        await client.start()
 
         tempesta.config.set_defconfig(
             f"""
@@ -1442,7 +1442,7 @@ http_chain {{
         self._set_tempesta_config_with_backup_group(backup_group="default")
         self.get_tempesta().reload()
 
-        server_grp1.stop()
+        await server_grp1.stop()
         # Remove after #2111 in Tempesta
         await asyncio.sleep(1)
 
@@ -1564,7 +1564,7 @@ class TestLocationReconf(tester.TempestaTest):
 
         client = self.get_client("deproxy")
         for uri, expected_header in zip(["/static/", "/dynamic/"], expected_headers):
-            client.restart()
+            await client.restart()
             await client.send_request(
                 client.create_request(method="GET", headers=[], uri=uri), "200"
             )
@@ -1955,7 +1955,7 @@ http_chain {{
         self.oops_ignore = ["ERROR"]
 
         tempesta.config.set_defconfig(self.base_tempesta_config + valid_config)
-        tempesta.start()
+        await tempesta.start()
         tempesta.config.set_defconfig(self.base_tempesta_config + invalid_config)
         with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
