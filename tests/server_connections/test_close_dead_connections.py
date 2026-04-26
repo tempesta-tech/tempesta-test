@@ -149,7 +149,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
 
         request = self.get_client(0).create_request(method="GET", headers=[])
         for client in self.get_clients():
-            client.start()
+            await client.start()
 
         if close_with_rst:
             for client in self.get_clients():
@@ -158,7 +158,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
             client.make_request(request)
         await server.wait_for_requests(strict=True, n=CONNS_N)
         for client in self.get_clients():
-            client.stop()
+            await client.stop()
 
         await self.assertWaitUntilTrue(
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),

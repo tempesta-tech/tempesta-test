@@ -95,7 +95,7 @@ server ${server_ip}:8000;
         self.assertLess(time.time() - t, 5)
 
         for client in self.get_clients():
-            client.stop()
+            await client.stop()
             self.assertTrue(
                 client.is_rst_received, "Client don't receive TCP RST when Tempesta FW closes."
             )

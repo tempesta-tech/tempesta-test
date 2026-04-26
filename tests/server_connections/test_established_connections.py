@@ -226,7 +226,7 @@ srv_group default {{
         server.conns_n = self.conns_n
         tfw = self.get_tempesta()
         await server.start()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         with netfilter.block_ports_on_node(
             blocked_ports=[

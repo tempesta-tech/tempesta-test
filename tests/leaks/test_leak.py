@@ -183,7 +183,7 @@ frang_limits {http_strict_host_checking false;}
         await tempesta.stop()
         backend.get_stats()
         self.assertGreater(backend.requests, 0)
-        backend.stop()
+        await backend.stop()
 
     async def test_kmemleak(self):
         """Detecting leaks with kmemleak"""

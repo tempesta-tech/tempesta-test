@@ -269,7 +269,7 @@ class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
         self.assertEqual(response.status, "200", "unexpected response status code")
 
         self.assertTrue(
-            self.klog.find(
+            await self.klog.find(
                 "Multiple sticky cookies found in response: 2", cond=dmesg.amount_equals(1)
             ),
             1,

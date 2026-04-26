@@ -325,7 +325,7 @@ class TestListenStartFail(tester.TempestaTest):
         """
         server = self.get_server("deproxy")
         await server.start()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         self.tasks.append(asyncio.create_task(self.__heavy_load()))
 
@@ -380,7 +380,7 @@ class TestServerReconf(tester.TempestaTest):
         await self.start_tempesta()
         if client:
             await self.start_all_clients()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         for server in servers:
             await server.wait_for_connections()
@@ -1259,7 +1259,7 @@ class TestVhostReconf(tester.TempestaTest):
 
         await srv1.start()
         await srv2.start()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         first_config(self)
         await tempesta.start()
@@ -1303,7 +1303,7 @@ http_chain {{
         )
         await server.start()
         await tempesta.start()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
         await server.wait_for_connections()
         await client.start()
 

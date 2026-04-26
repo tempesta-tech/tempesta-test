@@ -5,7 +5,7 @@ Tests for TF Hash Filtering and Configuration Parsing
 import asyncio
 import typing
 
-from framework.helpers import remote, tf_cfg
+from framework.helpers import remote, tf_cfg, util
 from framework.helpers.access_log import AccessLogLine
 from framework.helpers.error import ProcessBadExitStatusException
 from framework.test_suite import marks, tester
@@ -271,7 +271,7 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
         await self.start_all_services(client=False)
 
         client_names = list(map(lambda __client: __client["id"], self.clients))
-        clients = list(map(self.get_client, client_names))
+        clients = util.ForEach(*self.get_clients())
         fingerprints = []
         for name in client_names:
             fingerprint = await self.get_client_fingerprint(name)
@@ -283,9 +283,9 @@ class TestTFFiltersTestSuite(BaseTFTestSuite):
 
         self.set_config_tf_hash(self.get_hash(fingerprints[0]))
 
-        list(map(lambda __client: __client.start(), clients))
-        await asyncio.gather(*[self.wait_while_busy(client) for client in clients])
-        list(map(lambda __client: __client.stop(), clients))
+        await clients.start()
+        await clients.wait_for_finish()
+        await clients.stop()
 
         self.assertEqual(
             self.count_equal(client_names, "limited", self.response_ok),
@@ -330,7 +330,7 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         """
         await self.start_all_servers()
         await self.start_tempesta()
-        self.deproxy_manager.start()
+        await self.deproxy_manager.start()
 
         limited_1 = self.get_client("limited-1")
         limited_2 = self.get_client("limited-2")

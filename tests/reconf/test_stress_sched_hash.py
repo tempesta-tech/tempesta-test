@@ -119,7 +119,7 @@ class TestSchedHashLiveReconf(LiveReconfStressTestBase):
         # launch H2Load
         client = self.get_client("h2load")
         await self.wait_while_busy(client)
-        client.stop()
+        await client.stop()
         self.assertNotIn(" 0 2xx, ", client.response_msg)
 
         self.assertAlmostEqual(
