@@ -21,10 +21,10 @@ class DeproxyEchoServer(deproxy_server.StaticDeproxyServer):
     def __remove_keep_alive_header(response: str) -> str:
         return re.sub(r"Connection: .*$", "", response, flags=re.MULTILINE)
 
-    def _receive_request(
+    def receive_request(
         self, request: deproxy_message.Request, connection: ServerConnection
     ) -> tuple[bytes, bool]:
-        _response, close = super()._receive_request(request, connection)
+        _response, close = super().receive_request(request, connection)
 
         response = deproxy_message.Response(self.__remove_keep_alive_header(_response.decode()))
         response.body = request.uri
@@ -42,11 +42,9 @@ class DeproxyKeepaliveServer(DeproxyEchoServer):
         super().__init__(*args, **kwargs)
         self.nka = 0
 
-    def _receive_request(
-        self, request: deproxy_message.Request, connection: ServerConnection
-    ) -> tuple[bytes, bool]:
+    def receive_request(self, request) -> (bytes, bool):
         self.nka += 1
-        _response, close = super()._receive_request(request, connection)
+        _response, close = super().receive_request(request)
 
         if close:
             return _response, close
@@ -70,13 +68,11 @@ class DeproxyRegisterRequestsExecutingSequenceServer(deproxy_server.StaticDeprox
     def __init__(self, *args, **kwargs):
         super(DeproxyRegisterRequestsExecutingSequenceServer, self).__init__(*args, **kwargs)
 
-    def _receive_request(
-        self, request: deproxy_message.Request, connection: ServerConnection
-    ) -> tuple[bytes, bool]:
+    def receive_request(self, request) -> (bytes, bool):
         req_num = request.uri.split("/")[-1]
         REQUESTS_EXECUTION_SEQUENCE.append(req_num)
 
-        r, close = super()._receive_request(request, connection)
+        r, close = super().receive_request(request)
         resp = deproxy_message.Response(r.decode())
         resp.body = "".join(REQUESTS_EXECUTION_SEQUENCE)
         resp.headers["seq"] = req_num

@@ -95,15 +95,15 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
         super().__init__(*args, **kwargs)
         self.do_drop = True
 
-    def _receive_request(
+    def receive_request(
         self, request: deproxy_message.Request, connection: deproxy_server.ServerConnection
     ) -> tuple[bytes, bool]:
         uri = request.uri
 
-        r, close = super()._receive_request(request, connection)
+        r, close = super().receive_request(request, connection)
         if "/drop/" in uri and self.do_drop:
             self.do_drop = False
-            return False, True
+            return "", True
         return r, close
 
 

@@ -86,6 +86,7 @@ TEMPESTA_CONFIG = """
 listen 443 proto=h2,https;
 
 server ${server_ip}:8000;
+access_log dmesg;
 
 frang_limits {
     http_strict_host_checking false;
@@ -155,8 +156,8 @@ class TestTFt(tester.TempestaTest):
                 name="hash_for_client_block_by_rate",
                 tempesta_tf_config="""
 					tft {
-						hash 66cb9fd8d4250000 1 0;
-						hash 66cb8f00d4250002 1 0;
+						hash 66cb8f00ef170000 1 0;
+						hash 66cb8f00ef170002 1 0;
 					}
 				""",
                 expected_block=True,
