@@ -41,7 +41,6 @@ class BaseServer(stateful.Stateful, abc.ABC):
 
         timeout_not_exceeded = await util.wait_until(
             self._wait_for_connections,
-            abort_cond=lambda: self.state != stateful.STATE_STARTED,
             timeout=timeout,
         )
 

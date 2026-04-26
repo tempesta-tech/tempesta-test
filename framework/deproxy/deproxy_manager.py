@@ -36,7 +36,7 @@ class DeproxyManager(stateful.Stateful):
         client.set_lock(self._lock)
         self.clients.append(client)
 
-    def run_start(self):
+    async def run_start(self):
         self._exit_event.clear()
         self._proc = threading.Thread(
             target=self.__run_deproxy_manager,

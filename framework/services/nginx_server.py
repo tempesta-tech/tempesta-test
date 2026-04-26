@@ -63,7 +63,7 @@ class Nginx(base_server.BaseServer):
         self.get_stats()
         return self.active_conns < self.conns_n
 
-    def run_start(self):
+    async def run_start(self):
         self.clear_stats()
         self.port_checker.check_ports_status()
         # Copy nginx config to working directory on 'server' host.
