@@ -28,10 +28,6 @@ class DeproxyManager(stateful.Stateful):
         self.clients = []
         self._proc = None
 
-    def add_server(self, server):
-        server.set_lock(self._lock)
-        self.servers.append(server)
-
     def add_client(self, client):
         client.set_lock(self._lock)
         self.clients.append(client)

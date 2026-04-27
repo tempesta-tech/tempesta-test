@@ -95,15 +95,15 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
         super().__init__(*args, **kwargs)
         self.do_drop = True
 
-    def receive_request(
+    def _receive_request(
         self, request: deproxy_message.Request, connection: deproxy_server.ServerConnection
     ) -> tuple[bytes, bool]:
         uri = request.uri
 
-        r, close = super().receive_request(request, connection)
+        r, close = super()._receive_request(request, connection)
         if "/drop/" in uri and self.do_drop:
             self.do_drop = False
-            return "", True
+            return False, True
         return r, close
 
 
@@ -127,7 +127,6 @@ def build_deproxy_drop(server, name, tester):
         hang_on_req_num=server.get("hang_on_req_num", 0),
         pipelined=server.get("pipelined", 0),
     )
-    tester.deproxy_manager.add_server(srv)
     return srv
 
 
