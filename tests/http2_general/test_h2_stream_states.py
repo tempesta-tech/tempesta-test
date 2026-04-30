@@ -1,8 +1,11 @@
 """Functional tests for stream states."""
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2023-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
+
+import asyncio
+import socket
 
 from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
@@ -17,6 +20,7 @@ from hyperframe.frame import (
 
 from framework.deproxy.deproxy_message import HttpMessage
 from framework.helpers import dmesg
+from framework.test_suite import marks
 from framework.test_suite.marks import parameterize_class
 from tests.http2_general.helpers import H2Base
 
@@ -55,8 +59,6 @@ class TestClosedStreamState(H2Base):
 
 
 class TestLocHalfClosedStreamState(H2Base):
-    PARSER_WARN = "HTTP/2 request dropped"
-
     async def test_headers(self):
         """
         Send HEADERS frame to stream in LOC_CLOSED(internal Tempesta's state) state.
@@ -96,14 +98,7 @@ class TestLocHalfClosedStreamState(H2Base):
             expect_response=True,
         )
 
-        await client.wait_for_reset_stream(stream_id=stream.stream_id)
-        # If error message found test fails.
-        self.assertFalse(
-            await klog.find(self.PARSER_WARN), "Frame is passed to parser in a CLOSED state."
-        )
-
-        client.stream_id += 2
-        await client.send_request(self.post_request, "")
+        await client.wait_for_connection_close()
 
 
 class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
@@ -150,6 +145,290 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
     async def test_window_update_frame_in_half_closed_state(self):
         await self.__base_scenario(frame=WindowUpdateFrame(stream_id=1, window_increment=1))
+
+    def _get_srv_msg_forwarded_stat(self, tempesta):
+        tempesta.get_stats()
+        return tempesta.stats.srv_msg_forwarded
+
+    def _make_frame_headers(self, client, stream_id):
+        return HeadersFrame(
+            stream_id=stream_id,
+            exclusive=False,
+            data=client.h2_connection.encoder.encode(self.get_request),
+            flags=["END_HEADERS", "END_STREAM"],
+        )
+
+    def _make_frame_data(self, client, stream_id):
+        return DataFrame(stream_id=stream_id, data=b"a")
+
+    def _make_frame_rst(self, client, stream_id):
+        return RstStreamFrame(stream_id=stream_id)
+
+    def _check_all_headers_presents_in_partially_received_response(self, response):
+        # Check all headers received
+        self.assertEqual(response.status, "200")
+        self.assertIsNotNone(response.headers.get("long_hdr", None))
+        self.assertIsNotNone(response.headers.get("content-length", None))
+        self.assertIsNotNone(response.headers.get("via", None))
+        self.assertIsNotNone(response.headers.get("date", None))
+        self.assertIsNotNone(response.headers.get("server", None))
+
+    async def _test_initiate_stream_reset_during_sending_data_base(
+        self,
+        make_frame_func,
+        rcv_rst_expected,
+        expected_rst_stream_id,
+        expected_empty_body,
+        rcv_buf_size_threshold,
+    ):
+        self.disable_deproxy_auto_parser()
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+
+        await self.start_all_services()
+        # check that rcv buff is lower than approximate data size
+        self.assertTrue(
+            rcv_buf_size_threshold > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        )
+        await self.initiate_h2_connection(client)
+
+        client.readable = lambda: 0
+        client.stream_id = expected_rst_stream_id
+        client.make_request(request=self.get_request)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            1,
+        )
+
+        frame = make_frame_func(self, client, expected_rst_stream_id)
+        client.send_bytes(frame.serialize())
+
+        # check that connection works after reset
+        client.stream_id = expected_rst_stream_id + 2
+        client.make_request(request=self.get_request)
+
+        # Let Tempesta handle both requests
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            2,
+        )
+        client.readable = lambda: 1
+
+        if rcv_rst_expected:
+            await client.wait_for_reset_stream(stream_id=expected_rst_stream_id)
+
+        await client.wait_for_response(n=1),
+
+        partial_response = client._active_responses[expected_rst_stream_id]
+        self._check_all_headers_presents_in_partially_received_response(partial_response)
+        if expected_empty_body:
+            self.assertTrue(partial_response.body == "")
+
+        # Full response has the same headers set as partial, thus use the same method for check
+        self._check_all_headers_presents_in_partially_received_response(client.last_response)
+        client.last_response.body == "q" * client.rcv_buf_size
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="frame_headers", make_frame_func=_make_frame_headers, rcv_rst_expected=True
+            ),
+            marks.Param(name="frame_data", make_frame_func=_make_frame_data, rcv_rst_expected=True),
+            marks.Param(name="frame_rst", make_frame_func=_make_frame_rst, rcv_rst_expected=False),
+        ]
+    )
+    async def test_initiate_stream_reset_during_sending_resp_headers(
+        self, name, make_frame_func, rcv_rst_expected
+    ):
+        """
+        This test verifies that headers will be fully sent by Tempesta when stream has been reset
+        by Tempesta or client.
+
+        Send request, stop reading response in then middle of headers reset the stream and wait for
+        response.
+
+        Expected:
+        Receive one complete response for the second request and one partial response for the first
+        request that contains only headers. RST_STREAM also expected for the first request in case
+        when stream has been reset by the Tempesta.
+        """
+        expected_rst_stream_id = 1
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        long_hdr_val_size = 4 * client.rcv_buf_size
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * (long_hdr_val_size))
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: {client.rcv_buf_size}\r\n\r\n"
+            + ("q" * client.rcv_buf_size)
+        )
+
+        await self._test_initiate_stream_reset_during_sending_data_base(
+            make_frame_func, rcv_rst_expected, 1, True, long_hdr_val_size
+        )
+
+    async def test_initiate_stream_reset_during_sending_resp_data(self):
+        """
+        The same as test_initiate_stream_reset_during_sending_resp_headers but resets the stream
+        during receiving body.
+        """
+        expected_rst_stream_id = 1
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        body_size = client.rcv_buf_size * 4
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: x\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: {body_size}\r\n\r\n"
+            + ("q" * body_size)
+        )
+
+        await self._test_initiate_stream_reset_during_sending_data_base(
+            TestHalfClosedStreamStateUnexpectedFrames._make_frame_data, True, 1, False, body_size
+        )
+
+    async def test_tempesta_rcv_multiple_data_during_sending_resp_headers(self):
+        """
+        An endpoint MUST NOT send frames other than PRIORITY on a closed stream.
+
+        Test that Tempesta closes connection when DATA frame is received in closed stream.
+        The first sent DATA frame causes transition to closed state, the second MUST cause
+        connection close.
+        """
+        expected_rst_stream_id = 1
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        long_hdr_size = 4 * client.rcv_buf_size
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * long_hdr_size)
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: {client.rcv_buf_size}\r\n\r\n"
+            + ("q" * client.rcv_buf_size)
+        )
+
+        await self.start_all_services()
+        # check that rcv buff is lower than approximate data size
+        self.assertTrue(
+            long_hdr_size > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        )
+        await self.initiate_h2_connection(client)
+
+        client.readable = lambda: 0
+        # client opens stream with id 1 and does not close it
+        client.make_request(request=self.get_request)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            1,
+        )
+        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"a").serialize())
+        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"b").serialize())
+        # Let Tempesta handle the new frame. There is no way to ensure
+        # that Tempesta received frame, therefore just wait
+        await asyncio.sleep(3)
+        client.readable = lambda: 1
+
+        await client.wait_for_connection_close()
+
+    async def test_initiate_stream_reset_during_sending_resp_headers_and_trigger_stream_cleanup(
+        self,
+    ):
+        """
+        This test verifies that headers will be fully sent by Tempesta when stream has been reset
+        by Tempesta and triggered stream cleanup that frees memory of closed streams.
+
+        Send request, stop reading response in then middle of headers reset the stream. Then create
+        idle streams, when streams are created send request with stream id greater than highest
+        idle stream id - this closes all idle streams and triggers cleanup. Wait for response.
+
+        Expected:
+        Receive one complete response for the second request and one partial response for the first
+        request that contains only headers. RST_STREAM also expected for the first request.
+        """
+        self.disable_deproxy_auto_parser()
+        expected_rst_stream_id = 1
+        tempesta = self.get_tempesta()
+        tempesta.config.defconfig += "ctrl_frame_rate_multiplier 1000;\n"
+
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        long_hdr_size = 4 * client.rcv_buf_size
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * long_hdr_size)
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: {client.rcv_buf_size}\r\n\r\n"
+            + ("q" * client.rcv_buf_size)
+        )
+
+        await self.start_all_services()
+        self.assertTrue(
+            long_hdr_size > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        )
+        await self.initiate_h2_connection(client)
+
+        client.readable = lambda: 0
+        client.stream_id = expected_rst_stream_id
+        client.make_request(request=self.get_request)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            1,
+        )
+
+        # Stream must be not exclusive
+        PriorityFrame(stream_id=1, depends_on=205, stream_weight=100, exclusive=False).serialize()
+
+        # Reset the first stream
+        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"a").serialize())
+
+        # Create idle streams
+        for stream_id in range(3, 201, 2):
+            client.send_bytes(
+                PriorityFrame(
+                    stream_id=stream_id, depends_on=stream_id + 2, stream_weight=2, exclusive=False
+                ).serialize()
+            )
+
+        # Initiate idle streams removing to trigger stream clean up
+        client.stream_id = 203
+        client.make_request(request=self.get_request)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            2,
+        )
+
+        # start receiving data
+        client.readable = lambda: 1
+
+        await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=3)
+
+        await client.wait_for_response(n=1),
+
+        partial_response = client._active_responses[expected_rst_stream_id]
+        self._check_all_headers_presents_in_partially_received_response(partial_response)
+        self.assertTrue(partial_response.body == "")
+
+        # Full response has the same headers set as partial, thus use the same method for check
+        self._check_all_headers_presents_in_partially_received_response(client.last_response)
+        client.last_response.body == "q" * client.rcv_buf_size
 
 
 class TestHalfClosedStreamStateWindowUpdate(H2Base):
@@ -276,19 +555,24 @@ class TestStreamState(H2Base):
 
     async def test_headers_frame_for_other_stream_after_rst(self):
         """
-        If we reset stream, for which we are waiting END_HEADERS flag
-        we can send headers for other streams.
+        If the client resets a stream before sending the END_HEADERS flag,
+        it causes a protocol violation due to sending a frame other
+        than CONTINUATION within a HEADERS block.
+
+        RFC 9113:
+        A HEADERS frame without the END_HEADERS flag set
+        MUST be followed by a CONTINUATION frame for the same stream.
+        A receiver MUST treat the receipt of any other type of frame
+        or a frame on a different stream as a connection error of type
+        PROTOCOL_ERROR.
         """
         client = await self.__setup()
         hf = RstStreamFrame(stream_id=1)
         client.send_bytes(hf.serialize())
         client.stream_id = 3
         client.make_request(self.post_request)
-        await client.wait_for_response()
-        self.assertEqual(client.last_response.status, "200")
-        self.assertEqual(
-            len(client.last_response.body), 2000, "Tempesta did not return full response body."
-        )
+        await client.wait_for_connection_close()
+        self.assertIsNone(client.last_response)
 
     async def test_error_request_between_header_blocks(self):
         """
@@ -430,9 +714,9 @@ class TestIdleState(H2Base):
 
     async def test_rst_frame_for_idle_stream(self):
         """
-        Send priority frame to cheate idle stream.
+        Send priority frame to create idle stream.
         Then open stream with invalid HEADERS frame.
-        Check RST stream.
+        Check for connection close.
         """
         await self.start_all_services()
         client = self.get_client("deproxy")
@@ -459,4 +743,3 @@ class TestIdleState(H2Base):
 
         client.send_bytes(pf.serialize() + hf.serialize())
         await client.wait_for_reset_stream(stream.stream_id)
-        self.assertFalse(client.connection_is_closed)
