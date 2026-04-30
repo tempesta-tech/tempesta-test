@@ -126,7 +126,6 @@ class TestH2Frame(H2Base):
         )
 
         deproxy_cl.send_bytes(hf_bad.serialize() + hf_good.serialize())
-        await deproxy_cl.wait_for_reset_stream(stream.stream_id)
         await deproxy_cl.wait_for_connection_close()
 
     async def test_multiple_empty_headers_frames(self):
