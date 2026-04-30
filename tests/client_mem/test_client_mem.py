@@ -331,7 +331,7 @@ tls_match_any_server_name;
 
     @staticmethod
     def make_resp(body):
-        return "HTTP/1.1 200 OK\r\n" "Content-Length: " + str(len(body)) + "\r\n\r\n" + body
+        return f"HTTP/1.1 200 OK\r\nContent-Length: {len(body)}\r\n\r\n{body}"
 
     async def test_all_clients_active(self):
         await self.start_all_services()
