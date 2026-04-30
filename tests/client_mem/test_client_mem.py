@@ -197,10 +197,7 @@ tls_match_any_server_name;
         base_config = self.get_tempesta().config.defconfig
         i = 0
         while not self.stop:
-            if i % 2 == 0:
-                config = base_config + "client_mem 10000 20000;\n"
-            else:
-                config = base_config
+            config = base_config + "client_mem 10000 20000;\n" if i % 2 == 0 else base_config
             i = i + 1
             self.get_tempesta().config.defconfig = config
             self.get_tempesta().reload()
