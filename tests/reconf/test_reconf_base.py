@@ -294,24 +294,14 @@ class TestListenStartFail(tester.TempestaTest):
         },
     ]
 
-    stop = False
-
     async def __heavy_load(self):
         curl = self.get_client("curl")
-        while not self.stop:
-            curl.start()
-            await self.wait_while_busy(curl)
-            curl.stop()
-
-    async def __finish_heavy_load(self):
-        self.stop = True
-        for task in self.tasks:
-            await task
+        curl.start()
+        await self.wait_while_busy(curl)
+        curl.stop()
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
-        self.tasks = []
-        self.addAsyncCleanup(self.__finish_heavy_load)
 
     async def test_start_failed_under_heavy_load(self):
         """
@@ -327,7 +317,7 @@ class TestListenStartFail(tester.TempestaTest):
         server.start()
         self.deproxy_manager.start()
 
-        self.tasks.append(asyncio.create_task(self.__heavy_load()))
+        self.create_task(self.__heavy_load)
 
         self.get_tempesta().config.set_defconfig(
             f"""
@@ -2026,11 +2016,6 @@ class TestCtrlFrameMultiplier(tester.TempestaTest):
         with self.assertRaises(error.ProcessBadExitStatusException):
             tempesta.reload()
 
-    def _ping(self, client):
-        client.h2_connection.ping(opaque_data=b"\x00\x01\x02\x03\x04\x05\x06\x07")
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-
     async def test_decrease(self):
         tempesta = self.get_tempesta()
         old_config = tempesta.config.defconfig
@@ -2044,7 +2029,7 @@ class TestCtrlFrameMultiplier(tester.TempestaTest):
         self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(0, 10000):
-            self._ping(client)
+            client.ping()
 
         tempesta.config.set_defconfig(old_config)
         tempesta.reload()

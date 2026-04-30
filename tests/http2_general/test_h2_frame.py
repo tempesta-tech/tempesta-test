@@ -803,11 +803,6 @@ class TestPostponedFrames(H2Base):
     This class checks that Tempesta FW doesn't violate this rule.
     """
 
-    def _ping(self, client):
-        client.h2_connection.ping(opaque_data=b"\x00\x01\x02\x03\x04\x05\x06\x07")
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-
     @marks.Parameterize.expand(
         [
             marks.Param(name="headers", header="a" * 30000, token="value"),
@@ -841,7 +836,7 @@ class TestPostponedFrames(H2Base):
         stream_id = client.stream_id
         client.make_request(self.get_request)
         for _ in range(0, ping_count):
-            self._ping(client)
+            client.ping()
 
         self.assertTrue(await client.wait_for_headers_frame(stream_id))
         self.assertTrue(await client.wait_for_ping_frames(ping_count))
@@ -850,7 +845,7 @@ class TestPostponedFrames(H2Base):
         self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(0, ping_count):
-            self._ping(client)
+            client.ping()
 
         self.assertTrue(await client.wait_for_headers_frame(stream_id))
         self.assertTrue(await client.wait_for_ping_frames(2 * ping_count))
