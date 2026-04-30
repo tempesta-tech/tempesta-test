@@ -3,7 +3,8 @@ __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncio
-import threading
+import time
+
 
 from framework.helpers import analyzer, dmesg, error, port_checks, remote
 from framework.helpers.analyzer import PSH, TCP
@@ -294,11 +295,13 @@ class TestListenStartFail(tester.TempestaTest):
         },
     ]
 
-    async def __heavy_load(self):
+    def __heavy_load(self, stop_event):
         curl = self.get_client("curl")
-        curl.start()
-        await self.wait_while_busy(curl)
-        curl.stop()
+
+        while not stop_event.is_set():
+            curl.start()
+            time.sleep(0.1)
+            curl.stop()
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
@@ -317,7 +320,8 @@ class TestListenStartFail(tester.TempestaTest):
         server.start()
         self.deproxy_manager.start()
 
-        self.create_task(self.__heavy_load)
+        task = self.create_task(self.__heavy_load)
+        task.start()
 
         self.get_tempesta().config.set_defconfig(
             f"""
@@ -2029,7 +2033,7 @@ class TestCtrlFrameMultiplier(tester.TempestaTest):
         self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(0, 10000):
-            client.ping()
+            client.send_ping()
 
         tempesta.config.set_defconfig(old_config)
         tempesta.reload()

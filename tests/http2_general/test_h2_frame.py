@@ -836,7 +836,7 @@ class TestPostponedFrames(H2Base):
         stream_id = client.stream_id
         client.make_request(self.get_request)
         for _ in range(0, ping_count):
-            client.ping()
+            client.send_ping()
 
         self.assertTrue(await client.wait_for_headers_frame(stream_id))
         self.assertTrue(await client.wait_for_ping_frames(ping_count))
@@ -845,7 +845,7 @@ class TestPostponedFrames(H2Base):
         self.assertTrue(await client.wait_for_ack_settings())
 
         for _ in range(0, ping_count):
-            client.ping()
+            client.send_ping()
 
         self.assertTrue(await client.wait_for_headers_frame(stream_id))
         self.assertTrue(await client.wait_for_ping_frames(2 * ping_count))
