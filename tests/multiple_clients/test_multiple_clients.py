@@ -101,6 +101,12 @@ server ${server_ip}:8000;
             )
 
     async def test_client_memory(self):
+        """
+        This test checks Tempesta FW behaviour, when count of clients
+        exceeded LRU size. In this case Tempesta FW remove old clients
+        and delete structure, which is used for memory accounting in very
+        sofisticated way.
+        """
         config = self.get_tempesta().config.defconfig
         self.get_tempesta().config.defconfig = config + "client_mem 500000 1000000;\n"
         await self.start_all_services(client=False)

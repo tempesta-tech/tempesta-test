@@ -194,6 +194,18 @@
             "reason": "These tests should not be run with TCP segmentation. These tests check a connection level."
         },
         {
+            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededHttp.test_response",
+            "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
+        },
+        {
+            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededHttps.test_response",
+            "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
+        },
+        {
+            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededH2.test_response",
+            "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
+        },
+        {
             "name": "tests.tls.test_tls_integrity.ProxyH2",
             "reason": "Disabled by issue #1714"
         },

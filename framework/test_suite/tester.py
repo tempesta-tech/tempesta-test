@@ -150,7 +150,8 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     Tempesta tests should have:
     1) backends: [...]
     2) clients: [...]
-    3) several test functions.
+    3) tasks: [...]
+    4) several test functions.
     function name should start with 'test'
 
     Verbose documentation is placed in README.md
@@ -159,6 +160,8 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     backends: list[dict] = []
 
     clients: list[dict] = []
+
+    tasks: list[tuple(asyncio.Task, asyncio.event)] = []
 
     tempesta = {"type": "tempesta", "config": "", "tfw_config": tfw.TfwLogger()}
 
@@ -375,6 +378,29 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             if not client.is_running():
                 raise Exception("Can not start client %s" % cid)
 
+    def create_task(self, func):
+        stop_event = asyncio.Event()
+
+        async def wrapper():
+            try:
+                while not stop_event.is_set():
+                    await func()
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                raise RuntimeError("Task failed") from e
+
+        task = asyncio.create_task(wrapper())
+        self.tasks.append((task, stop_event))
+
+        return task, stop_event
+
+    async def __cleanup_tasks(self):
+        for task, stop_event in self.tasks:
+            stop_event.set()
+            await task
+        self.tasks.clear()
+
     async def asyncSetUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't
         # raise `SkipTest` inside of `TempestaTest.__init__` because we are unable
@@ -412,6 +438,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.cleanup_interfaces)
         self.addAsyncCleanup(self.cleanup_deproxy)
         self.addAsyncCleanup(self.cleanup_services)
+        self.addAsyncCleanup(self.__cleanup_tasks)
         test_logger.info(f"setUp completed '{self.id()}'")
 
     async def cleanup_services(self):

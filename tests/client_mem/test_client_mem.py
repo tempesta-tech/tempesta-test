@@ -68,6 +68,10 @@ listen 80;
         ]
     )
     async def test_invalid(self, name, client_mem_config):
+        """
+        This test checks that Tempesta FW doesn't start with wrong `client_mem`
+        option.
+        """
         tempesta = self.get_tempesta()
         self.update_tempesta_config(client_mem_config)
         self.oops_ignore = ["ERROR"]
@@ -125,6 +129,10 @@ tls_match_any_server_name;
 )
 class TestBlockByMemExceeded(TestBlockByMemExceededBase):
     async def test_request(self):
+        """
+        This test checks that Tempesta FW drop client connection
+        if request exceeded `client_mem` limit.
+        """
         self.update_tempesta_config(self.client_mem)
         await self.start_all_services()
 
@@ -136,6 +144,12 @@ class TestBlockByMemExceeded(TestBlockByMemExceededBase):
         await self.send_request_and_check_conn_close(client, request)
 
     async def test_response(self):
+        """
+        This test checks that Tempesta FW drop client connection
+        if response exceeded `client_mem` limit. Check that
+        client received 403 error response before connection
+        will be closed.
+        """
         self.update_tempesta_config(self.client_mem)
         await self.start_all_services()
 
@@ -155,10 +169,7 @@ class TestBlockByMemExceeded(TestBlockByMemExceededBase):
             headers=[],
         )
 
-        client.make_request(request)
-        if not run_config.TCP_SEGMENTATION:
-            await client.wait_for_response(strict=True)
-            self.assertTrue(client.last_response.status, "403")
+        await client.send_request(request, "403")
         await client.wait_for_connection_close(strict=True)
 
 
@@ -191,30 +202,30 @@ tls_match_any_server_name;
         },
     ]
 
-    stop = False
+    async def __do_reload_impl(self, base_config, i):
+        config = base_config + "client_mem 10000 20000;\n" if i % 2 == 0 else base_config
+        self.get_tempesta().config.defconfig = config
+        self.get_tempesta().reload()
+        await asyncio.sleep(1)
 
-    async def _do_reload(self):
+    async def __do_reload(self):
         base_config = self.get_tempesta().config.defconfig
-        i = 0
-        while not self.stop:
-            if i % 2 == 0:
-                config = base_config + "client_mem 10000 20000;\n"
-            else:
-                config = base_config
-            i = i + 1
-            self.get_tempesta().config.defconfig = config
-            self.get_tempesta().reload()
-            await asyncio.sleep(1)
+        await self.__do_reload_impl(base_config, 0)
+        await self.__do_reload_impl(base_config, 1)
 
     async def test_under_load(self):
+        """
+        This test checks that there is no crashes if we reload
+        Tempesta FW with `client_mem` options under heavy load.
+        (Tempesta FW deletes special data structure used for
+        client memory accounting in very sofisticated way).
+        """
         await self.start_all_services(client=False)
         client = self.get_client("gflood")
-        task = asyncio.create_task(self._do_reload())
+        self.create_task(self.__do_reload)
         client.start()
         await self.wait_while_busy(client)
         client.stop()
-        self.stop = True
-        await task
 
 
 @marks.parameterize_class(
@@ -253,6 +264,14 @@ tls_match_any_server_name;
     backends = [DEPROXY_SERVER]
 
     async def test(self):
+        """
+        This test check that `client_mem` option is reconfigurable.
+        First of all start Tempesta FW without `client_mem` option,
+        send request with long body and check that we successfully
+        receive response. Reload Tempesta FW with strong `client_mem`
+        limit and check that we close client connection, because
+        `client_mem` limit is exceeded.
+        """
         await self.start_all_services()
         client = self.get_client("deproxy")
         request = client.create_request(
@@ -286,19 +305,18 @@ tls_match_any_server_name;
 
     backends = [DEPROXY_SERVER]
 
-    def _ping(self, client):
-        client.h2_connection.ping(opaque_data=b"\x00\x01\x02\x03\x04\x05\x06\x07")
-        client.send_bytes(client.h2_connection.data_to_send())
-        client.h2_connection.clear_outbound_data_buffer()
-
     async def test(self):
+        """
+        This test check that Tempesta FW drops client connection under ping
+        flood, if client_mem is exceeded hard limit.
+        """
         await self.start_all_services()
 
         ping_count = 10000
 
         client = self.get_client("deproxy")
         for _ in range(0, ping_count):
-            self._ping(client)
+            client.ping()
 
         await client.wait_for_connection_close(strict=True)
 
@@ -334,23 +352,24 @@ tls_match_any_server_name;
 
     @staticmethod
     def make_resp(body):
-        return "HTTP/1.1 200 OK\r\n" "Content-Length: " + str(len(body)) + "\r\n\r\n" + body
+        return f"HTTP/1.1 200 OK\r\nContent-Length: {len(body)}\r\n\r\n{body}"
 
     async def test_all_clients_active(self):
+        """
+        This test checks Tempesta FW behaviour, when count of clients
+        exceeded LRU size. In this case Tempesta FW remove old clients
+        and delete structure, which is used for memory accounting.
+        """
         await self.start_all_services()
         server = self.get_server("deproxy")
 
         server.set_response(self.make_resp("x" * 10000))
 
-        for id_ in range(3):
-            client = self.get_client(f"deproxy-interface-{id_}")
+        i = 0
+        for client in self.get_clients():
             client.start()
-
-        for id_ in range(3):
-            client = self.get_client(f"deproxy-interface-{id_}")
-            for i in range(10):
-                request = client.create_request(method="GET", uri="/", headers=[])
-                client.make_request(request)
-                await server.wait_for_requests(id_ * 10 + i, strict=True)
+            request = client.create_request(method="GET", uri="/", headers=[])
+            client.make_requests([request] * 10)
+            await server.wait_for_requests((i + 1) * 10, strict=True)
             await client.wait_for_response()
             self.assertTrue(len(client.responses), 10)
