@@ -608,8 +608,8 @@ class DeproxyClientH2(BaseDeproxyClient):
             self.stream_id += 2
             self._valid_req_num += 1
 
-    def ping(self):
-        self.h2_connection.ping(opaque_data=b"\x00\x01\x02\x03\x04\x05\x06\x07")
+    def send_ping(self, data: bytes = b"\x00\x01\x02\x03\x04\x05\x06\x07") -> None:
+        self.h2_connection.ping(opaque_data=data)
         self.send_bytes(self.h2_connection.data_to_send())
         self.h2_connection.clear_outbound_data_buffer()
 

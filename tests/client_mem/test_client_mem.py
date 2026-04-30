@@ -5,6 +5,7 @@ __copyright__ = "Copyright (C) 2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncio
+import time
 import run_config
 from framework.helpers import error
 from framework.test_suite import marks, tester
@@ -202,16 +203,17 @@ tls_match_any_server_name;
         },
     ]
 
-    async def __do_reload_impl(self, base_config, i):
+    def __do_reload_impl(self, base_config, i):
         config = base_config + "client_mem 10000 20000;\n" if i % 2 == 0 else base_config
         self.get_tempesta().config.defconfig = config
         self.get_tempesta().reload()
-        await asyncio.sleep(1)
+        time.sleep(0.1)
 
-    async def __do_reload(self):
+    def __do_reload(self, stop_event):
         base_config = self.get_tempesta().config.defconfig
-        await self.__do_reload_impl(base_config, 0)
-        await self.__do_reload_impl(base_config, 1)
+        while not stop_event.is_set():
+            self.__do_reload_impl(base_config, 0)
+            self.__do_reload_impl(base_config, 1)
 
     async def test_under_load(self):
         """
@@ -222,7 +224,8 @@ tls_match_any_server_name;
         """
         await self.start_all_services(client=False)
         client = self.get_client("gflood")
-        self.create_task(self.__do_reload)
+        task = self.create_task(self.__do_reload)
+        task.start()
         client.start()
         await self.wait_while_busy(client)
         client.stop()
@@ -316,7 +319,7 @@ tls_match_any_server_name;
 
         client = self.get_client("deproxy")
         for _ in range(0, ping_count):
-            client.ping()
+            client.send_ping()
 
         await client.wait_for_connection_close(strict=True)
 

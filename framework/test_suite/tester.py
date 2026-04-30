@@ -7,6 +7,7 @@ import os
 import re
 import signal
 import subprocess
+import threading
 import typing
 import unittest
 from unittest.util import strclass
@@ -150,8 +151,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     Tempesta tests should have:
     1) backends: [...]
     2) clients: [...]
-    3) tasks: [...]
-    4) several test functions.
+    3) several test functions.
     function name should start with 'test'
 
     Verbose documentation is placed in README.md
@@ -160,8 +160,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     backends: list[dict] = []
 
     clients: list[dict] = []
-
-    tasks: list[tuple(asyncio.Task, asyncio.event)] = []
 
     tempesta = {"type": "tempesta", "config": "", "tfw_config": tfw.TfwLogger()}
 
@@ -379,27 +377,21 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
                 raise Exception("Can not start client %s" % cid)
 
     def create_task(self, func):
-        stop_event = asyncio.Event()
+        stop_event = threading.Event()
 
-        async def wrapper():
-            try:
-                while not stop_event.is_set():
-                    await func()
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                raise RuntimeError("Task failed") from e
+        task = threading.Thread(target=func, args=(stop_event,))
+        self.__tasks.append((task, stop_event))
 
-        task = asyncio.create_task(wrapper())
-        self.tasks.append((task, stop_event))
-
-        return task, stop_event
+        return task
 
     async def __cleanup_tasks(self):
-        for task, stop_event in self.tasks:
+        for task, stop_event in self.__tasks:
             stop_event.set()
-            await task
-        self.tasks.clear()
+
+        await asyncio.gather(
+            *[asyncio.to_thread(task.join) for task, _ in self.__tasks if task.ident is not None]
+        )
+        self.__tasks.clear()
 
     async def asyncSetUp(self):
         # `unittest.TestLoader.discover` returns initialized objects, we can't
@@ -412,6 +404,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         test_logger.info(f"setUp '{self.id()}'")
         if not await remote.wait_available():
             raise Exception("Tempesta node is unavailable")
+        self.__tasks = []
         self.__exceptions = dict()
         self.__servers = {}
         self.__clients = {}
