@@ -66,6 +66,8 @@ listen 80;
             marks.Param(name="no_attrs", client_mem_config="client_mem 1 b=3;\n"),
             marks.Param(name="value_1", client_mem_config="client_mem 11aa;\n"),
             marks.Param(name="soft_is_greater_then_hard", client_mem_config="client_mem 10 1;\n"),
+            marks.Param(name="not_multiple_of_1K_soft", client_mem_config="client_mem 1000 2K;\n"),
+            marks.Param(name="not_multiple_of_1K_hard", client_mem_config="client_mem 1K 2000;\n"),
         ]
     )
     async def test_invalid(self, name, client_mem_config):
@@ -114,17 +116,17 @@ tls_match_any_server_name;
         {
             "name": "Http",
             "clients": [DEPROXY_CLIENT],
-            "client_mem": "client_mem 5000 10000;\n",
+            "client_mem": "client_mem 5K 10K;\n",
         },
         {
             "name": "Https",
             "clients": [DEPROXY_CLIENT_SSL],
-            "client_mem": "client_mem 5000 10000;\n",
+            "client_mem": "client_mem 5K 10K;\n",
         },
         {
             "name": "H2",
             "clients": [DEPROXY_CLIENT_H2],
-            "client_mem": "client_mem 20000 40000;\n",
+            "client_mem": "client_mem 20K 40K;\n",
         },
     ]
 )
@@ -204,7 +206,7 @@ tls_match_any_server_name;
     ]
 
     def __do_reload_impl(self, base_config, i):
-        config = base_config + "client_mem 10000 20000;\n" if i % 2 == 0 else base_config
+        config = base_config + "client_mem 10K 20K;\n" if i % 2 == 0 else base_config
         self.get_tempesta().config.defconfig = config
         self.get_tempesta().reload()
         time.sleep(0.1)
@@ -282,7 +284,7 @@ tls_match_any_server_name;
         )
 
         await client.send_request(request, "200")
-        self.update_tempesta_config("client_mem 10000 20000;\n")
+        self.update_tempesta_config("client_mem 8K 16K;\n")
         self.get_tempesta().reload()
         await self.send_request_and_check_conn_close(client, request)
 
@@ -294,7 +296,7 @@ listen 443 proto=h2;
 
 server ${server_ip}:8000;
 
-client_mem 500 1000;
+client_mem 1K 2K;
 block_action attack reply;
 block_action error reply;
 

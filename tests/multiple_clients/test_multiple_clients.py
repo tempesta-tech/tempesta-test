@@ -107,8 +107,6 @@ server ${server_ip}:8000;
         and delete structure, which is used for memory accounting in very
         sofisticated way.
         """
-        config = self.get_tempesta().config.defconfig
-        self.get_tempesta().config.defconfig = config + "client_mem 500000 1000000;\n"
         await self.start_all_services(client=False)
         request = self.get_client("deproxy-0").create_request(method="GET", headers=[])
 
