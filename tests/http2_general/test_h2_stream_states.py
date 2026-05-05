@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 import asyncio
 import socket
+import typing
 
 from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
@@ -175,11 +176,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
     async def _test_initiate_stream_reset_during_sending_data_base(
         self,
-        make_frame_func,
-        rcv_rst_expected,
-        expected_rst_stream_id,
-        expected_empty_body,
-        rcv_buf_size_threshold,
+        make_frame_func: typing.Callable,
+        rcv_rst_expected: bool,
+        expected_rst_stream_id: int,
+        expected_empty_body: bool,
+        second_response_body_size: int,
+        rcv_buf_size_threshold: int,
     ):
         self.disable_deproxy_auto_parser()
         tempesta = self.get_tempesta()
@@ -187,12 +189,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
         await self.start_all_services()
         # check that rcv buff is lower than approximate data size
-        self.assertTrue(
-            rcv_buf_size_threshold > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        self.assertGreater(
+            rcv_buf_size_threshold, client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         )
         await self.initiate_h2_connection(client)
 
-        client.readable = lambda: 0
+        client.readable = lambda: False
         client.stream_id = expected_rst_stream_id
         client.make_request(request=self.get_request)
         await self.assertWaitUntilEqual(
@@ -212,7 +214,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             lambda: self._get_srv_msg_forwarded_stat(tempesta),
             2,
         )
-        client.readable = lambda: 1
+        client.readable = lambda: True
 
         if rcv_rst_expected:
             await client.wait_for_reset_stream(stream_id=expected_rst_stream_id)
@@ -222,11 +224,11 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         partial_response = client._active_responses[expected_rst_stream_id]
         self._check_all_headers_presents_in_partially_received_response(partial_response)
         if expected_empty_body:
-            self.assertTrue(partial_response.body == "")
+            self.assertEqual(partial_response.body, "")
 
         # Full response has the same headers set as partial, thus use the same method for check
         self._check_all_headers_presents_in_partially_received_response(client.last_response)
-        client.last_response.body == "q" * client.rcv_buf_size
+        self.assertEqual(client.last_response.body, "q" * second_response_body_size)
 
     @marks.Parameterize.expand(
         [
@@ -256,6 +258,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         client = self.get_client("deproxy")
         client.rcv_buf_size = 1024
         long_hdr_val_size = 4 * client.rcv_buf_size
+        body_size = client.rcv_buf_size * 4
         server = self.get_server("deproxy")
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -264,12 +267,17 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             + "\r\n"
             + "Connection: keep-alive\r\n"
             + "Server: deproxy\r\n"
-            + f"Content-Length: {client.rcv_buf_size}\r\n\r\n"
-            + ("q" * client.rcv_buf_size)
+            + f"Content-Length: {body_size}\r\n\r\n"
+            + ("q" * body_size)
         )
 
         await self._test_initiate_stream_reset_during_sending_data_base(
-            make_frame_func, rcv_rst_expected, 1, True, long_hdr_val_size
+            make_frame_func=make_frame_func,
+            rcv_rst_expected=rcv_rst_expected,
+            expected_rst_stream_id=1,
+            expected_empty_body=True,
+            second_response_body_size=body_size,
+            rcv_buf_size_threshold=long_hdr_val_size,
         )
 
     async def test_initiate_stream_reset_during_sending_resp_data(self):
@@ -293,7 +301,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         await self._test_initiate_stream_reset_during_sending_data_base(
-            TestHalfClosedStreamStateUnexpectedFrames._make_frame_data, True, 1, False, body_size
+            make_frame_func=TestHalfClosedStreamStateUnexpectedFrames._make_frame_data,
+            rcv_rst_expected=True,
+            expected_rst_stream_id=1,
+            expected_empty_body=False,
+            second_response_body_size=body_size,
+            rcv_buf_size_threshold=body_size,
         )
 
     async def test_tempesta_rcv_multiple_data_during_sending_resp_headers(self):
@@ -323,12 +336,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
         await self.start_all_services()
         # check that rcv buff is lower than approximate data size
-        self.assertTrue(
-            long_hdr_size > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        self.assertGreater(
+            long_hdr_size, client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         )
         await self.initiate_h2_connection(client)
 
-        client.readable = lambda: 0
+        client.readable = lambda: False
         # client opens stream with id 1 and does not close it
         client.make_request(request=self.get_request)
         await self.assertWaitUntilEqual(
@@ -340,7 +353,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         # Let Tempesta handle the new frame. There is no way to ensure
         # that Tempesta received frame, therefore just wait
         await asyncio.sleep(3)
-        client.readable = lambda: 1
+        client.readable = lambda: True
 
         await client.wait_for_connection_close()
 
@@ -380,12 +393,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         await self.start_all_services()
-        self.assertTrue(
-            long_hdr_size > client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        self.assertGreater(
+            long_hdr_size, client._socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         )
         await self.initiate_h2_connection(client)
 
-        client.readable = lambda: 0
+        client.readable = lambda: False
         client.stream_id = expected_rst_stream_id
         client.make_request(request=self.get_request)
         await self.assertWaitUntilEqual(
@@ -416,7 +429,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         # start receiving data
-        client.readable = lambda: 1
+        client.readable = lambda: True
 
         await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=3)
 
@@ -424,11 +437,11 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
         partial_response = client._active_responses[expected_rst_stream_id]
         self._check_all_headers_presents_in_partially_received_response(partial_response)
-        self.assertTrue(partial_response.body == "")
+        self.assertEqual(partial_response.body, "")
 
         # Full response has the same headers set as partial, thus use the same method for check
         self._check_all_headers_presents_in_partially_received_response(client.last_response)
-        client.last_response.body == "q" * client.rcv_buf_size
+        self.assertEqual(client.last_response.body, "q" * client.rcv_buf_size)
 
 
 class TestHalfClosedStreamStateWindowUpdate(H2Base):
