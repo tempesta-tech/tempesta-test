@@ -27,7 +27,7 @@ from tests.http2_general.helpers import H2Base
 
 
 class TestClosedStreamState(H2Base):
-    async def __base_scenario(self, frame: Frame):
+    async def __base_scenario(self, send_frame_func: typing.Callable):
         """
         An endpoint that sends a frame with the END_STREAM flag set or a RST_STREAM frame might
         receive a WINDOW_UPDATE or RST_STREAM frame from its peer in the time before the peer
@@ -40,14 +40,16 @@ class TestClosedStreamState(H2Base):
 
         client = self.get_client("deproxy")
         await client.send_request(request=self.post_request, expected_status_code="200")
-        client.send_bytes(frame.serialize())
+        send_frame_func(client)
         await client.send_request(request=self.post_request, expected_status_code="200")
 
     async def test_rst_stream_frame_in_closed_state(self):
-        await self.__base_scenario(RstStreamFrame(stream_id=1))
+        await self.__base_scenario(lambda client: client.send_rst_stream_frame(stream_id=1))
 
     async def test_window_update_frame_in_closed_state(self):
-        await self.__base_scenario(WindowUpdateFrame(stream_id=1, window_increment=1))
+        await self.__base_scenario(
+            lambda client: client.send_window_update_frame(stream_id=1, window_increment=1)
+        )
 
     async def test_priority_frame_in_closed_state(self):
         """
@@ -56,7 +58,7 @@ class TestClosedStreamState(H2Base):
 
         Tempesta MUST not close connection.
         """
-        await self.__base_scenario(PriorityFrame(stream_id=1))
+        await self.__base_scenario(lambda client: client.send_priority_frame(stream_id=1))
 
 
 class TestLocHalfClosedStreamState(H2Base):
@@ -74,32 +76,27 @@ class TestLocHalfClosedStreamState(H2Base):
         stream = client.init_stream_for_send(client.stream_id)
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
 
-        hf = HeadersFrame(
+        # Send first HEADERS to create stream.
+        client.send_headers_frame(
             stream_id=stream.stream_id,
             data=client.h2_connection.encoder.encode(self.get_request),
             flags=["END_HEADERS"],
-        )
-        # Send first HEADERS to create stream.
-        client.send_bytes(
-            hf.serialize(),
             expect_response=False,
         )
 
-        hf2 = HeadersFrame(
+        # Send invalid PRIORITY frame to close the stream, after send invalid HEADERS frame.
+        # If HEADERS frame will be passed to parser error message will be printed to log.
+        client.send_priority_frame(stream_id=stream.stream_id, depends_on=stream.stream_id)
+
+        client.send_headers_frame(
             stream_id=stream.stream_id,
             data=client.h2_connection.encoder.encode([("abc", "z<>")]),
             flags=["END_HEADERS", "END_STREAM"],
-        )
-
-        prio = PriorityFrame(stream_id=stream.stream_id, depends_on=stream.stream_id)
-        # Send invalid PRIORITY frame to close the stream, after send invalid HEADERS frame.
-        # If HEADERS frame will be passed to parser error message will be printed to log.
-        client.send_bytes(
-            prio.serialize() + hf2.serialize(),
             expect_response=True,
         )
 
         await client.wait_for_connection_close()
+        self.assertIsNone(client.last_response)
 
 
 class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
@@ -151,19 +148,19 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         tempesta.get_stats()
         return tempesta.stats.srv_msg_forwarded
 
-    def _make_frame_headers(self, client, stream_id):
-        return HeadersFrame(
+    def _send_headers_frame(self, client, stream_id):
+        client.send_headers_frame(
             stream_id=stream_id,
             exclusive=False,
             data=client.h2_connection.encoder.encode(self.get_request),
             flags=["END_HEADERS", "END_STREAM"],
         )
 
-    def _make_frame_data(self, client, stream_id):
-        return DataFrame(stream_id=stream_id, data=b"a")
+    def _send_data_frame(self, client, stream_id):
+        client.send_data_frame(stream_id=stream_id, data=b"a")
 
-    def _make_frame_rst(self, client, stream_id):
-        return RstStreamFrame(stream_id=stream_id)
+    def _send_rst_frame(self, client, stream_id):
+        client.send_rst_stream_frame(stream_id=stream_id)
 
     def _check_all_headers_presents_in_partially_received_response(self, response):
         # Check all headers received
@@ -176,7 +173,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
     async def _test_initiate_stream_reset_during_sending_data_base(
         self,
-        make_frame_func: typing.Callable,
+        send_frame_func: typing.Callable,
         rcv_rst_expected: bool,
         expected_rst_stream_id: int,
         expected_empty_body: bool,
@@ -202,8 +199,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             1,
         )
 
-        frame = make_frame_func(self, client, expected_rst_stream_id)
-        client.send_bytes(frame.serialize())
+        send_frame_func(self, client, expected_rst_stream_id)
 
         # check that connection works after reset
         client.stream_id = expected_rst_stream_id + 2
@@ -233,14 +229,14 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     @marks.Parameterize.expand(
         [
             marks.Param(
-                name="frame_headers", make_frame_func=_make_frame_headers, rcv_rst_expected=True
+                name="frame_headers", send_frame_func=_send_headers_frame, rcv_rst_expected=True
             ),
-            marks.Param(name="frame_data", make_frame_func=_make_frame_data, rcv_rst_expected=True),
-            marks.Param(name="frame_rst", make_frame_func=_make_frame_rst, rcv_rst_expected=False),
+            marks.Param(name="frame_data", send_frame_func=_send_data_frame, rcv_rst_expected=True),
+            marks.Param(name="frame_rst", send_frame_func=_send_rst_frame, rcv_rst_expected=False),
         ]
     )
     async def test_initiate_stream_reset_during_sending_resp_headers(
-        self, name, make_frame_func, rcv_rst_expected
+        self, name, send_frame_func, rcv_rst_expected
     ):
         """
         This test verifies that headers will be fully sent by Tempesta when stream has been reset
@@ -272,7 +268,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         await self._test_initiate_stream_reset_during_sending_data_base(
-            make_frame_func=make_frame_func,
+            send_frame_func=send_frame_func,
             rcv_rst_expected=rcv_rst_expected,
             expected_rst_stream_id=1,
             expected_empty_body=True,
@@ -301,7 +297,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         await self._test_initiate_stream_reset_during_sending_data_base(
-            make_frame_func=TestHalfClosedStreamStateUnexpectedFrames._make_frame_data,
+            send_frame_func=TestHalfClosedStreamStateUnexpectedFrames._send_data_frame,
             rcv_rst_expected=True,
             expected_rst_stream_id=1,
             expected_empty_body=False,
@@ -348,8 +344,8 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             lambda: self._get_srv_msg_forwarded_stat(tempesta),
             1,
         )
-        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"a").serialize())
-        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"b").serialize())
+        client.send_data_frame(stream_id=expected_rst_stream_id, data=b"a")
+        client.send_data_frame(stream_id=expected_rst_stream_id, data=b"b")
         # Let Tempesta handle the new frame. There is no way to ensure
         # that Tempesta received frame, therefore just wait
         await asyncio.sleep(3)
@@ -407,17 +403,15 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
 
         # Stream must be not exclusive
-        PriorityFrame(stream_id=1, depends_on=205, stream_weight=100, exclusive=False).serialize()
+        client.send_priority_frame(stream_id=1, depends_on=205, stream_weight=100, exclusive=False)
 
         # Reset the first stream
-        client.send_bytes(DataFrame(stream_id=expected_rst_stream_id, data=b"a").serialize())
+        client.send_data_frame(stream_id=expected_rst_stream_id, data=b"a")
 
         # Create idle streams
         for stream_id in range(3, 201, 2):
-            client.send_bytes(
-                PriorityFrame(
-                    stream_id=stream_id, depends_on=stream_id + 2, stream_weight=2, exclusive=False
-                ).serialize()
+            client.send_priority_frame(
+                stream_id=stream_id, depends_on=stream_id + 2, stream_weight=2, exclusive=False
             )
 
         # Initiate idle streams removing to trigger stream clean up
@@ -518,12 +512,12 @@ class TestStreamState(H2Base):
         stream = client.init_stream_for_send(client.stream_id)
 
         request = request if request is not None else self.post_request
-        hf = HeadersFrame(
+        client.send_headers_frame(
             stream_id=client.stream_id,
             data=client.h2_connection.encoder.encode(request),
             flags=self.flags,
+            expect_response=expect_response,
         )
-        client.send_bytes(data=hf.serialize(), expect_response=expect_response)
         return client
 
     async def test_any_frame_between_header_blocks(self):
@@ -537,12 +531,11 @@ class TestStreamState(H2Base):
         equivalent to a single frame.
         """
         client = await self.__setup()
-        hf = HeadersFrame(
+        client.send_headers_frame(
             stream_id=client.stream_id,
             data=client.h2_connection.encoder.encode(self.post_request),
             flags=["END_HEADERS", "END_STREAM"],
         )
-        client.send_bytes(data=hf.serialize(), expect_response=False)
         await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -557,12 +550,11 @@ class TestStreamState(H2Base):
         equivalent to a single frame.
         """
         client = await self.__setup()
-        hf = HeadersFrame(
+        client.send_headers_frame(
             stream_id=client.stream_id + 2,
             data=client.h2_connection.encoder.encode(self.post_request),
             flags=["END_HEADERS", "END_STREAM"],
         )
-        client.send_bytes(data=hf.serialize(), expect_response=False)
         await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -580,8 +572,7 @@ class TestStreamState(H2Base):
         PROTOCOL_ERROR.
         """
         client = await self.__setup()
-        hf = RstStreamFrame(stream_id=1)
-        client.send_bytes(hf.serialize())
+        client.send_rst_stream_frame(stream_id=1)
         client.stream_id = 3
         client.make_request(self.post_request)
         await client.wait_for_connection_close()
@@ -615,12 +606,11 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
         # create stream and change state machine in H2Connection object
         stream = client.init_stream_for_send(client.stream_id)
 
-        hf = HeadersFrame(
+        client.send_headers_frame(
             stream_id=client.stream_id,
             data=client.h2_connection.encoder.encode(self.post_request),
             flags=["END_HEADERS"],
         )
-        client.send_bytes(data=hf.serialize(), expect_response=False)
 
         client.stream_id = 3
         client.make_request(self.post_request)
@@ -662,7 +652,7 @@ class TestIdleState(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
 
-        client.send_bytes(PriorityFrame(stream_id=3).serialize())
+        client.send_priority_frame(stream_id=3)
         client.stream_id = 3
 
         await client.send_request(self.post_request, "200")
@@ -682,7 +672,7 @@ class TestIdleState(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
 
-        client.send_bytes(PriorityFrame(stream_id=7).serialize())
+        client.send_priority_frame(stream_id=7)
         client.stream_id = 11
         await client.send_request(self.post_request, "200")
 
@@ -691,12 +681,10 @@ class TestIdleState(H2Base):
         during previous request. Headers frames are not allowed in
         the closed state. Connection is closed with PROTOCOL_ERROR
         """
-        client.send_bytes(
-            HeadersFrame(
-                stream_id=7,
-                data=client.h2_connection.encoder.encode(self.post_request),
-                flags=["END_HEADERS"],
-            ).serialize()
+        client.send_headers_frame(
+            stream_id=7,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_HEADERS"],
         )
 
         await client.wait_for_connection_close()
@@ -718,7 +706,7 @@ class TestIdleState(H2Base):
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
 
-        client.send_bytes(PriorityFrame(stream_id=17).serialize())
+        client.send_priority_frame(stream_id=17)
         client.stream_id = 11
         await client.send_request(self.post_request, "200")
 
@@ -742,10 +730,10 @@ class TestIdleState(H2Base):
         stream = client.init_stream_for_send(client.stream_id)
         client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
 
-        pf = PriorityFrame(
+        client.send_priority_frame(
             stream_id=stream.stream_id, depends_on=5, stream_weight=255, exclusive=False
         )
-        hf = HeadersFrame(
+        client.send_headers_frame(
             stream_id=stream.stream_id,
             stream_weight=255,
             depends_on=stream.stream_id,
@@ -754,5 +742,4 @@ class TestIdleState(H2Base):
             flags=["END_HEADERS", "END_STREAM", "PRIORITY"],
         )
 
-        client.send_bytes(pf.serialize() + hf.serialize())
-        await client.wait_for_reset_stream(stream.stream_id)
+        await client.wait_for_connection_close()
