@@ -12,6 +12,7 @@ CONNS_N = 64
 class FinishByClientBase(tester.TempestaTest):
     tempesta = {
         "config": f"""
+    listen 80 proto=http;
     listen 443 proto=h2,https;
 
     server ${{server_ip}}:8000 conns_n={CONNS_N};
@@ -102,18 +103,22 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
 
 
 @marks.parameterize_class(
-    [{"name": "Https", "deproxy_type": "deproxy"}, {"name": "H2", "deproxy_type": "deproxy_h2"}]
+    [
+        {"name": "Http", "deproxy_type": "deproxy", "port": "80", "ssl": False},
+        {"name": "Https", "deproxy_type": "deproxy", "port": "443", "ssl": True},
+        {"name": "H2", "deproxy_type": "deproxy_h2", "port": "443", "ssl": True},
+    ]
 )
 class TestFinishTCPConnectionByClient(FinishByClientBase):
 
     deproxy_type: str = ""
+    port: str = ""
+    ssl: bool = False
 
     clients = [
         {
             "id": i,
             "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
         }
         for i in range(CONNS_N)
     ]
@@ -122,6 +127,8 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
     def setUpClass(cls):
         for client in cls.clients:
             client["type"] = cls.deproxy_type
+            client["port"] = cls.port
+            client["ssl"] = cls.ssl
         super().setUpClass()
 
     @marks.Parameterize.expand(
