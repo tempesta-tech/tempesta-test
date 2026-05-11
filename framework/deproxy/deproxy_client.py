@@ -326,7 +326,13 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             ), f"Timeout exceeded while waiting connection open: {timeout}"
         return timeout_not_exceeded
 
-    async def wait_for_connection_close(self, timeout=5, strict=False, adjust_timeout=True):
+    async def wait_for_connection_close(
+        self,
+        timeout: float = 5,
+        strict: bool = False,
+        adjust_timeout: bool = True,
+        msg: str = "",
+    ):
         """
         Try to use strict mode whenever it's possible
         to prevent tests from hard to detect errors.
@@ -338,9 +344,9 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             adjust_timeout=adjust_timeout,
         )
         if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting connection close: {timeout}"
+            assert timeout_not_exceeded != False, (
+                msg or f"Timeout exceeded while waiting connection close: {timeout}"
+            )
         return timeout_not_exceeded
 
     async def wait_for_response(
