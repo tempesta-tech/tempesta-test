@@ -196,6 +196,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             conn_addr=fill_template(client["addr"], client),
             is_ssl=ssl,
             server_hostname=fill_template(client.get("ssl_hostname", None), client),
+            rcv_buf_size=client.get("rcv_buf_size", -1),
         )
 
     def __create_client_wrk(self, client, ssl):
@@ -239,7 +240,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         if ctype in ["curl", "deproxy", "deproxy_h2"]:
             if client.get("interface", False):
                 networker = NetWorker(node=remote.client)
-                (_, bind_addr) = networker.create_interface(len(self.__ips))
+                _, bind_addr = networker.create_interface(len(self.__ips))
                 networker.create_route(bind_addr)
                 self.__ips.append(bind_addr)
             else:

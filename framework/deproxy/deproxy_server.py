@@ -179,6 +179,7 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         delay_before_sending_response: float,
         hang_on_req_num: int,
         pipelined: int,
+        rcv_buf_size: int,
     ):
         # this variable is needed for tests with common response for all tests in one class.
         self._default_response = response
@@ -193,6 +194,7 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
             segment_size=segment_size,
             segment_gap=segment_gap,
             is_ipv6=is_ipv6,
+            rcv_buf_size=rcv_buf_size,
         )
         base_server.BaseServer.__init__(self, id_)
         self.keep_alive = keep_alive
@@ -214,6 +216,7 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
             sock, _ = pair
             if self.segment_size:
                 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+            self._set_recv_buffer_size(sock)
             handler = ServerConnection(server=self, sock=sock)
             self._connections.append(handler)
             # ATTENTION
@@ -238,6 +241,7 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
     def _run_deproxy(self):
         self._create_socket()
         self._set_reuse_addr()
+        self._set_recv_buffer_size(self._socket)
         self._bind((self.bind_addr, self.port))
         self._listen()
 
@@ -351,6 +355,7 @@ def deproxy_srv_initializer(
         delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
         hang_on_req_num=server.get("hang_on_req_num", 0),
         pipelined=server.get("pipelined", 0),
+        rcv_buf_size=server.get("rcv_buf_size", -1),
     )
 
     tester.deproxy_manager.add_server(srv)

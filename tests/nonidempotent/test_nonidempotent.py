@@ -108,27 +108,9 @@ class DeproxyDropServer(deproxy_server.StaticDeproxyServer):
 
 
 def build_deproxy_drop(server, name, tester):
-    is_ipv6 = server.get("is_ipv6", False)
-    srv = DeproxyDropServer(
-        # BaseDeproxy
-        id_=name,
-        deproxy_auto_parser=tester._deproxy_auto_parser,
-        port=int(server["port"]),
-        bind_addr=tf_cfg.cfg.get("Server", "ipv6" if is_ipv6 else "ip"),
-        segment_size=server.get("segment_size", 0),
-        segment_gap=server.get("segment_gap", 0),
-        is_ipv6=is_ipv6,
-        # StaticDeproxyServer
-        response=fill_template(server.get("response_content", ""), server),
-        keep_alive=server.get("keep_alive", 0),
-        drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
-        send_after_conn_established=server.get("send_after_conn_established", False),
-        delay_before_sending_response=server.get("delay_before_sending_response", 0.0),
-        hang_on_req_num=server.get("hang_on_req_num", 0),
-        pipelined=server.get("pipelined", 0),
+    return deproxy_server.deproxy_srv_initializer(
+        server, name, tester, default_server_class=DeproxyDropServer
     )
-    tester.deproxy_manager.add_server(srv)
-    return srv
 
 
 tester.register_backend("deproxy_drop", build_deproxy_drop)
