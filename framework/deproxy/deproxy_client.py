@@ -55,6 +55,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         conn_addr: Optional[str],
         is_ssl: bool,
         server_hostname: str,
+        rcv_buf_size: int,
     ):
         # Initialize the `BaseDeproxy`
         super().__init__(
@@ -65,6 +66,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             segment_size=segment_size,
             segment_gap=segment_gap,
             is_ipv6=is_ipv6,
+            rcv_buf_size=rcv_buf_size,
         )
 
         self.writable = self._in_connecting_state
@@ -253,6 +255,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     def _run_deproxy(self):
         self._create_socket()
+        self._set_recv_buffer_size(self._socket)
         if self.bind_addr:
             self._bind(
                 (self.bind_addr, 0),
