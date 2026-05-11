@@ -9,7 +9,7 @@ from pathlib import Path
 from hyperframe.frame import HeadersFrame, PriorityFrame
 
 from framework.deproxy.deproxy_message import HttpMessage
-from framework.helpers import dmesg, memworker, remote, tf_cfg
+from framework.helpers import dmesg, memworker, remote, tf_cfg, util
 from framework.test_suite import marks, tester
 
 
@@ -22,6 +22,7 @@ class TestSlowRead(tester.TempestaTest):
             "port": "443",
             "ssl": True,
             "ssl_hostname": "tempesta-tech.com",
+            "interface": True,
         }
         for i in range(20)
     ]
@@ -81,6 +82,7 @@ http {
         listen 443 proto=h2;
 
         tls_match_any_server_name;
+        client_mem 500M 1G;
 
         srv_group default {
             server ${server_ip}:8000;
@@ -118,6 +120,9 @@ http {
         The attacker requests a large amount of data from a specified resource over multiple streams.
         They manipulate window size and stream priority to force the server to queue the data in 1-byte chunks.
         Depending on how efficiently this data is queued, this can consume excess CPU, memory, or both.
+
+        Tempesta FW blocks the attack using `client_mem`, `ctrl_frame_rate_multiplier`
+        and `window_update_frame_rate_multiplier`.
         """
         await self.start_all_services()
 
@@ -128,14 +133,20 @@ http {
             uri=f"/{self.response_file_name}",
         )
 
+        clients = util.ForEach(*self.get_clients())
+
         for client in self.get_clients():
             client.update_initial_settings(initial_window_size=1)
             client.send_bytes(client.h2_connection.data_to_send())
-            self.assertTrue(await client.wait_for_ack_settings())
-            client.make_requests([request] * 100)
 
-        for client in self.get_clients():
-            await client.wait_for_connection_close(strict=True)
+        await clients.wait_for_ack_settings()
+        clients.make_requests([request] * 100)
+
+        await clients.wait_for_connection_close(
+            strict=True,
+            timeout=30,
+            msg="`client_mem` doesn't block the clients that using a small window_update (~0).",
+        )
 
     async def test_cve_2019_9517(self):
         """
@@ -146,7 +157,11 @@ http {
         so the peer cannot actually write (many of) the bytes on the wire.
         The attacker sends a stream of requests for a large response object.
         Depending on how the servers queue the responses, this can consume excess memory, CPU, or both.
+
+        Tempesta FW blocks the attack using `client_mem`.
         """
+        clients = util.ForEach(*self.get_clients())
+        clients.rcv_buf_size = 1
         await self.start_all_services()
 
         request = self.get_clients()[0].create_request(
@@ -156,22 +171,20 @@ http {
             uri=f"/{self.response_file_name}",
         )
 
-        for client in self.get_clients():
-            client.update_initial_settings()
-            client.send_bytes(client.h2_connection.data_to_send())
-            self.assertTrue(await client.wait_for_ack_settings())
-            client.set_size_of_receiving_buffer(new_buffer_size=1)
-            client.make_requests([request] * 100)
-
-        for client in self.get_clients():
-            await client.wait_for_connection_close(timeout=20, strict=True)
+        clients.update_initial_settings()
+        clients.make_requests([request] * 100)
+        await clients.wait_for_connection_close(
+            timeout=20,
+            strict=True,
+            msg="`client_mem` doesn't block the clients that using a small TCP rcv_buf_size (~0).",
+        )
 
 
 class TestHttp2FrameFlood(tester.TempestaTest):
     """
     Test ability to handle requests from the client
     under control frames flood.
-    Also check that there is no kernel BUGS and WARNINGs
+    Also check that there is no kernel BUGS and WARNINGS
     under flood.
     """
 
@@ -190,6 +203,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         listen 443 proto=h2;
 
         server ${server_ip}:8000;
+        client_mem 300M 600M;
 
         tls_certificate ${tempesta_workdir}/tempesta.crt;
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
@@ -249,7 +263,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         The attacker creates multiple request streams and continually shuffles the priority of the streams in a way
         that causes substantial churn to the priority tree. This can consume excess CPU.
 
-        Tempesta FW blocks a lot of priority frames.
+        Tempesta FW blocks a lot of priority frames by default.
         """
         server = self.get_server("deproxy")
         client = self.get_client("deproxy")
@@ -289,6 +303,8 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         a single stream. An attacker that can send packets to a target server can send a stream of CONTINUATION
         frames that will not be appended to the header list in memory but will still be processed and decoded
         by the server or will be appended to the header list, causing an out of memory (OOM) crash.
+
+        Tempesta FW blocks a lot of continuation frames by `client_mem`.
         """
         await self.start_all_services(client=False)
 
@@ -395,6 +411,8 @@ class TestHttp2FrameFlood(tester.TempestaTest):
         processing continues. This allows a client to cause the server to handle an unbounded number
         of concurrent HTTP/2 requests on a single connection.
         This is very similar to CVE-2019-9514 HTTP/2 Reset Flood
+
+        Tempesta FW block such attack by default rate limits.
         """
         server = self.get_server("deproxy")
         flood_client = self.get_client("ctrl_frames_flood")

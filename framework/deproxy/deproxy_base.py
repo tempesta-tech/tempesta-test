@@ -37,7 +37,7 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
         self.bind_addr = bind_addr
         self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
         self.segment_gap = segment_gap
-        self._rcv_buf_size = rcv_buf_size
+        self.rcv_buf_size = rcv_buf_size
         self.__polling_lock: Optional[threading.Lock] = None
 
         self._tcp_logger = logging.LoggerAdapter(
@@ -62,10 +62,10 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
         self.__polling_lock = polling_lock
 
     def _set_recv_buffer_size(self, sock: socket.socket) -> None:
-        if self._rcv_buf_size >= 0:
+        if self.rcv_buf_size >= 0:
             # don't expect that buffer will have exactly the same size as passed to `setsockopt()`,
             # the kernel may increase this size.
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self._rcv_buf_size)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.rcv_buf_size)
 
     def _bind(self, address: tuple) -> None:
         """
@@ -173,3 +173,13 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
         if segment_gap < 0:
             raise ValueError("`segment_gap` MUST be greater than or equal to 0.")
         self._segment_gap = segment_gap
+
+    @property
+    def rcv_buf_size(self) -> int:
+        return self._rcv_buf_size
+
+    @rcv_buf_size.setter
+    def rcv_buf_size(self, new_buffer_size: int) -> None:
+        if new_buffer_size < -1:
+            raise ValueError("`rcv_buf_size` MUST be greater than or equal to -1.")
+        self._rcv_buf_size = new_buffer_size
