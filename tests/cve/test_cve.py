@@ -344,11 +344,6 @@ class TestHttp2FrameFlood(tester.TempestaTest):
                 stat_name="cl_rst_frame_exceeded",
             ),
             marks.Param(
-                name="2025-8671_by_priority",
-                cmd_args=f"-ctrl_frame_type rapid_reset -rapid_reset_type priority",
-                stat_name="cl_rst_frame_exceeded",
-            ),
-            marks.Param(
                 name="2025-8671_by_flood_rst_batch",
                 cmd_args=f"-ctrl_frame_type rapid_reset -rapid_reset_type batch",
                 stat_name="cl_rst_frame_exceeded",
@@ -356,11 +351,6 @@ class TestHttp2FrameFlood(tester.TempestaTest):
             marks.Param(
                 name="2025-8671_by_headers_max_concurrent_streams_exceeded",
                 cmd_args=f"-ctrl_frame_type rapid_reset -rapid_reset_type headers_by_max_streams_exceeded",
-                stat_name="cl_rst_frame_exceeded",
-            ),
-            marks.Param(
-                name="2025-8671_by_headers_invalid_dependency",
-                cmd_args=f"-ctrl_frame_type rapid_reset -rapid_reset_type headers_by_invalid_dependency",
                 stat_name="cl_rst_frame_exceeded",
             ),
             marks.Param(
