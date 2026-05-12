@@ -168,7 +168,7 @@ class TestMatchLocations(BaseRegexMatcher):
         Send requests with different URI and headers
         and check correctness of forwarding
         by compare last response body with sid of
-        whaiting server.
+        waiting server.
         """
         await self.start_all_services()
 
@@ -178,7 +178,11 @@ class TestMatchLocations(BaseRegexMatcher):
             expected_status_code="200",
         )
 
-        self.assertEqual(str(sid), client.last_response.body)
+        self.assertEqual(
+            str(sid),
+            client.last_response.body,
+            "Http rules mismatch. Tempesta FW forwards a request to a wrong server.",
+        )
 
     @marks.Parameterize.expand(
         [
@@ -355,7 +359,11 @@ class TestMatchHost(BaseRegexMatcher):
             expected_status_code="200",
         )
 
-        self.assertEqual(str(sid), client.last_response.body)
+        self.assertEqual(
+            str(sid),
+            client.last_response.body,
+            "Http rules mismatch. Tempesta FW forwards a request to a wrong server.",
+        )
 
     @marks.Parameterize.expand(
         [
