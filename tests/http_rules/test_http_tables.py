@@ -870,7 +870,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
 class TestHttpTablesPatternTrimming(tester.TempestaTest):
     backends = [
         {
-            "id": 0,
+            "id": 1,
             "type": "deproxy",
             "port": "8000",
             "response": "static",
@@ -879,21 +879,12 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
             "Content-Length: 0\r\n\r\n",
         },
         {
-            "id": 1,
+            "id": 2,
             "type": "deproxy",
             "port": "8001",
             "response": "static",
             "response_content": "HTTP/1.1 200 OK\r\n"
             "vhost-name: vh2\r\n"
-            "Content-Length: 0\r\n\r\n",
-        },
-        {
-            "id": 4,
-            "type": "deproxy",
-            "port": "8004",
-            "response": "static",
-            "response_content": "HTTP/1.1 200 OK\r\n"
-            "vhost-name: vh3\r\n"
             "Content-Length: 0\r\n\r\n",
         },
     ]
@@ -906,25 +897,15 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
         tls_certificate_key ${tempesta_workdir}/tempesta.key;
         tls_match_any_server_name;
         block_action attack reply;
-        srv_group grp1 {
-            server ${server_ip}:8000;
-        }
-        srv_group grp2 {
-            server ${server_ip}:8001;
-        }
-        srv_group grp3 {
-            server ${server_ip}:8004;
-        }
-        frang_limits {http_strict_host_checking false;}
-        vhost vh1 {
-            proxy_pass grp1;
-        }
-        vhost vh2 {
-            proxy_pass grp2;
-        }
-        vhost vh3 {
-            proxy_pass grp3;
-        }
+        
+        srv_group grp1 { server ${server_ip}:8000; }
+        srv_group grp2 { server ${server_ip}:8001; }
+        
+        frang_limits { http_strict_host_checking false; }
+        
+        vhost vh1 { proxy_pass grp1; }
+        vhost vh2 { proxy_pass grp2; }
+        
         http_chain {
             hdr "  raw_hdr1" == " hdr_value_1 " -> vh1;
             hdr "  r  " == " v " -> vh2;
@@ -934,27 +915,29 @@ class TestHttpTablesPatternTrimming(tester.TempestaTest):
     }
 
     async def test_spaced_pattern(self):
-        """Test for matching rules which contains leading and trailing spaces.
+        """
+        Test for matching rules which contains leading and trailing spaces.
         Expected that these spaces ignored and header matched.
         """
         await self.start_all_services()
         client = self.get_client(0)
 
-        headers = [("raw_hdr1", "hdr_value_1")]
-        await client.send_request(
-            request=client.create_request(method="GET", uri="/", headers=headers),
-            expected_status_code="200",
-        )
+        for headers, expected_vhost in (
+            (("raw_hdr1", "hdr_value_1"), "vh1"),
+            (("r", "v"), "vh2"),
+        ):
+            with self.subTest(headers=headers, expected_vhost=expected_vhost):
+                client.restart()
+                await client.send_request(
+                    request=client.create_request(method="GET", uri="/", headers=[headers]),
+                    expected_status_code="200",
+                )
 
-        self.assertEqual(client.last_response.headers.get("vhost-name"), "vh1")
-
-        headers = [("r", "v")]
-        await client.send_request(
-            request=client.create_request(method="GET", uri="/", headers=headers),
-            expected_status_code="200",
-        )
-
-        self.assertEqual(client.last_response.headers.get("vhost-name"), "vh2")
+                self.assertEqual(
+                    client.last_response.headers.get("vhost-name"),
+                    expected_vhost,
+                    "Http rules mismatch. Tempesta FW forwards a request to a wrong server.",
+                )
 
 
 class TestHttpTablesEmptyHdrPattern(tester.TempestaTest):
@@ -987,16 +970,16 @@ class TestHttpTablesEmptyHdrPattern(tester.TempestaTest):
     @marks.Parameterize.expand(
         [
             marks.Param(
-                name="only_spaces_in_name",
-                cfg=f'hdr "  " == "qwer" -> vh1;',
+                name="only_spaces_and_tabs_in_name",
+                cfg=f'hdr " \t" == "qwer" -> vh1;',
             ),
             marks.Param(
                 name="empty_name",
                 cfg=f'hdr "" == "qwer" -> vh1;',
             ),
             marks.Param(
-                name="only_spaces_in_value",
-                cfg=f'hdr "hdr1" == "   " -> vh1;',
+                name="only_spaces_and_tabs_in_value",
+                cfg=f'hdr "hdr1" == " \t " -> vh1;',
             ),
             marks.Param(
                 name="empty_value",
