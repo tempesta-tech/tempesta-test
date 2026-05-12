@@ -22,7 +22,6 @@ class TestSlowRead(tester.TempestaTest):
             "port": "443",
             "ssl": True,
             "ssl_hostname": "tempesta-tech.com",
-            "interface": True,
         }
         for i in range(20)
     ]
