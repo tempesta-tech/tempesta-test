@@ -52,6 +52,14 @@ class BaseDeproxy(asyncore.DeproxyAsyncore, Stateful, ABC):
     def __str__(self):
         return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
 
+    @property
+    def rcv_buf_size(self) -> int:
+        return self._rcv_buf_size
+
+    @rcv_buf_size.setter
+    def rcv_buf_size(self, value: int) -> None:
+        self._rcv_buf_size = value
+
     def set_rst_tcp_to_closing_connection(self) -> None:
         """Set socket options to close TCP connection with RST."""
         self.__acquire()
