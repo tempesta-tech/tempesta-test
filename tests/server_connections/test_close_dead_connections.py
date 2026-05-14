@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy import deproxy_message
+from framework.helpers import util
 from framework.test_suite import marks, tester
 
 BODY_SIZE = 1024**2 * 10  # MB
@@ -23,6 +24,8 @@ class FinishByClientBase(tester.TempestaTest):
     tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
     tls_match_any_server_name;
     cache 0;
+    
+    http_max_header_list_size 200000;
     """
     }
 
@@ -35,7 +38,9 @@ class FinishByClientBase(tester.TempestaTest):
         }
     ]
 
-    def configure_deproxy_server(self, conns_n, content_length, body_size) -> None:
+    def configure_deproxy_server(
+        self, *, conns_n: int, content_length: int, body_size: int
+    ) -> None:
         server = self.get_server("deproxy")
         server.conns_n = conns_n
         server.segment_size = 1024
@@ -78,7 +83,9 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         server = self.get_server("deproxy")
         client = self.get_client("h2")
 
-        self.configure_deproxy_server(CONNS_N, BODY_SIZE, BODY_SIZE - 10)
+        self.configure_deproxy_server(
+            conns_n=CONNS_N, content_length=BODY_SIZE, body_size=BODY_SIZE - 10
+        )
         self.disable_deproxy_auto_parser()
         await self.start_all_services(client=False)
         client.start()
@@ -131,15 +138,6 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
             client["ssl"] = cls.ssl
         super().setUpClass()
 
-    async def __setup_test(self, rcv_buf_size, conns_n, content_length, body_size):
-        server = self.get_server("deproxy")
-        server.rcv_buf_size = rcv_buf_size
-        self.configure_deproxy_server(conns_n, content_length, body_size)
-        self.disable_deproxy_auto_parser()
-        await self.start_all_services()
-
-        return server
-
     @marks.Parameterize.expand(
         [
             marks.Param(name="client_rst", close_with_rst=True),
@@ -153,9 +151,12 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         when a client closes a connection using RST/FIN TCP
         and the server did not have time to send the full response.
         """
-        server = await self.__setup_test(
-            rcv_buf_size=-1, conns_n=CONNS_N, content_length=BODY_SIZE, body_size=BODY_SIZE - 10
+        server = self.get_server("deproxy")
+        self.configure_deproxy_server(
+            conns_n=CONNS_N, content_length=BODY_SIZE, body_size=BODY_SIZE - 10
         )
+        self.disable_deproxy_auto_parser()
+        await self.start_all_services()
 
         server_conn_list_before = set(server.connections)
 
@@ -185,51 +186,47 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         Tempesta FW must not send requests to the server if client
         closes a connection.
         """
-        self.get_tempesta().config.defconfig = self.get_tempesta().config.defconfig.replace(
-            "conns_n=64", "conns_n=1"
-        )
-        self.get_tempesta().config.defconfig = (
-            self.get_tempesta().config.defconfig + "http_max_header_list_size 200000;\n"
-        )
-        server = await self.__setup_test(
-            rcv_buf_size=2048, conns_n=1, content_length=10, body_size=10
-        )
+        server = self.get_server("deproxy")
+        bad_client = self.get_client(0)
+        valid_clients = util.ForEach(*self.get_clients()[1:])  # first client is bad
+        client_req_n = 2
+
+        self.get_tempesta().config.replace("conns_n=64", "conns_n=1")
+        server.rcv_buf_size = 2048
+        self.configure_deproxy_server(conns_n=1, content_length=10, body_size=10)
+        self.disable_deproxy_auto_parser()
+        await self.start_all_services()
+
         self.assertEqual(len(server.connections), 1)
         server.connections[0].readable = lambda: False
 
         header_len = 150000
-        request_long = self.get_client(0).create_request(
-            method="GET", headers=[("a", "a" * header_len)]
-        )
-        request_short = self.get_client(0).create_request(method="GET", headers=[])
+        request_long = bad_client.create_request(method="GET", headers=[("a", "a" * header_len)])
+        request_short = bad_client.create_request(method="GET", headers=[])
 
-        for client in self.get_clients():
-            client.start()
+        bad_client.make_requests([request_long] * client_req_n)
+        await bad_client.wait_for_client_sends_requests(timeout=10)
+        valid_clients.make_requests([request_short] * client_req_n)
+        await valid_clients.wait_for_client_sends_requests()
 
-        i = 0
-        for client in self.get_clients():
-            if i == 0:
-                client.make_requests([request_long] * 2)
-            else:
-                client.make_requests([request_short] * 2)
-            i = i + 1
-            await client.wait_for_client_sends_requests(timeout=10, strict=True)
-
-        self.get_client(0).stop()
+        bad_client.stop()
         server.connections[0].readable = lambda: True
 
         self.assertTrue(
-            await server.wait_for_requests(n=(len(self.get_clients()) - 1) * 2, timeout=10),
+            await server.wait_for_requests(n=len(list(valid_clients)) * client_req_n, timeout=10),
             f"Tempesta FW must forward all requests from not dead client connections.",
         )
-
-        self.assertFalse(
-            await server.wait_for_requests(n=len(self.get_clients()) * 2, timeout=5),
-            f"Tempesta FW must drop requests from already closed client connections.",
+        self.assertEqual(
+            len(server.requests),
+            (len(list(valid_clients)) * client_req_n + 1),
+            "Tempesta FW must forward requests to the server: client_N * client_requests_N + 1 (bad_requests).",
         )
-        self.assertEqual(len(server.requests), (len(self.get_clients()) - 1) * 2 + 1)
 
-        for i in range(1, len(self.get_clients())):
+        await valid_clients.wait_for_response(
+            strict=True, msg="The valid clients doesn't receive responses."
+        )
+
+        for client in valid_clients:
             self.assertEqual(len(client.responses), 2)
-            for j in range(0, len(client.responses)):
-                self.assertTrue(client.responses[j].status, "200")
+            for response in client.responses:
+                self.assertTrue(response.status, "200")
