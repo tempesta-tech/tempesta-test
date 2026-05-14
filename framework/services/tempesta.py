@@ -293,6 +293,10 @@ class Config(object):
     def defconfig(self, config: str) -> None:
         self.set_defconfig(config, custom_cert=False)
 
+    def replace(self, conf: str, new_conf: str) -> None:
+        """Change existing configurations."""
+        self.set_defconfig(self.defconfig.replace(conf, new_conf))
+
     def create_config_files(self) -> None:
         remote.tempesta.copy_file(self.config_name, self.get_config())
         if self._logger_config is not None:
