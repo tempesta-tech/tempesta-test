@@ -185,13 +185,19 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         """
         Tempesta FW must not send requests to the server if client
         closes a connection.
+
+        We consider such requests as dead and remove them from the server connection queue.
+        Such requests are not removed from the queue when the connection is closed by the client.
+
+        This behavior is necessary to avoid memory loss on dead connections.
         """
+        tempesta = self.get_tempesta()
         server = self.get_server("deproxy")
         bad_client = self.get_client(0)
         valid_clients = util.ForEach(*self.get_clients()[1:])  # first client is bad
-        client_req_n = 2
+        client_req_n = 5
 
-        self.get_tempesta().config.replace("conns_n=64", "conns_n=1")
+        tempesta.config.replace("conns_n=64", "conns_n=1")
         server.rcv_buf_size = 2048
         self.configure_deproxy_server(conns_n=1, content_length=10, body_size=10)
         self.disable_deproxy_auto_parser()
@@ -200,14 +206,21 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         self.assertEqual(len(server.connections), 1)
         server.connections[0].readable = lambda: False
 
-        header_len = 150000
-        request_long = bad_client.create_request(method="GET", headers=[("a", "a" * header_len)])
-        request_short = bad_client.create_request(method="GET", headers=[])
+        request_long = bad_client.create_request(
+            method="GET", uri="/long", headers=[("a", "a" * 150000)]
+        )
+        request_short = bad_client.create_request(method="GET", uri="/short", headers=[])
+
+        bad_client.make_request(request_long)
+        await self.assertWaitUntilEqual(lambda: tempesta.stats.get("cl_msg_forwarded"), 1)
 
         bad_client.make_requests([request_long] * client_req_n)
-        await bad_client.wait_for_client_sends_requests(timeout=10)
         valid_clients.make_requests([request_short] * client_req_n)
-        await valid_clients.wait_for_client_sends_requests()
+        await self.assertWaitUntilEqual(
+            lambda: tempesta.stats.get("cl_msg_forwarded"),
+            client_req_n * len(self.get_clients()) + 1,
+            "Tempesta FW doesn't forward all requests to the server.",
+        )
 
         bad_client.stop()
         server.connections[0].readable = lambda: True
@@ -227,6 +240,12 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         )
 
         for client in valid_clients:
-            self.assertEqual(len(client.responses), 2)
+            self.assertEqual(len(client.responses), client_req_n)
             for response in client.responses:
                 self.assertTrue(response.status, "200")
+
+        self.assertEqual(
+            1,
+            len([req for req in server.requests if "/long" in req.uri]),
+            "Tempesta FW sent requests to the server from the client that already closed the connection.",
+        )
