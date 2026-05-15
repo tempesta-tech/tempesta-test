@@ -63,44 +63,58 @@ def version():
 class Stats(object):
     """Parser for TempestaFW performance statistics (/proc/tempesta/perfstat)."""
 
+    _stats_path = "/proc/tempesta/perfstat"
+
     def __init__(self):
-        self.clear()
+        self.ss_pfl_hits: int = 0
+        self.ss_pfl_misses: int = 0
+        self.ss_work_queue_full: int = 0
 
-    def clear(self):
-        self.ss_pfl_hits = 0
-        self.ss_pfl_misses = 0
-        self.ss_wq_full = 0
-        self.cache_hits = 0
-        self.cache_misses = 0
-        self.cl_msg_received = 0
-        self.cl_msg_forwarded = 0
-        self.cl_msg_served_from_cache = 0
-        self.cl_msg_parsing_errors = 0
-        self.cl_msg_filtered_out = 0
-        self.cl_msg_other_errors = 0
-        self.cl_conn_attempts = 0
-        self.cl_established_connections = 0
-        self.cl_conns_active = 0
-        self.cl_rx_bytes = 0
-        self.cl_priority_frame_exceeded = 0
-        self.cl_rst_frame_exceeded = 0
-        self.cl_settings_frame_exceeded = 0
-        self.cl_ping_frame_exceeded = 0
-        self.cl_wnd_update_frame_exceeded = 0
-        self.srv_msg_received = 0
-        self.srv_msg_forwarded = 0
-        self.srv_msg_parsing_errors = 0
-        self.srv_msg_filtered_out = 0
-        self.srv_msg_other_errors = 0
-        self.srv_conn_attempts = 0
-        self.srv_established_connections = 0
-        self.srv_conns_active = 0
-        self.srv_rx_bytes = 0
+        self.cache_hits: int = 0
+        self.cache_misses: int = 0
+        self.cache_objects: int = 0
+        self.cache_bytes: int = 0
 
-    def parse(self, stats):
+        self.cl_msg_received: int = 0
+        self.cl_msg_forwarded: int = 0
+        self.cl_msg_served_from_cache: int = 0
+        self.cl_msg_parsing_errors: int = 0
+        self.cl_msg_filtered_out: int = 0
+        self.cl_msg_other_errors: int = 0
+        self.cl_conn_attempts: int = 0
+        self.cl_established_connections: int = 0
+        self.cl_conns_active: int = 0
+        self.cl_rx_bytes: int = 0
+        self.cl_priority_frame_exceeded: int = 0
+        self.cl_rst_frame_exceeded: int = 0
+        self.cl_settings_frame_exceeded: int = 0
+        self.cl_ping_frame_exceeded: int = 0
+        self.cl_wnd_update_frame_exceeded: int = 0
+
+        self.srv_msg_received: int = 0
+        self.srv_msg_forwarded: int = 0
+        self.srv_msg_parsing_errors: int = 0
+        self.srv_msg_filtered_out: int = 0
+        self.srv_msg_other_errors: int = 0
+        self.srv_conn_attempts: int = 0
+        self.srv_established_connections: int = 0
+        self.srv_conns_active: int = 0
+        self.srv_rx_bytes: int = 0
+
+    def get(self, key: str) -> int:
+        self.update_stats()
+        return self.__dict__.get(key, -1)
+
+    def update_stats(self) -> None:
+        self.parse(remote.tempesta.run_cmd(f"cat {self._stats_path}")[0])
+
+    def clear(self) -> None:
+        self.__init__()
+
+    def parse(self, stats: str) -> None:
         self.ss_pfl_hits = self.parse_option(stats, "SS pfl hits")
         self.ss_pfl_misses = self.parse_option(stats, "SS pfl misses")
-        self.wq_full = self.parse_option(stats, "SS work queue full")
+        self.ss_work_queue_full = self.parse_option(stats, "SS work queue full")
 
         self.cache_hits = self.parse_option(stats, "Cache hits")
         self.cache_misses = self.parse_option(stats, "Cache misses")
@@ -143,12 +157,8 @@ class Stats(object):
         self.srv_conns_active = self.parse_option(stats, "Server connections active")
         self.srv_rx_bytes = self.parse_option(stats, "Server RX bytes")
 
-        s = r"HTTP '(\d+)' code\s+: (\d+)"
-        matches = re.findall(s.encode("ascii"), stats)
-        self.health_statuses = {int(status): int(total) for status, total in matches}
-
     @staticmethod
-    def parse_option(stats, name):
+    def parse_option(stats: str, name: str) -> int:
         s = r"%s\s+: (\d+)" % name
         m = re.search(s.encode("ascii"), stats)
         if m:
@@ -490,7 +500,7 @@ class Tempesta(stateful.Stateful):
         self.node.run_cmd(f"{self.srcdir}/scripts/tempesta.sh --time-output --stop", timeout=60)
 
     def get_stats(self) -> None:
-        self.stats.parse(self.node.run_cmd("cat /proc/tempesta/perfstat")[0])
+        self.stats.update_stats()
 
     def get_server_stats(self, path: str) -> tuple[bytes, bytes]:
         return self.node.run_cmd(f"cat /proc/tempesta/servers/{path}")
