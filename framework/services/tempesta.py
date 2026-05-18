@@ -101,6 +101,8 @@ class Stats(object):
         self.srv_conns_active: int = 0
         self.srv_rx_bytes: int = 0
 
+        self.health_statuses: dict[int, int] = dict()
+
     def get(self, key: str) -> int:
         self.update_stats()
         return self.__dict__.get(key, -1)
@@ -156,6 +158,10 @@ class Stats(object):
         )
         self.srv_conns_active = self.parse_option(stats, "Server connections active")
         self.srv_rx_bytes = self.parse_option(stats, "Server RX bytes")
+
+        s = r"HTTP '(\d+)' code\s+: (\d+)"
+        matches = re.findall(s.encode("ascii"), stats)
+        self.health_statuses = {int(status): int(total) for status, total in matches}
 
     @staticmethod
     def parse_option(stats: str, name: str) -> int:
