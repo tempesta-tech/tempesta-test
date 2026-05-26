@@ -231,7 +231,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -258,7 +258,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -284,7 +284,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -327,7 +327,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -363,7 +363,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -411,7 +411,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -441,7 +441,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -470,7 +470,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -507,7 +507,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [
@@ -539,7 +539,7 @@ tls_match_any_server_name;
         if expected_status == "200":
             self.assertTrue(client.conn_is_active)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     @marks.Parameterize.expand(
         [

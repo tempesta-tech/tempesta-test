@@ -105,5 +105,5 @@ class TestFrangHttpTrailerSplitAllowedH2(H2Config, FrangTestCase):
         )
         client.send_bytes(data=tf.serialize() + cf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         await self.check_response(client, status_code=expected_status, warning_msg=WARN)

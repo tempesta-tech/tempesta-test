@@ -115,7 +115,7 @@ block_action attack reply;
             self.assertFalse(client.connection_is_closed)
             await self.assertFrangWarning(warning=warning_msg, expected=0)
         else:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
             await self.assertFrangWarning(warning=warning_msg, expected=1)
 
     async def check_last_response(self, client, status_code: str, warning_msg: str):

@@ -31,7 +31,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
     async def _wait_data_frame_and_check_response(
         self, client, response_body: str, valid_req_num: int
     ):
-        await client.wait_for_response(strict=True, n=valid_req_num)
+        await client.wait_for_response(n=valid_req_num)
 
         self.assertEqual(client.last_response.status, "200", "Status code mismatch.")
         self.assertEqual(
@@ -83,7 +83,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         client, server = await self._initiate_client_and_server(response=(response_str))
 
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
 
         # client send WindowUpdate with 1k flow control window
         client.increment_flow_control_window(stream_id=1, flow_controlled_length=1000)
@@ -118,7 +118,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
 
         # send request and wait for an only HEADERS frame for stream 1
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
 
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -130,7 +130,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
 
         # send request and wait for an only HEADERS frame for stream 3
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=3))
+        await client.wait_for_headers_frame(stream_id=3)
 
         # send WindowUpdate for stream 1 and wait for a DATA frame for it
         client.increment_flow_control_window(stream_id=1, flow_controlled_length=14)
@@ -164,7 +164,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
 
         # send request and wait for a HEADERS + CONTINUATION frames
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
 
         client.increment_flow_control_window(stream_id=1, flow_controlled_length=100)
         await self._wait_data_frame_and_check_response(
@@ -191,12 +191,11 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         )
 
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
 
         client.send_settings_frame(header_table_size=2048)
-        self.assertTrue(
-            await client.wait_for_ack_settings(),
-            "Tempesta did not forward the SETTINGS frame when the window size is 0.",
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not forward the SETTINGS frame when the window size is 0."
         )
 
         client.increment_flow_control_window(stream_id=1, flow_controlled_length=100)
@@ -222,14 +221,14 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         )
 
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
 
         # send DATA frame for GET request and wait for RST_STREAM
         client.send_bytes(DataFrame(stream_id=1, data=b"123", flags=["END_STREAM"]).serialize())
 
-        self.assertTrue(
-            await client.wait_for_reset_stream(stream_id=1),
-            "Tempesta did not forward the RST_STREAM frame when a window size is 0.",
+        await client.wait_for_reset_stream(
+            stream_id=1,
+            msg="Tempesta did not forward the RST_STREAM frame when a window size is 0.",
         )
         self.assertFalse(
             client.connection_is_closed,
@@ -257,16 +256,15 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         )
 
         client.make_request(self.get_request)
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
         # Client send DATA frame with stream id 0.
         # Tempesta MUST return GOAWAY frame with PROTOCOL_ERROR
         client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00123")
 
-        self.assertTrue(
-            await client.wait_for_connection_close(),
-            "Tempesta did not close connection when sending "
-            "the GOAWAY frame with a window size is 0.",
+        await client.wait_for_connection_close(
+            msg="Tempesta did not close connection when sending the GOAWAY frame with a window size is 0."
         )
+
         client.assert_error_code(
             expected_error_code=ErrorCodes.PROTOCOL_ERROR,
             msg="Tempesta did not forward the GOAWAY frame when a window size is 0.",

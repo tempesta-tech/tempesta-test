@@ -487,7 +487,7 @@ class TestWssPipelining(BaseWsPing):
         await self.wait_for_connections(conns_n=32)
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.request, pipelined=True)
-        await deproxy_cl.wait_for_connection_close(timeout=5, strict=True)
+        await deproxy_cl.wait_for_connection_close(timeout=5)
 
         self.assertTrue(
             await self.loggers.dmesg.find(

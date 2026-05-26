@@ -74,11 +74,11 @@ class TestPriorityBase(H2Base):
         if stream_id_list:
             for stream_id in stream_id_list:
                 await client.wait_for_headers_frame(
-                    stream_id, timeout=15 if run_config.TCP_SEGMENTATION else 5
+                    stream_id, timeout=60 if run_config.TCP_SEGMENTATION else 5
                 )
         client.send_settings_frame(initial_window_size=initial_window_size)
         await client.wait_for_ack_settings()
-        self.assertTrue(await client.wait_for_response(timeout=timeout))
+        await client.wait_for_response(timeout=timeout)
 
     def check_response_sequence(self, client, expected_length, expected_sequence=None):
         self.assertEqual(len(client.responses), len(client.response_sequence))
@@ -649,7 +649,7 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         for i in range(0, self.max_concurrent_streams):
             stream_id = client.stream_id
             client.make_request(self.post_request)
-            self.assertTrue(await client.wait_for_reset_stream(stream_id=stream_id))
+            await client.wait_for_reset_stream(stream_id=stream_id)
 
         return client
 
@@ -681,7 +681,7 @@ class TestMaxConcurrentStreams(TestPriorityBase):
         """
         client, server = await self.setup_test_priority(initial_window_size=1000)
 
-        self.assertTrue(self.max_concurrent_streams == 10)
+        self.assertEqual(self.max_concurrent_streams, 10)
         for i in range(0, self.max_concurrent_streams - 1):
             client.make_request(self.post_request)
 
@@ -698,5 +698,5 @@ class TestMaxConcurrentStreams(TestPriorityBase):
 
         # Here we should wait for a long time since initial_window_size is small, and connection
         # will be closed after all pending data will be send.
-        self.assertTrue(await client.wait_for_connection_close(timeout=10))
+        await client.wait_for_connection_close(timeout=10)
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)

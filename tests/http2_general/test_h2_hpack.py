@@ -116,7 +116,7 @@ class TestHpack(TestHpackBase):
             end_stream=True,
             huffman=False,
         )
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
     async def test_settings_header_table_size(self):
@@ -246,7 +246,7 @@ class TestHpack(TestHpackBase):
             b"\x00\x00\x0c\x01\x05\x00\x00\x00\x05\x11\x86\xa0\xe4\x1d\x13\x9d\t\x84\x87\x83\xbe",
             expect_response=True,
         )
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
 
         # Last forwarded request from Tempesta MUST have second indexed header
         server = self.get_server("deproxy")
@@ -332,7 +332,7 @@ class TestHpack(TestHpackBase):
             expect_response=True,
         )
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "400", "HTTP response status codes mismatch.")
 
     async def test_clearing_dynamic_table_with_settings_frame(self):
@@ -364,10 +364,10 @@ class TestHpack(TestHpackBase):
 
         # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
         client.send_settings_frame(header_table_size=0)
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         client.send_settings_frame(header_table_size=4096)
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
         await client.send_request(request=self.post_request, expected_status_code="200")
@@ -601,7 +601,7 @@ class TestHpack(TestHpackBase):
             expect_response=True,
         )
 
-        self.assertTrue(await client.wait_for_response(3))
+        await client.wait_for_response(3)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(server.last_request.method, "GET")
 
@@ -675,11 +675,11 @@ class TestHpackMethod(TestHpackBase):
 
             # send request two times, header :method must be processed from dynamyc table
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(await client.wait_for_response(timeout=5))
+            await client.wait_for_response(timeout=5)
             self.assertEqual(server.last_request.method, method)
 
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(await client.wait_for_response(timeout=5))
+            await client.wait_for_response(timeout=5)
             self.assertEqual(server.last_request.method, method)
             self.assertEqual(2 * (count + 1), len(server.requests))
 
@@ -723,11 +723,11 @@ class TestHpackMethod(TestHpackBase):
 
             # send request two times, header :method must be processed from dynamyc table
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(await client.wait_for_response(timeout=5))
+            await client.wait_for_response(timeout=5)
             self.assertEqual(server.last_request.method, method)
 
             client.make_request(request=request, huffman=huffman)
-            self.assertTrue(await client.wait_for_response(timeout=5))
+            await client.wait_for_response(timeout=5)
             self.assertEqual(server.last_request.method, method)
             self.assertEqual(2 * (count + 1), len(server.requests))
 
@@ -969,13 +969,13 @@ class TestFramePayloadLength(H2Base):
             b"\x00\x00\x05\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe\xbe\xbe\xbe",
             expect_response=True,
         )
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
 
         client.stream_id += 2
         client.make_request(self.get_request)
 
         # Client will be blocked because Tempesta received extra bytes
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.FRAME_SIZE_ERROR)
 
     async def test_large_frame_payload_length(self):
@@ -997,7 +997,7 @@ class TestFramePayloadLength(H2Base):
         client.stream_id += 2
         await client.send_request(self.get_request, "400")
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
 
     async def test_invalid_data(self):
@@ -1011,10 +1011,10 @@ class TestFramePayloadLength(H2Base):
         # send headers frame with stream_id = 1, header count = 3
         # and headers bytes - \x09\x02\x00 (invalid bytes)
         client.send_bytes(b"\x00\x00\x03\x01\x05\x00\x00\x00\x01\x09\x02\x00", expect_response=True)
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
 
         self.assertEqual(client.last_response.status, "400")
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
 
 SIZE_BYTES = encode_integer(10, 5)
@@ -1070,10 +1070,10 @@ class TestHpackTableSizeEncodedInInvalidPlace(TestHpackBase):
         client.send_bytes(
             client.h2_connection.data_to_send() + frame.serialize(), expect_response=True
         )
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, expected_status_code)
         if expected_status_code != "200":
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
             client.assert_error_code(expected_error_code=ErrorCodes.COMPRESSION_ERROR)
 
 
@@ -1139,9 +1139,9 @@ class TestHpackBomb(TestHpackBase):
                 )
 
                 client.send_bytes(data=attack_frame.serialize(), expect_response=True)
-                self.assertTrue(await client.wait_for_response())
+                await client.wait_for_response()
                 self.assertEqual(client.last_response.status, "403")
-                self.assertTrue(await client.wait_for_connection_close())
+                await client.wait_for_connection_close()
                 client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
 
@@ -1388,7 +1388,7 @@ class TestLoadingHeadersFromHpackDynamicTable(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, expected_status_code)
 
         client.stream_id += 2

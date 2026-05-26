@@ -270,7 +270,7 @@ class CookiesMaxMisses(tester.TempestaTest):
             await client.send_request(request)
 
         self.assertEqual(client.last_response.status, "403")
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
 
 class VhostCookies(CookiesNotEnabled):

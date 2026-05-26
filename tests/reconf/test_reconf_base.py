@@ -5,7 +5,6 @@ __license__ = "GPL2"
 import asyncio
 import time
 
-
 from framework.helpers import analyzer, dmesg, error, port_checks, remote
 from framework.helpers.analyzer import PSH, TCP
 from framework.helpers.cert_generator_x509 import CertGenerator
@@ -246,17 +245,17 @@ frang_limits {{http_strict_host_checking false;}}
                 name="add_listen",
                 first_config="listen 443 proto={0};\n",
                 second_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
-                expected_response_on_444_port=True,
+                client_wait_method_for_444_port="wait_for_response",
             ),
             marks.Param(
                 name="remove_listen",
                 first_config="listen 443 proto={0};\nlisten 444 proto={0};\n",
                 second_config="listen 443 proto={0};\n",
-                expected_response_on_444_port=False,
+                client_wait_method_for_444_port="wait_for_connection_close",
             ),
         ]
     )
-    async def test_reconf(self, name, first_config, second_config, expected_response_on_444_port):
+    async def test_reconf(self, name, first_config, second_config, client_wait_method_for_444_port):
         await self._start_all_services_and_reload_tempesta(
             first_config.format(self.proto),
             second_config.format(self.proto),
@@ -271,7 +270,7 @@ frang_limits {{http_strict_host_checking false;}}
         client.port = 444
         client.restart()
         client.make_request(request)
-        await client.wait_for_response(strict=expected_response_on_444_port, timeout=1)
+        await getattr(client, client_wait_method_for_444_port)()
 
 
 class TestListenStartFail(tester.TempestaTest):
@@ -490,9 +489,8 @@ http_chain {{
         server.conns_n = conns_n_2
 
         tempesta.reload()
-        self.assertTrue(
-            await server.wait_for_connections(),
-            "Tempesta did not change number of connections with server after reload.",
+        await server.wait_for_connections(
+            msg="Tempesta did not change number of connections with server after reload."
         )
 
         client.start()
@@ -544,9 +542,8 @@ http_chain {{
         server.conns_n = conns_n_2
 
         tempesta.reload()
-        self.assertTrue(
-            await server.wait_for_connections(),
-            "Tempesta did not change number of connections with server after reload.",
+        await server.wait_for_connections(
+            msg="Tempesta did not change number of connections with server after reload."
         )
 
         client.start()
@@ -581,11 +578,13 @@ http_chain {{
         second_config(self)
 
         self.get_tempesta().reload()
-        self.assertTrue(
-            await server_1.wait_for_connections(),
-            "Tempesta removed connections to a server/srv_group after reload. "
-            + "But this server/srv_group was not removed.",
+        await server_1.wait_for_connections(
+            msg=(
+                "Tempesta removed connections to a server/srv_group after reload. "
+                + "But this server/srv_group was not removed."
+            )
         )
+
         self.assertEqual(
             len(server_2.connections),
             0,
@@ -639,14 +638,15 @@ http_chain {{
 
         self.get_tempesta().reload()
         server_2.start()
-        self.assertTrue(
-            await server_1.wait_for_connections(),
-            "Tempesta removed connections to a old server/srv_group after reload. "
-            + "But this server/srv_group was not removed.",
+        await server_1.wait_for_connections(
+            msg=(
+                "Tempesta removed connections to a old server/srv_group after reload. "
+                + "But this server/srv_group was not removed."
+            )
         )
-        self.assertTrue(
-            await server_2.wait_for_connections(),
-            "Tempesta did not create connections to a new server/srv_group after reload.",
+
+        await server_2.wait_for_connections(
+            msg="Tempesta did not create connections to a new server/srv_group after reload."
         )
 
         for authority in ["grp1", "grp2"] * 5:
@@ -909,11 +909,11 @@ srv_group default {{
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(await server.wait_for_requests(1))
+        await server.wait_for_requests(1)
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
-        self.assertTrue(await client.wait_for_response(15))
+        await client.wait_for_response(15)
         self.assertEqual(client.last_response.status, "200")
 
         self.loggers.dmesg.update()
@@ -1017,12 +1017,12 @@ srv_group default {{
         self.get_tempesta().reload()
 
         client.make_request(client.create_request(method="GET", headers=[]))
-        await client.wait_for_response(timeout=2, strict=expect_response)
 
         self.assertTrue(
             await self.dmesg.find("request evicted: timed out, status", cond=dmesg_cond),
             DMESG_WARNING,
         )
+        self.assertEqual(client.last_response is not None, expect_response)
 
     @marks.Parameterize.expand(
         [
@@ -1083,7 +1083,7 @@ srv_group default {{
 
         request = client.create_request(method="GET", headers=[], uri="/status/")
         client.make_requests(requests=[request] * 6)  # server_failover_http 502 5 10
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
 
         self.assertTrue(
             await self.dmesg.find(
@@ -1124,7 +1124,7 @@ srv_group default {{
 
         request = client.create_request(method="GET", headers=[], uri="/")
         client.make_requests(requests=[request] * 5)
-        await client.wait_for_response(strict=True, timeout=10)
+        await client.wait_for_response(timeout=10)
 
         tempesta = self.get_tempesta()
         tempesta.get_stats()
@@ -1232,16 +1232,18 @@ class TestVhostReconf(tester.TempestaTest):
                 first_config=_set_tempesta_config_with_1_vhost,
                 second_config=_set_tempesta_config_with_2_vhost,
                 server_headers=("grp1", "grp2"),
+                srv2_wait_method="wait_for_connections",
             ),
             marks.Param(
                 name="remove_vhost",
                 first_config=_set_tempesta_config_with_2_vhost,
                 second_config=_set_tempesta_config_with_1_vhost,
                 server_headers=("grp1", "grp1"),
+                srv2_wait_method="wait_for_connections_closed",
             ),
         ]
     )
-    async def test(self, name, first_config, second_config, server_headers):
+    async def test(self, name, first_config, second_config, server_headers, srv2_wait_method):
         tempesta = self.get_tempesta()
         client = self.get_client("deproxy")
         srv1 = self.get_server("deproxy-1")
@@ -1256,7 +1258,7 @@ class TestVhostReconf(tester.TempestaTest):
         second_config(self)
         tempesta.reload()
         await srv1.wait_for_connections()
-        await srv2.wait_for_connections()
+        await getattr(srv2, srv2_wait_method)()
 
         for authority, server_header in zip(["grp1", "grp2"], server_headers):
             client.restart()
@@ -2030,13 +2032,13 @@ class TestCtrlFrameMultiplier(tester.TempestaTest):
         client = self.get_client("deproxy")
         client.update_initial_settings()
         client.send_bytes(client.h2_connection.data_to_send())
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         for _ in range(0, 10000):
             client.send_ping()
 
         tempesta.config.set_defconfig(old_config)
         tempesta.reload()
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         tempesta.get_stats()
         self.assertEqual(tempesta.stats.cl_ping_frame_exceeded, 1)

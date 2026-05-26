@@ -15,6 +15,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2022-2023 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
+
 from framework.test_suite.marks import parameterize_class
 from tests.frang.frang_test_case import FrangTestCase, H2Config
 
@@ -120,9 +122,8 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 3
             + [client.create_request(method="GET", uri=self.uri_404, headers=[]).msg] * 4
         )
-        await client.wait_for_response()
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         await self.assertFrangWarning(warning=self.warning, expected=1)
 
     async def test_reaching_the_limit_2(self):
@@ -141,9 +142,8 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             + [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg]
             + [client.create_request(method="GET", uri=self.uri_405, headers=[]).msg] * 2
         )
-        await client.wait_for_response()
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         await self.assertFrangWarning(warning=self.warning, expected=1)
 
 
@@ -242,16 +242,16 @@ tls_match_any_server_name;
         request_2 = deproxy_cl.create_request(method="GET", uri="/uri2", headers=[])
 
         deproxy_cl.make_requests([request_1] * 10)
-        self.assertIsNone(await deproxy_cl.wait_for_response(timeout=4))
+        await asyncio.sleep(4)
 
         deproxy_cl2.make_requests([request_2] * 10)
-        self.assertIsNone(await deproxy_cl2.wait_for_response(timeout=6))
+        await asyncio.sleep(6)
 
         self.assertEqual(5, len(deproxy_cl.responses))
         self.assertEqual(0, len(deproxy_cl2.responses))
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close())
-        self.assertTrue(await deproxy_cl2.wait_for_connection_close())
+        await deproxy_cl.wait_for_connection_close()
+        await deproxy_cl2.wait_for_connection_close()
 
         await self.assertFrangWarning(warning=self.warning, expected=1)
 
@@ -278,13 +278,12 @@ tls_match_any_server_name;
         deproxy_cl.make_requests(([request_1] + [request_2]) * 6)
         deproxy_cl2.make_requests(([request_1] + [request_2]) * 10)
 
-        self.assertIsNone(await deproxy_cl.wait_for_response(timeout=4))
-        self.assertTrue(await deproxy_cl2.wait_for_response(timeout=10))
+        await deproxy_cl.wait_for_connection_close(timeout=4)
+        await deproxy_cl2.wait_for_response(timeout=10)
 
         self.assertEqual(10, len(deproxy_cl.responses))
         self.assertEqual(20, len(deproxy_cl2.responses))
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close())
         self.assertFalse(deproxy_cl2.connection_is_closed)
 
         await self.assertFrangWarning(warning=self.warning, expected=1)

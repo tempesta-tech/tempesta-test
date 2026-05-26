@@ -1,3 +1,5 @@
+import asyncio
+
 from h2.exceptions import ProtocolError
 
 from framework.deproxy import deproxy_client, deproxy_message
@@ -57,7 +59,7 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.parsing = True
         deproxy_cl.make_request(head)
 
-        self.assertTrue(await deproxy_cl.wait_for_response(timeout=0.5))
+        await deproxy_cl.wait_for_response(timeout=0.5)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
     async def test_duplicate_headers(self):
@@ -170,7 +172,7 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.parsing = False
         deproxy_cl.make_request(head)
 
-        self.assertTrue(await deproxy_cl.wait_for_response(timeout=2))
+        await deproxy_cl.wait_for_response(timeout=2)
         # TODO: decide between 400 or 403 response code later
         self.assertEqual(int(int(deproxy_cl.last_response.status) / 100), 4)
 
@@ -210,7 +212,7 @@ class DeproxyTestH2(tester.TempestaTest):
         # disable sending WINDOW frames from client
         client.auto_flow_control = False
         client.make_request(client.create_request(method="GET", headers=[], uri="/large.txt"))
-        self.assertTrue(await client.wait_for_headers_frame(stream_id=1))
+        await client.wait_for_headers_frame(stream_id=1)
         self.assertIsNotNone(
             client._active_responses.get(1, None),
             "`wait_for_headers_frame` returned True, "
@@ -224,7 +226,7 @@ class DeproxyTestH2(tester.TempestaTest):
         )
 
         client.increment_flow_control_window(stream_id=1, flow_controlled_length=body_size)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
 
@@ -326,8 +328,7 @@ server ${server_ip}:8000;
         await client.wait_for_connection_close(timeout=2)
         # Connect one more time during block duration.
         client.restart()
-        if timeout > 0:
-            await client.wait_for_connection_open(timeout=timeout)
+        await asyncio.sleep(timeout)
         # If wait less than block_duration time thus expected not established connection.
         expected_connected = True if timeout > block_duration else False
         self.assertEqual(client._connected, expected_connected)
@@ -393,7 +394,7 @@ server ${server_ip}:8000;
         messages = 5
         for _ in range(0, messages):
             client.make_request("GET / HTTP/1.1\r\nHost: local<host\r\n\r\n")
-            await client.wait_for_response(timeout=0.5)
+            await client.wait_for_response(timeout=0.5, n=1)
 
         self.assertEqual(client.last_response.status, "400")
         self.assertEqual(len(client.responses), 1)

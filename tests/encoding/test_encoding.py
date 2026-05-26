@@ -37,9 +37,8 @@ class CommonUtils:
             if not request
             else request
         )
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-        return got_response
+        await client.send_request(request)
+        return client.last_response
 
 
 class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
@@ -109,12 +108,8 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             (":scheme", "https"),
             (":method", method),
         ]
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-        response = client.responses[-1] if len(client.responses) else None
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(response.status, "200")
+        await client.send_request(request, "200")
+        response = client.last_response
         self.assertFalse(
             "Transfer-Encoding" in response.headers,
             "The response should not have Transfer-Encoding",
@@ -129,11 +124,7 @@ class TestH2BodyDechunking(tester.TempestaTest, CommonUtils):
             self.assertFalse(response.body)
 
         # from now on the response is cached
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(client.last_response.status, "200")
+        await client.send_request(request, "200")
         if body_expected:
             self.assertEqual(
                 client.last_response.body,
@@ -201,7 +192,7 @@ class TestH2BodyDechunkingWithMovingBody(TestH2BodyDechunking):
         client = self.get_client("client")
         client.update_initial_settings(max_header_list_size=65536 * 2)
         client.send_bytes(client.h2_connection.data_to_send())
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
         await self.run_test("GET", True)
 
 
@@ -353,12 +344,7 @@ class TestH2ChunkedIsNotLast(tester.TempestaTest, CommonUtils):
             (":scheme", "https"),
             (":method", "GET"),
         ]
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-        response1 = client.responses[-1] if len(client.responses) else None
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(response1.status, "502")
+        await client.send_request(request, "502")
 
 
 class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
@@ -400,20 +386,16 @@ class TestH1ChunkedNonCacheable(tester.TempestaTest, CommonUtils):
         client = self.get_client("client")
         server = self.get_server("backend")
 
-        got_response = await self.send_req(client)
-        response = client.responses[-1] if len(client.responses) else None
+        response = await self.send_req(client)
 
-        self.assertTrue(got_response, "There should be a response")
         self.assertEqual(response.status, "200")
         self.assertEqual(
             response.headers.get("Transfer-Encoding"), "chunked", "Wrong response Transfer-Encoding"
         )
 
         # second request
-        got_response = await self.send_req(client)
-        response = client.responses[-1] if len(client.responses) else None
+        response = await self.send_req(client)
 
-        self.assertTrue(got_response, "There should be a response")
         self.assertEqual(response.status, "200")
         self.assertEqual(len(server.requests), 2, "The response has to be server from cache")
 
@@ -453,11 +435,8 @@ class TestH1BothTEAndCE(tester.TempestaTest, CommonUtils):
 
         client = self.get_client("client")
 
-        got_response = await self.send_req(client)
-        got_response = await client.wait_for_response(timeout=5)
-        response = client.responses[-1] if len(client.responses) else None
+        response = await self.send_req(client)
 
-        self.assertTrue(got_response, "Got no response")
         self.assertEqual(response.status, "502", "Wrong response status code")
 
 
@@ -520,12 +499,8 @@ class TestH2TEMovedToCE(tester.TempestaTest, CommonUtils):
             (":scheme", "https"),
             (":method", "GET"),
         ]
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-        response = client.responses[-1] if len(client.responses) else None
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(response.status, "200")
+        await client.send_request(request, "200")
+        response = client.last_response
         self.assertFalse(
             "Transfer-Encoding" in response.headers,
             "The response should not have Transfer-Encoding",
@@ -718,13 +693,8 @@ class TestH2ChunkedExtensionRemoved(tester.TempestaTest, CommonUtils):
             (":scheme", "https"),
             (":method", "GET"),
         ]
-        client.make_request(request)
-        got_response = await client.wait_for_response(timeout=5)
-        response = client.responses[-1] if len(client.responses) else None
-
-        self.assertTrue(got_response, "Got no response")
-        self.assertEqual(response.status, "200")
-        self.assertEqual(response.body, "some data", "Wrong response body value")
+        await client.send_request(request, "200")
+        self.assertEqual(client.last_response.body, "some data", "Wrong response body value")
 
 
 class TestRequestTEAndCL(tester.TempestaTest, CommonUtils):

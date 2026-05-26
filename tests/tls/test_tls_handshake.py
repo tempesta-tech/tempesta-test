@@ -539,7 +539,7 @@ class TlsCertReconfig(tester.TempestaTest):
         deproxy_srv.start()
         await self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(await deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
+        await deproxy_srv.wait_for_connections(timeout=1, msg="Cannot start Tempesta")
 
         vhs = TlsHandshake()
         res = vhs.do_12()

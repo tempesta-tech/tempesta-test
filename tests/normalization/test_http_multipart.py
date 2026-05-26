@@ -61,11 +61,9 @@ class ContentTypeTestBase(tester.TempestaTest):
         ):
             request = request_tmpl.format(*state)
             self.deproxy_cl.make_request(request)
-            resp = await self.deproxy_cl.wait_for_response(timeout=5)
-            self.assertTrue(resp, "Response not received")
+            await self.deproxy_cl.wait_for_response(timeout=5)
 
         for server_req in self.deproxy_srv.requests:
-            found_content_type_field = False
             val = server_req.headers["Content-Type"]
             self.assertIsNotNone(val)
             self.assertEqual(val, expected_content_type)

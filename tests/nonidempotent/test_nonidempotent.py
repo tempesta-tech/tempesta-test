@@ -188,8 +188,7 @@ class NonIdempotentH2SchedTest(NonIdempotentH2TestBase):
         deproxy_cl = self.get_client("deproxy")
 
         self.send_requests(self.requests, deproxy_cl)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         first, second = deproxy_cl.responses
@@ -236,8 +235,7 @@ class RetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         for response in deproxy_cl.responses:
@@ -285,8 +283,7 @@ class NotRetryNonIdempotentH2Test(NonIdempotentH2TestBase):
 
         deproxy_cl = self.get_client("deproxy")
         self.send_requests(self.requests, deproxy_cl)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         statuses = []
@@ -346,8 +343,7 @@ class NonIdempotentH1SchedTest(NonIdempotentH1TestBase):
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests, pipelined=True)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         first, second = deproxy_cl.responses
@@ -397,8 +393,7 @@ class RetryNonIdempotentH1Test(NonIdempotentH1TestBase):
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         for response in deproxy_cl.responses:
@@ -465,8 +460,7 @@ class NotRetryNonIdempotentH1Test(NonIdempotentH1TestBase):
 
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_requests(self.requests)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp, "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(2, len(deproxy_cl.responses))
 
         statuses = []

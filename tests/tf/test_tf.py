@@ -174,9 +174,9 @@ class TestTFt(tester.TempestaTest):
 
         client.make_request(request)
         if expected_block:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
         else:
-            self.assertTrue(await client.wait_for_response())
+            await client.wait_for_response()
             self.assertTrue(client.last_response.status, "200")
 
 

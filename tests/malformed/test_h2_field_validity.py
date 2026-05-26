@@ -65,10 +65,10 @@ block_action error reply;
             + header,
             huffman=False,
         )
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual("400", client.last_response.status)
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.stop()
 
     async def test_ascii_uppercase_in_header_name(self):

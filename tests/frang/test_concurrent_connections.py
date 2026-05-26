@@ -97,7 +97,7 @@ frang_limits {
             client.make_request(client.create_request(method="GET", headers=[]))
 
         for client in self.get_clients():
-            await client.wait_for_response(timeout=2, strict=True)
+            await client.wait_for_response(timeout=2)
 
         for client in self.get_clients():
             for resp in client.responses:
@@ -152,24 +152,19 @@ frang_limits {
         for client in clients:
             client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-        for client in clients:
-            await client.wait_for_response(timeout=2)
-
         if responses == 0:
             for client in clients:
+                await client.wait_for_connection_close()
                 self.assertEqual(0, len(client.responses))
-                self.assertTrue(await client.wait_for_connection_close())
         elif responses == 2:
-            self.assertEqual(1, len(clients[0].responses))
-            self.assertEqual(1, len(clients[1].responses))
-            self.assertEqual(0, len(clients[2].responses))
-            self.assertTrue(await clients[2].wait_for_connection_close())
+            await clients[0].wait_for_response()
+            await clients[1].wait_for_response()
+            await clients[2].wait_for_connection_close()
             self.assertFalse(clients[0].connection_is_closed)
             self.assertFalse(clients[1].connection_is_closed)
         elif responses == 3:
-            self.assertEqual(1, len(clients[0].responses))
-            self.assertEqual(1, len(clients[1].responses))
-            self.assertEqual(1, len(clients[2].responses))
+            for client in clients:
+                await client.wait_for_response()
             self.assertFalse(clients[0].connection_is_closed)
             self.assertFalse(clients[1].connection_is_closed)
             self.assertFalse(clients[2].connection_is_closed)
@@ -251,13 +246,12 @@ frang_limits {
         for n in [warning_n, warning_n * 2]:
             for client in non_blocked_clients:
                 client.start()
-                await client.wait_for_connection_open(strict=True)
+                await client.wait_for_connection_open()
 
             for client in blocked_clients:  # establish 2 or more connections
                 client.start()
-                self.assertTrue(
-                    await client.wait_for_connection_close(),
-                    "Tempesta did not block concurrent TCP connections.",
+                await client.wait_for_connection_close(
+                    msg="Tempesta did not block concurrent TCP connections."
                 )
             for client in non_blocked_clients:
                 self.assertTrue(

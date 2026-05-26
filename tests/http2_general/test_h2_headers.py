@@ -262,7 +262,7 @@ sticky {
                 expected_status_code=expected_status_code,
             )
             if expected_status_code != "200":
-                self.assertTrue(await client.wait_for_connection_close())
+                await client.wait_for_connection_close()
                 break
 
 
@@ -298,7 +298,7 @@ class DuplicateSingularHeader(H2Base):
             data=b"\x00\x00\x14\x01\x05\x00\x00\x00\x03\xbf\x84\x87\x82\xbe@\x07referer\x05test1",
             expect_response=True,
         )
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "400")
 
     async def test_header_from_static_table_and_dynamic_table(self):
@@ -440,7 +440,7 @@ class TestPseudoHeaders(H2Base):
             "400",
         )
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
 
 class TestIncorrectIfModifiedSince(H2Base):
@@ -570,7 +570,7 @@ class TestConnectionHeaders(H2Base):
         client.parsing = False
 
         await client.send_request(self.post_request + [header], "400")
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
     async def __test_response(self, header: tuple):
         """
@@ -853,7 +853,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf1.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(
             expected_status_code, client.last_response.status, "HTTP response code missmatch."
         )
@@ -902,9 +902,9 @@ class TestTrailers(H2Base):
                 )
                 client.send_bytes(data=tf.serialize(), expect_response=True)
 
-                self.assertTrue(await client.wait_for_response())
+                await client.wait_for_response()
                 self.assertEqual("403", client.last_response.status)
-                self.assertTrue(await client.wait_for_connection_close())
+                await client.wait_for_connection_close()
 
     async def test_trailers_with_continuation_frame_in_request(self):
         """
@@ -930,7 +930,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=cf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
 
     @marks.Parameterize.expand(
@@ -965,10 +965,10 @@ class TestTrailers(H2Base):
         client.send_bytes(data=cf.serialize(), expect_response=expected_response)
 
         if expected_response:
-            self.assertTrue(await client.wait_for_response())
+            await client.wait_for_response()
             self.assertEqual("200", client.last_response.status, "HTTP response code missmatch.")
         else:
-            self.assertTrue(await client.wait_for_connection_close(timeout=5))
+            await client.wait_for_connection_close(timeout=5)
             client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_trailers_with_pseudo_headers_in_request(self):
@@ -989,7 +989,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual("403", client.last_response.status, "HTTP response code missmatch.")
 
     async def test_trailers_without_end_stream_in_request(self):
@@ -1011,7 +1011,7 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual("400", client.last_response.status, "HTTP response code missmatch.")
 
     @marks.Parameterize.expand(
@@ -1199,8 +1199,8 @@ return 200;
         for line in lines:
             if line.startswith("< set-cookie:"):
                 setcookie_count += 1
-                self.assertTrue(len(line.split(",")) == 1, "Wrong separator")
-        self.assertTrue(setcookie_count == 3, "Set-Cookie headers quantity mismatch")
+                self.assertEqual(len(line.split(",")), 1, "Wrong separator")
+        self.assertEqual(setcookie_count, 3, "Set-Cookie headers quantity mismatch")
 
         self.start_all_clients()
         await self.wait_while_busy(curl)
@@ -1515,8 +1515,7 @@ class MissingDateServerWithBodyTest(tester.TempestaTest):
         deproxy_cl = self.get_client("deproxy")
         deproxy_cl.make_request(head)
 
-        resp = await deproxy_cl.wait_for_response(timeout=5)
-        self.assertTrue(resp)
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
 
@@ -1603,7 +1602,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             deproxy_cl.create_request(method="GET", headers=[("a", "a" * 43)]), huffman=huffman
         )
 
-        await deproxy_cl.wait_for_response(strict=True)
+        await deproxy_cl.wait_for_response()
         self.assertEqual(deproxy_cl.last_response.status, "403")
 
     @marks.Parameterize.expand(
@@ -1625,7 +1624,7 @@ class TestHeadersBlockedByMaxHeaderListSize(tester.TempestaTest):
             deproxy_cl.create_request(method="GET", headers=[("a", "a" * 42)]), huffman=huffman
         )
 
-        await deproxy_cl.wait_for_response(strict=True)
+        await deproxy_cl.wait_for_response()
         self.assertEqual(deproxy_cl.last_response.status, "200")
 
 

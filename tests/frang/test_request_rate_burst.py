@@ -135,13 +135,11 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         c1.start()
         c2.start()
 
-    async def do_requests(self, c1, c2, request_cnt_1: int, request_cnt_2: int):
+    def do_requests(self, c1, c2, request_cnt_1: int, request_cnt_2: int):
         for _ in range(request_cnt_1):
             c1.make_request(self.request)
         for _ in range(request_cnt_2):
             c2.make_request(self.request)
-        await c1.wait_for_response(10, strict=True)
-        await c2.wait_for_response(10, strict=True)
 
     @marks.retry_if_not_conditions
     async def test_two_clients_two_ip(self):
@@ -157,7 +155,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         await self.arrange(c1, c2)
 
         start_time = time.monotonic()
-        await self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=8)
+        self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=8)
+        await c1.wait_for_response(timeout=10)
+        await c2.wait_for_connection_close(timeout=10)
         end_time = time.monotonic()
 
         if end_time - start_time > self.delay:
@@ -189,7 +189,9 @@ tls_certificate_key ${tempesta_workdir}/tempesta.key;
         await self.arrange(c1, c2)
 
         start_time = time.monotonic()
-        await self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=4)
+        self.do_requests(c1, c2, request_cnt_1=4, request_cnt_2=4)
+        await c1.wait_for_connection_close(timeout=10)
+        await c2.wait_for_connection_close(timeout=10)
         end_time = time.monotonic()
 
         if end_time - start_time > self.delay:
@@ -234,13 +236,28 @@ class TestFrangRequestRateBurst(FrangTestCase):
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="burst_reached", req_n=10, warns_expected=range(1, 15)),
-            marks.Param(name="burst_without_reaching_the_limit", req_n=3, warns_expected=0),
-            marks.Param(name="burst_on_the_limit", req_n=5, warns_expected=0),
+            marks.Param(
+                name="burst_reached",
+                req_n=10,
+                warns_expected=range(1, 15),
+                client_wait_method="wait_for_connection_close",
+            ),
+            marks.Param(
+                name="burst_without_reaching_the_limit",
+                req_n=3,
+                warns_expected=0,
+                client_wait_method="wait_for_response",
+            ),
+            marks.Param(
+                name="burst_on_the_limit",
+                req_n=5,
+                warns_expected=0,
+                client_wait_method="wait_for_response",
+            ),
         ]
     )
     @marks.retry_if_not_conditions
-    async def test_request(self, name, req_n: int, warns_expected):
+    async def test_request(self, name, req_n: int, warns_expected, client_wait_method):
         """
         Send several requests, if number of requests
         is more than 5 some of them will be blocked.
@@ -254,30 +271,41 @@ class TestFrangRequestRateBurst(FrangTestCase):
         start_time = time.monotonic()
         for _ in range(req_n):
             client.make_request(client.create_request(method="GET", uri="/", headers=[]))
-        self.assertIn(
-            await client.wait_for_response(),
-            [True, None],
-            "The client didn't get responses or connection block.",
+        await getattr(client, client_wait_method)(
+            msg="The client didn't get responses or connection block."
         )
         end_time = time.monotonic()
 
         if end_time - start_time > DELAY:
             raise error.TestConditionsAreNotCompleted(self.id())
 
-        if warns_expected:
-            self.assertTrue(await client.wait_for_connection_close())
         await self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=warns_expected)
         await self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=0)
 
     @marks.Parameterize.expand(
         [
-            marks.Param(name="rate_reached", req_n=10, warns_expected=range(1, 15)),
-            marks.Param(name="rate_without_reaching_the_limit", req_n=3, warns_expected=0),
-            marks.Param(name="rate_on_the_limit", req_n=5, warns_expected=0),
+            marks.Param(
+                name="rate_reached",
+                req_n=10,
+                warns_expected=range(1, 15),
+                client_wait_method="wait_for_connection_close",
+            ),
+            marks.Param(
+                name="rate_without_reaching_the_limit",
+                req_n=3,
+                warns_expected=0,
+                client_wait_method="wait_for_response",
+            ),
+            marks.Param(
+                name="rate_on_the_limit",
+                req_n=5,
+                warns_expected=0,
+                client_wait_method="wait_for_response",
+            ),
         ]
     )
     @marks.retry_if_not_conditions
-    async def test_request(self, name, req_n: int, warns_expected):
+    async def test_request(self, name, req_n: int, warns_expected, client_wait_method):
         """
         Send several requests, if number of requests
         is more than 5 some of them will be blocked.
@@ -291,10 +319,8 @@ class TestFrangRequestRateBurst(FrangTestCase):
         start_time = time.monotonic()
         for _ in range(req_n):
             client.make_request(client.create_request(method="GET", uri="/", headers=[]))
-        self.assertIn(
-            await client.wait_for_response(),
-            [True, None],
-            "The client didn't get responses or connection block.",
+        await getattr(client, client_wait_method)(
+            msg="The client didn't get responses or connection block."
         )
         end_time = time.monotonic()
 
@@ -303,5 +329,3 @@ class TestFrangRequestRateBurst(FrangTestCase):
 
         await self.assertFrangWarning(warning=ERROR_MSG_RATE, expected=warns_expected)
         await self.assertFrangWarning(warning=ERROR_MSG_BURST, expected=0)
-        if warns_expected:
-            self.assertTrue(client.connection_is_closed)

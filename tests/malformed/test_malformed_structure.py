@@ -77,7 +77,7 @@ server ${server_ip}:8000;
         await self.start_all_services()
 
         deproxy_cl.make_request("GET / HTTP/1.1\r\nHost : localhost\r\n\r\n")
-        await deproxy_cl.wait_for_response(timeout=5, strict=True)
+        await deproxy_cl.wait_for_response(timeout=5)
         self.assertEqual(deproxy_cl.last_response.status, "400")
 
     async def test_crSPlf(self):

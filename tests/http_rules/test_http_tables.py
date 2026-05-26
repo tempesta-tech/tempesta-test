@@ -4,6 +4,8 @@ Set of tests to verify correctness of requests redirection in HTTP table
 (in separate tests).
 """
 
+import asyncio
+
 from framework.deproxy import deproxy_client
 from framework.helpers import dmesg, error, remote
 from framework.helpers.remote import LocalNode
@@ -213,7 +215,7 @@ class HttpTablesTest(tester.TempestaTest):
             self.assertEqual(server.last_request.headers.get(header), value)
         else:
             self.assertIsNone(server.last_request)
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
     async def test_chains(self):
         """
@@ -337,7 +339,7 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
         deproxy_cl.start()
         deproxy_cl.make_request(self.requests)
         if self.resp_status:
-            self.assertTrue(await deproxy_cl.wait_for_response())
+            await deproxy_cl.wait_for_response()
             if self.redirect_location:
                 self.assertEqual(
                     deproxy_cl.last_response.headers["location"], self.redirect_location
@@ -345,7 +347,7 @@ class HttpTablesTestBase(tester.TempestaTest, base=True):
             self.assertEqual(int(deproxy_cl.last_response.status), self.resp_status)
         else:
             self.assertFalse(await deproxy_cl.wait_for_response(0.5))
-            self.assertTrue(await deproxy_cl.wait_for_connection_close())
+            await deproxy_cl.wait_for_connection_close()
 
 
 class HttpTablesTestEmptyMainChainReply(HttpTablesTestBase):
@@ -663,16 +665,12 @@ class HttpTablesTestMarkRule(tester.TempestaTest, HttpTablesMarkSetup):
 
         client.make_request(request)
 
-        self.assertFalse(
-            await client.wait_for_response(timeout=3, strict=False, adjust_timeout=False)
-        )
+        await asyncio.sleep(3)
         self.assertFalse(client.last_response)
 
         self.del_reject_nf_mark(1)
 
-        self.assertTrue(
-            await client.wait_for_response(timeout=5, strict=False, adjust_timeout=False)
-        )
+        await client.wait_for_response(timeout=5, adjust_timeout=False)
         self.assertTrue(client.last_response.status, "200")
 
 
@@ -844,7 +842,7 @@ class HttpTablesTestMultipleCookies(tester.TempestaTest):
             await client.send_request(client.create_request(method="GET", headers=[]), "200")
         else:
             self.assertIsNone(server.last_request)
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
 
 
 @marks.parameterize_class(

@@ -104,7 +104,7 @@ http_chain {
         await client.send_request(request, "200")
 
         primary_server.start()
-        self.assertTrue(await primary_server.wait_for_connections(3))
+        await primary_server.wait_for_connections(3)
         await client.send_request(request, "200")
         got_requests += len(primary_server.requests)
 

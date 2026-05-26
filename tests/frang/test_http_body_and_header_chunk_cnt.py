@@ -33,7 +33,7 @@ class HttpHeaderChunkCnt(FrangTestCase):
         client.start()
         for data in requests:
             client.make_request(data)
-        await client.wait_for_response(n=1, strict=True)
+        await client.wait_for_response(n=1)
         return client
 
     async def test_chunk_cnt_ok(self):

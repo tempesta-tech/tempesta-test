@@ -142,7 +142,6 @@ http {
         clients.make_requests([request] * 100)
 
         await clients.wait_for_connection_close(
-            strict=True,
             timeout=30,
             msg="`client_mem` doesn't block the clients that using a small window_update (~0).",
         )
@@ -174,7 +173,6 @@ http {
         clients.make_requests([request] * 100)
         await clients.wait_for_connection_close(
             timeout=20,
-            strict=True,
             msg="`client_mem` doesn't block the clients that using a small TCP rcv_buf_size (~0).",
         )
 
@@ -292,7 +290,7 @@ class TestHttp2FrameFlood(tester.TempestaTest):
                     exclusive=bool(random.randint(0, 1)),
                 ).serialize()
             )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
     @dmesg.limited_rate_on_tempesta_node
     async def test_cve_2024_2758(self):
@@ -553,9 +551,9 @@ http {
                     expect_response=True,
                 )
 
-            self.assertTrue(await client.wait_for_response(120))
+            await client.wait_for_response(120)
 
         # close first stream and http2 connection and finish test
         client.stream_id = 1
         client.make_request("data", end_stream=True)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()

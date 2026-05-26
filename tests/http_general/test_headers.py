@@ -102,7 +102,7 @@ class BackendSetCoookie(tester.TempestaTest):
         ):
             with self.subTest("GET cookies", path=path):
                 client.make_request(f"GET /{path} HTTP/1.1\r\nHost: deproxy\r\n\r\n")
-                self.assertTrue(await client.wait_for_response(timeout=1))
+                await client.wait_for_response(timeout=1)
                 self.assertEqual(client.last_response.status, "200")
 
 
@@ -154,7 +154,7 @@ class RepeatedHeaderCache(tester.TempestaTest):
 
         client.make_request("GET / HTTP/1.1\r\nHost: deproxy\r\n\r\n")
 
-        self.assertTrue(await client.wait_for_response(timeout=1))
+        await client.wait_for_response(timeout=1)
         self.assertEqual(client.last_response.status, "200")
 
 
@@ -196,7 +196,7 @@ class TestSmallHeader(tester.TempestaTest):
             client.start()
             with self.subTest(header=header):
                 client.make_request(f"GET / HTTP/1.1\r\nHost: deproxy\r\n{header}: test\r\n\r\n")
-                self.assertTrue(await client.wait_for_response(timeout=1))
+                await client.wait_for_response(timeout=1)
                 self.assertEqual(client.last_response.status, "200")
             client.stop()
 

@@ -119,7 +119,7 @@ class BlockActionReply(BlockActionBase):
         receive some data on the DEAD sock.
         """
         if not run_config.TCP_SEGMENTATION:
-            self.assertTrue(await client.wait_for_response())
+            await client.wait_for_response()
             self.assertEqual(client.last_response.status, expected_status_code)
             self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
@@ -140,7 +140,7 @@ class BlockActionReply(BlockActionBase):
         )
         await self.check_last_error_response(client, expected_status_code="403")
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
@@ -161,7 +161,7 @@ class BlockActionReply(BlockActionBase):
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
     @marks.Parameterize.expand(
@@ -248,7 +248,7 @@ class BlockActionReply(BlockActionBase):
         )
         await self.check_last_error_response(client, expected_status_code="403")
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
 
@@ -325,7 +325,7 @@ class BlockActionReplyWithCustomErrorPage(BlockActionBase):
         )
         self.assertEqual(client.last_response.body, self.ERROR_RESPONSE_BODY)
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
         self.check_fin_no_rst_in_sniffer(sniffer, [client])
 
@@ -353,7 +353,7 @@ class BlockActionDrop(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost: bad.com\r\n\r\n",
         )
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])
@@ -374,7 +374,7 @@ class BlockActionDrop(BlockActionBase):
             request=f"GET / HTTP/1.1\r\nHost:\r\n\r\n",
         )
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         self.assertIsNone(client.last_response)
 
         self.check_rst_no_fin_in_sniffer(sniffer, [client])
