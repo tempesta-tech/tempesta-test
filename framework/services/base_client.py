@@ -6,7 +6,7 @@ import abc
 import multiprocessing
 import os
 import queue
-import typing
+from typing import Callable, Optional
 
 from framework.helpers import error, remote, tf_cfg, util
 from framework.services import stateful
@@ -66,7 +66,7 @@ class BaseClient(stateful.Stateful, metaclass=abc.ABCMeta):
 
     def clear_stats(self):
         super().clear_stats()
-        self.proc: typing.Optional[multiprocessing.Process] = None
+        self.proc: Optional[multiprocessing.Process] = None
         self.returncode = 0
         self.resq = multiprocessing.Queue()
         self.requests = 0
@@ -91,7 +91,7 @@ class BaseClient(stateful.Stateful, metaclass=abc.ABCMeta):
                 self._logger.debug("Client is not running")
         return busy
 
-    def _stop_procedures(self) -> list[typing.Callable]:
+    def _stop_procedures(self) -> list[Callable]:
         return [self.__on_finish]
 
     def __on_finish(self):
@@ -160,5 +160,10 @@ class BaseClient(stateful.Stateful, metaclass=abc.ABCMeta):
     def set_user_agent(self, ua):
         self.options.append("-H 'User-Agent: %s'" % ua)
 
-    async def wait_for_finish(self, timeout=5) -> bool:
-        return await util.wait_until(lambda: self.is_busy(verbose=False), timeout)
+    async def wait_for_finish(self, timeout: float = 5, msg: Optional[str] = None) -> None:
+        self._logger.debug(f'Client "{self}" wait for finish')
+        timeout_not_exceeded = await util.wait_until(lambda: self.is_busy(verbose=False), timeout)
+        assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
+            msg or f"Waiting for client {self} failed."
+        )
+        self._logger.debug(f'Waiting for client "{self}" is completed')

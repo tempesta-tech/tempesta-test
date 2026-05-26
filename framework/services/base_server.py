@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import abc
+from typing import Optional
 
 from framework.helpers import port_checks, remote, tf_cfg, util
 from framework.services import stateful, tempesta
@@ -30,25 +31,23 @@ class BaseServer(stateful.Stateful, abc.ABC):
             raise ValueError("`conns_n` MUST be greater than or equal to 0.")
         self._conns_n = conns_n
 
-    async def wait_for_connections(
-        self, timeout: float = 1.0, strict: bool = False, msg: str = None
-    ) -> bool | None:
+    async def wait_for_connections(self, timeout: float = 1.0, msg: Optional[str] = "") -> None:
         """
         Wait until the container becomes healthy
         and Tempesta establishes connections to the server ports.
         """
         if self.state != stateful.STATE_STARTED:
-            return False
+            raise AssertionError(f"The {self} server is not started.")
 
-        result = await util.wait_until(
+        timeout_not_exceeded = await util.wait_until(
             self._wait_for_connections,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
             timeout=timeout,
         )
 
-        if strict:
-            assert result, msg or f"Tempesta FW don't create connection to {self}."
-        return result
+        assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
+            msg or f"Tempesta FW don't create connection to {self}."
+        )
 
     @abc.abstractmethod
     def _wait_for_connections(self) -> bool: ...

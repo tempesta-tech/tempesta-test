@@ -8,8 +8,8 @@ import re
 import signal
 import subprocess
 import threading
-import typing
 import unittest
+from typing import Callable, Optional, Union
 from unittest.util import strclass
 
 import run_config
@@ -24,6 +24,7 @@ from framework.helpers.util import fill_template
 from framework.services import curl_client, external_client
 from framework.services import tempesta as tfw
 from framework.services import wrk_client
+from framework.services.base_client import BaseClient
 from framework.services.docker_server import DockerServer, docker_srv_factory
 from framework.services.nginx_server import Nginx, nginx_srv_factory
 from framework.services.stateful import Stateful
@@ -55,7 +56,7 @@ register_backend("docker", docker_srv_factory)
 @dataclasses.dataclass
 class TempestaLoggers:
     dmesg: dmesg.DmesgFinder
-    _get_tempesta: typing.Callable
+    _get_tempesta: Callable
 
     @property
     def clickhouse(self) -> clickhouse.ClickHouseFinder:
@@ -65,7 +66,7 @@ class TempestaLoggers:
 class WaitUntilAsserts(unittest.TestCase):
     async def assertWaitUntilEqual(
         self,
-        func: typing.Callable,
+        func: Callable,
         second,
         msg: str = None,
         timeout: int = 5,
@@ -79,7 +80,7 @@ class WaitUntilAsserts(unittest.TestCase):
 
     async def assertWaitUntilNotEqual(
         self,
-        func: typing.Callable,
+        func: Callable,
         second,
         msg: str = None,
         timeout: int = 5,
@@ -93,7 +94,7 @@ class WaitUntilAsserts(unittest.TestCase):
 
     async def assertWaitUntilIsNotNone(
         self,
-        func: typing.Callable,
+        func: Callable,
         msg: str = None,
         timeout: int = 5,
     ):
@@ -106,7 +107,7 @@ class WaitUntilAsserts(unittest.TestCase):
 
     async def assertWaitUntilCountEqual(
         self,
-        func: typing.Callable,
+        func: Callable,
         count,
         msg: str = None,
         timeout: int = 5,
@@ -120,7 +121,7 @@ class WaitUntilAsserts(unittest.TestCase):
 
     async def assertWaitUntilTrue(
         self,
-        func: typing.Callable,
+        func: Callable,
         msg: str = None,
         timeout: int = 5,
     ):
@@ -133,7 +134,7 @@ class WaitUntilAsserts(unittest.TestCase):
 
     async def assertWaitUntilFalse(
         self,
-        func: typing.Callable,
+        func: Callable,
         msg: str = None,
         timeout: int = 5,
         poll_freq: float = run_config.asyncio_freq,
@@ -303,7 +304,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             # Copy description to keep it clean between several tests.
             self.__create_client(client.copy())
 
-    def get_client(self, cid) -> typing.Union[
+    def get_client(self, cid) -> Union[
         deproxy_client.DeproxyClientH2,
         deproxy_client.DeproxyClient,
         curl_client.CurlClient,
@@ -320,7 +321,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
     def get_clients(self) -> list:
         return list(self.__clients.values())
 
-    def get_all_services(self) -> typing.List[Stateful]:
+    def get_all_services(self) -> list[Stateful]:
         return (
             ([self.__tempesta] if self.__tempesta is not None else [])
             + self.get_clients()
@@ -506,23 +507,17 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             test_logger.info("Cleanup: Check memory leaks.")
             self._memworker.check_memory_consumption_of_test(self._mem_stats, self)
 
-    async def wait_while_busy(self, *items, timeout=20):
-        if items is None:
-            return
-
-        success = True
-        for item in items:
-            if item.is_running():
-                test_logger.debug(f'Client "{item}" wait for finish')
-                success = success and await item.wait_for_finish(timeout)
-                test_logger.debug(f'Waiting for client "{item}" is completed')
-
-        self.assertTrue(success, f"Some of items exceeded the timeout {timeout}s while finishing")
-
-    async def wait_all_connections(self, tmt=5) -> None:
+    @staticmethod
+    async def wait_while_busy(*items: BaseClient, timeout: float = 20) -> None:
+        if not items:
+            return None
         await asyncio.gather(
-            *[srv.wait_for_connections(timeout=tmt, strict=True) for srv in self.get_servers()],
-            return_exceptions=True,
+            *[item.wait_for_finish(timeout) for item in items if item.is_running()]
+        ),
+
+    async def wait_all_connections(self, tmt: float = 5.0, msg: Optional[str] = None) -> None:
+        await asyncio.gather(
+            *[srv.wait_for_connections(timeout=tmt, msg=msg) for srv in self.get_servers()],
         )
 
     async def start_all_services(self, client: bool = True) -> None:
@@ -538,7 +533,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         conn_task = asyncio.create_task(self.wait_all_connections())
         tfw_logger_task = asyncio.create_task(self.__tempesta.wait_while_logger_start())
 
-        await asyncio.gather(conn_task, tfw_logger_task, return_exceptions=True)
+        await asyncio.gather(conn_task, tfw_logger_task)
 
         if client:
             self.start_all_clients()

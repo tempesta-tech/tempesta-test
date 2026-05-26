@@ -1,6 +1,6 @@
 import os
 import re
-import typing
+from typing import Callable, Optional
 
 from framework.helpers import remote, tf_cfg, util
 from framework.helpers.util import fill_template
@@ -56,7 +56,7 @@ class Nginx(base_server.BaseServer):
             # Get rid of stats requests influence to statistics.
             self._requests = int(m.group(2)) - self._stats_ask_times
 
-    def _stop_procedures(self) -> list[typing.Callable]:
+    def _stop_procedures(self) -> list[Callable]:
         return [self.stop_nginx, self.remove_config]
 
     def _wait_for_connections(self):
@@ -102,8 +102,8 @@ class Nginx(base_server.BaseServer):
         return self._requests
 
     async def wait_for_requests(
-        self, n: int, timeout=1, strict=False, adjust_timeout=False
-    ) -> bool:
+        self, n: int, timeout: float = 1.0, adjust_timeout: bool = False, msg: Optional[str] = None
+    ) -> None:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = await util.wait_until(
             lambda: self.requests < n,
@@ -111,11 +111,10 @@ class Nginx(base_server.BaseServer):
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
             adjust_timeout=adjust_timeout,
         )
-        if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting connection close: {timeout}"
-        return timeout_not_exceeded
+
+        assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
+            msg or f"Timeout exceeded while waiting connection close: {timeout}"
+        )
 
 
 def nginx_srv_factory(server, name, tester):
