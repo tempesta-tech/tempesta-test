@@ -76,13 +76,9 @@ class TlsIntegrityTester(tester.TempestaTest):
         for clnt in self.clients:
             client = self.get_client(clnt["id"])
             client.make_request(self.make_req(req_len))
-            res = await client.wait_for_response(timeout=5)
-            self.assertTrue(
-                res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
-            )
-            resp = client.responses[-1].body
-            hash2 = hashlib.md5(resp.encode()).digest()
-            self.assertTrue(hash1 == hash2, "Bad response checksum")
+            await client.wait_for_response(timeout=5)
+            hash2 = hashlib.md5(client.last_response.body.encode()).digest()
+            self.assertEqual(hash1, hash2, "Bad response checksum")
 
     @contextmanager
     async def tcp_flow_check(self, resp_len, mtu=1500):
@@ -302,9 +298,9 @@ class ManyClients(Cache):
             client.make_request(reqeust)
 
         for client in clients:
-            self.assertTrue(
-                await client.wait_for_response(timeout=25),
-                "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
+            await client.wait_for_response(
+                timeout=25,
+                msg="Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len),
             )
 
         for client in clients:
@@ -401,13 +397,11 @@ class CloseConnection(tester.TempestaTest):
 
         client = self.get_client(self.clients[0]["id"])
         client.make_request(self.make_req(req_len))
-        res = await client.wait_for_response(timeout=5)
-        self.assertTrue(
-            res, "Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
+        await client.wait_for_response(
+            msg="Cannot process request (len=%d) or response" " (len=%d)" % (req_len, resp_len)
         )
-        resp = client.responses[-1].body
-        hash2 = hashlib.md5(resp.encode()).digest()
-        self.assertTrue(hash1 == hash2, "Bad response checksum")
+        hash2 = hashlib.md5(client.last_response.body.encode()).digest()
+        self.assertEqual(hash1, hash2, "Bad response checksum")
 
     async def test1(self):
         await self.start_all_services()

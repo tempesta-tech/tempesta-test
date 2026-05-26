@@ -189,13 +189,13 @@ class LearnSessions(LearnSessionsBase):
             )
             client.make_request(req)
 
-        self.assertTrue(await client.wait_for_response(20))
+        await client.wait_for_response(20)
 
         self.assertEqual(len(client.responses), ATTEMPTS + 1)
         for resp in client.responses[1:]:
             self.assertEqual(resp.status, "502", "unexpected response status code")
         srv.start()
-        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        await srv.wait_for_connections(timeout=3, msg="Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
@@ -269,7 +269,7 @@ class LearnSessionsMultipleSameSetCookie(LearnSessionsBase):
         self.assertEqual(response.status, "200", "unexpected response status code")
 
         self.assertTrue(
-            self.klog.find(
+            await self.klog.find(
                 "Multiple sticky cookies found in response: 2", cond=dmesg.amount_equals(1)
             ),
             1,

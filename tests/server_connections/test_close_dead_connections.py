@@ -2,8 +2,6 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
-from h2.errors import ErrorCodes
-
 from framework.deproxy import deproxy_message
 from framework.test_suite import marks, tester
 
@@ -89,7 +87,7 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         for _ in range(CONNS_N):
             client.make_request(request)
 
-        await server.wait_for_requests(strict=True, n=CONNS_N)
+        await server.wait_for_requests(n=CONNS_N, timeout=10)
 
         for i in range(CONNS_N):
             client.send_reset_stream(stream_id=i * 2 + 1)
@@ -98,9 +96,8 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
             f"Tempesta FW must close dead connections.",
         )
-        self.assertTrue(
-            await server.wait_for_connections(timeout=5),
-            f"Tempesta FW must recreate dead connections.",
+        await server.wait_for_connections(
+            timeout=5, msg=f"Tempesta FW must recreate dead connections."
         )
 
 
@@ -156,7 +153,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
                 client.set_rst_tcp_to_closing_connection()
         for client in self.get_clients():
             client.make_request(request)
-        await server.wait_for_requests(strict=True, n=CONNS_N)
+        await server.wait_for_requests(n=CONNS_N)
         for client in self.get_clients():
             client.stop()
 
@@ -164,7 +161,6 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
             lambda: set(server_conn_list_before).isdisjoint(set(server.connections)),
             f"Tempesta FW must close dead connections.",
         )
-        self.assertTrue(
-            await server.wait_for_connections(timeout=5),
-            f"Tempesta FW must recreate dead connections.",
+        await server.wait_for_connections(
+            timeout=5, msg=f"Tempesta FW must recreate dead connections."
         )

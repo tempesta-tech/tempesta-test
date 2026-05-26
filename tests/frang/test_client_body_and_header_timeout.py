@@ -28,7 +28,7 @@ class TestTimeoutBase(FrangTestCase):
         client.make_request(request=self.request_segment_1, end_stream=False)
         await asyncio.sleep(sleep)
         client.make_request(self.request_segment_2)
-        self.assertTrue(await client.wait_for_response(n=1))
+        await client.wait_for_response(n=1)
 
 
 class ClientBodyTimeout(TestTimeoutBase):
@@ -124,7 +124,7 @@ class ClientHeaderTimeoutH2(H2Config, ClientHeaderTimeout):
         await asyncio.sleep(sleep)
         client.send_bytes(cont_frame.serialize(), expect_response=True)
 
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
 
     async def test_starting_timeout_counter(self):
         """

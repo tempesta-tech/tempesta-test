@@ -80,18 +80,17 @@ class TLSMatchHostSni(tester.TempestaTest):
 
         # case 1.1 (sni match)
         deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\n\r\n")
-        self.assertTrue(await deproxy_cl.wait_for_response())
+        await deproxy_cl.wait_for_response()
         self.assertEqual(1, len(deproxy_cl.responses))
 
         # case 1.2 (sni match with port)
         deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: tempesta-tech.com:443\r\n\r\n")
-        self.assertTrue(await deproxy_cl.wait_for_response())
+        await deproxy_cl.wait_for_response()
         self.assertEqual(2, len(deproxy_cl.responses))
 
         # case 2 (sni mismatch)
         deproxy_cl.make_request("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-        self.assertFalse(await deproxy_cl.wait_for_response())
-        self.assertEqual(2, len(deproxy_cl.responses))
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close())
+        await deproxy_cl.wait_for_connection_close()
+        self.assertEqual(2, len(deproxy_cl.responses))
         self.assertTrue(await klog.find(self.TLS_WARN), "Frang limits warning is not shown")

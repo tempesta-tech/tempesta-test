@@ -72,7 +72,7 @@ tls_match_any_server_name;
         for _ in range(chain_size):
             client.make_request(request)
 
-        await server.wait_for_requests(n=chain_size, strict=True)
+        await server.wait_for_requests(n=chain_size)
         client.stop()
 
         server.set_response("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")

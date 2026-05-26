@@ -140,9 +140,8 @@ server ${server_ip}:8000;
         await self.start_all_services()
 
         deproxy_cl.make_requests(request, pipelined=True)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
+        await deproxy_cl.wait_for_response(timeout=5)
 
-        self.assertTrue(resp, "Response not received")
         self.assertEqual(4, len(deproxy_cl.responses))
         self.assertEqual(4, len(deproxy_srv.requests))
 
@@ -171,9 +170,8 @@ server ${server_ip}:8000;
         await deproxy_cl.wait_for_response(timeout=5)
 
         deproxy_cl.make_requests(request2, pipelined=True)
-        resp = await deproxy_cl.wait_for_response(timeout=5)
+        await deproxy_cl.wait_for_response(timeout=5)
 
-        self.assertTrue(resp, "Response not received")
         self.assertEqual(6, len(deproxy_cl.responses))
         self.assertEqual(6, len(deproxy_srv.requests))
 

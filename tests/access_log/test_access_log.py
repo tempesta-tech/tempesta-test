@@ -188,6 +188,7 @@ class AccessLogFrang(CheckedResponses):
             cache 0;
             listen 80;
             access_log dmesg;
+            block_action attack reply;
 
             frang_limits {
                 http_uri_len 10;

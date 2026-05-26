@@ -93,7 +93,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
             expected_status_code="100",
         )
         client.send_bytes(b"1" * 9, expect_response=True)
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
     async def test_request_pipeline_delay(self):
@@ -151,7 +151,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         )
 
         client.send_bytes(b"1" * 9, expect_response=True)
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             [int(response.status) for response in client.responses],
@@ -262,7 +262,7 @@ class TestExpect100ContinueBehavior(tester.TempestaTest):
         )
         client.send_bytes(b"{}" + request.msg.encode(), expect_response=True)
         client.methods.append("GET")
-        await client.wait_for_response(strict=True, n=4)
+        await client.wait_for_response(n=4)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             [int(response.status) for response in client.responses],

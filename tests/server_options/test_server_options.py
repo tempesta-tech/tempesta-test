@@ -102,7 +102,7 @@ class TestRescheduling(TestServerOptionsBase):
             b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\nxxxxxxxxxx"
         )
         server.start()
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(client.last_response.body, "xxxxxxxxxx")
 
@@ -131,15 +131,15 @@ class TestRescheduling(TestServerOptionsBase):
         client = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client.make_request(client.create_request(method="GET", headers=[]))
-        await server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3)
         server.stop()
 
         server.start()
-        await server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1)
         server.stop()
 
         server.start()
-        await server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1)
         server.stop()
 
         server.pipelined = 0
@@ -183,11 +183,11 @@ class TestRescheduling(TestServerOptionsBase):
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 3):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        await server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3)
         server.stop()
         server.pipelined = 2
         server.start()
-        await server.wait_for_requests(1, strict=True)
+        await server.wait_for_requests(1)
 
         client_2 = self.get_client("deproxy-2")
         await client_2.send_request(client_2.create_request(method="GET", headers=[]), "502")
@@ -219,7 +219,7 @@ class TestRescheduling(TestServerOptionsBase):
         client_1 = self.get_client("deproxy-1")
         for _ in range(0, 4):
             client_1.make_request(client_1.create_request(method="GET", headers=[]))
-        await server.wait_for_requests(3, strict=True)
+        await server.wait_for_requests(3)
         server.stop()
         server.pipelined = 2
         server.send_after_conn_established = True
@@ -304,7 +304,7 @@ class TestServerOptions(TestServerOptionsBase):
         client.make_request(client.create_request(method="GET", headers=[]))
         await asyncio.sleep(1)
         server.drop_conn_when_request_received = False
-        await client.wait_for_response(timeout=5, strict=True)
+        await client.wait_for_response(timeout=5)
 
         self.assertEqual(client.last_response.status, "200")
         self.assertTrue(
@@ -390,9 +390,9 @@ class TestServerOptions(TestServerOptionsBase):
 
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
-        await server.wait_for_requests(50, strict=True)
+        await server.wait_for_requests(50)
         server.drop_conn_when_request_received = False
-        await client.wait_for_response(timeout=5, strict=True)
+        await client.wait_for_response(timeout=5)
 
         self.assertTrue(
             await self.loggers.dmesg.find(
@@ -433,12 +433,12 @@ class TestServerOptions(TestServerOptionsBase):
         await self.start_all_services()
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="POST", headers=[]))
-        await server.wait_for_requests(1, strict=True)  # it's necessary for stability
+        await server.wait_for_requests(1)  # it's necessary for stability
 
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * 5)
 
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
         self.assertIsNone(client.last_response)
 
     async def test_requests_after_nonidempotent_request_conn_n_2(self):
@@ -465,14 +465,14 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="POST", headers=[]))
 
-        await server.wait_for_requests(1, strict=True)  # it's necessary for stability
+        await server.wait_for_requests(1)  # it's necessary for stability
         server.set_response("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
 
         request = client.create_request(method="GET", headers=[])
         idempotent_req_n = 5
         client.make_requests([request] * idempotent_req_n)
 
-        await client.wait_for_response(n=idempotent_req_n, strict=True)
+        await client.wait_for_response(n=idempotent_req_n)
         self.assertEqual(
             {1, idempotent_req_n},
             set(con.nrreq for con in server.connections),
@@ -516,9 +516,9 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * server_queue_size)
-        await server.wait_for_requests(server_queue_size, strict=True)
+        await server.wait_for_requests(server_queue_size)
         client.make_requests([request] * 10)
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
         self.assertEqual(client.statuses, {502: 10})
         self.assertTrue(
@@ -561,8 +561,8 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * server_queue_size)
-        await server.wait_for_requests(3, strict=True)
-        self.assertTrue(await client.wait_for_connection_close())
+        await server.wait_for_requests(3)
+        await client.wait_for_connection_close()
 
         self.assertEqual(client.statuses, {})
         self.assertTrue(
@@ -604,8 +604,8 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy-1")
         request = client.create_request(method="GET", headers=[])
         client.make_requests([request] * 5)
-        await server.wait_for_requests(server_queue_size, strict=True)
-        self.assertTrue(await client.wait_for_connection_close())
+        await server.wait_for_requests(server_queue_size)
+        await client.wait_for_connection_close()
 
         self.assertTrue(
             await self.loggers.dmesg.find("request evicted:", cond=dmesg.amount_zero),
@@ -710,10 +710,10 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(await server.wait_for_requests(n=1))
+        await server.wait_for_requests(n=1)
         server.reset_new_connections()
 
-        self.assertTrue(await client.wait_for_response(timeout=15))
+        await client.wait_for_response(timeout=15)
         self.assertEqual(client.last_response.status, "502")
 
         sniffer.stop()
@@ -763,11 +763,11 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(await server.wait_for_requests(1))
+        await server.wait_for_requests(1)
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
-        self.assertTrue(await client.wait_for_response(15))
+        await client.wait_for_response(15)
         self.assertEqual(client.last_response.status, "200")
 
         sniffer.stop()
@@ -817,7 +817,7 @@ class TestServerOptions(TestServerOptionsBase):
         client = self.get_client("deproxy")
         client.make_request(client.create_request(method="GET", headers=[]))
 
-        self.assertTrue(await server.wait_for_requests(1))
+        await server.wait_for_requests(1)
         server.reset_new_connections()
         server.drop_conn_when_request_received = False
 
@@ -825,7 +825,7 @@ class TestServerOptions(TestServerOptionsBase):
         # Do not call the start method here because it reset all variables
         server.run_start()
 
-        self.assertTrue(await client.wait_for_response(5))
+        await client.wait_for_response(5)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.connections), 2)
         self.assertTrue(

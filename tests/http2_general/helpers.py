@@ -87,9 +87,8 @@ class H2Base(tester.TempestaTest):
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
 
-        self.assertTrue(
-            await client.wait_for_ack_settings(),
-            "Tempesta foes not returns SETTINGS frame with ACK flag.",
+        await client.wait_for_ack_settings(
+            msg="Tempesta foes not returns SETTINGS frame with ACK flag."
         )
 
 
@@ -165,7 +164,6 @@ class BlockActionH2Base(H2Base, asserts.Sniffer):
         client.update_initial_settings(initial_window_size=self.INITIAL_WINDOW_SIZE)
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(
-            await client.wait_for_ack_settings(),
-            "Tempesta does not returns SETTINGS frame with ACK flag.",
+        await client.wait_for_ack_settings(
+            msg="Tempesta does not returns SETTINGS frame with ACK flag."
         )

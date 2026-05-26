@@ -1922,9 +1922,8 @@ frang_limits {
             client.update_initial_settings(max_header_list_size=65536 * 2)
             client.send_bytes(client.h2_connection.data_to_send())
             client.h2_connection.clear_outbound_data_buffer()
-            self.assertTrue(
-                await client.wait_for_ack_settings(),
-                "Tempesta foes not returns SETTINGS frame with ACK flag.",
+            await client.wait_for_ack_settings(
+                msg="Tempesta foes not returns SETTINGS frame with ACK flag."
             )
         request = client.create_request(method="GET", uri="/", headers=[])
 

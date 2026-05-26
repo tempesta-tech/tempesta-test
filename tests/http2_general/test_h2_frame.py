@@ -69,7 +69,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize(), expect_response=False)
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_empty_data_frame(self):
@@ -89,7 +89,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.make_request(request=self.post_request, end_stream=False)
         deproxy_cl.send_bytes(DataFrame(stream_id=1, data=b"").serialize())
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_opening_same_stream_after_invalid(self):
@@ -126,8 +126,8 @@ class TestH2Frame(H2Base):
         )
 
         deproxy_cl.send_bytes(hf_bad.serialize() + hf_good.serialize())
-        self.assertTrue(await deproxy_cl.wait_for_reset_stream(stream.stream_id))
-        self.assertTrue(await deproxy_cl.wait_for_connection_close())
+        await deproxy_cl.wait_for_reset_stream(stream.stream_id)
+        await deproxy_cl.wait_for_connection_close()
 
     async def test_multiple_empty_headers_frames(self):
         """
@@ -158,7 +158,7 @@ class TestH2Frame(H2Base):
             deproxy_cl.send_bytes(hf_empty.serialize())
         deproxy_cl.send_bytes(hf_end.serialize(), expect_response=True)
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     @marks.Parameterize.expand(
@@ -191,7 +191,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(hf_start.serialize())
         deproxy_cl.send_bytes(hf_empty.serialize())
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_empty_headers_empty_continuation_multiple(self):
@@ -213,7 +213,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(cf_empty.serialize())
         deproxy_cl.send_bytes(cf_empty.serialize())
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_empty_continuation_end_headers(self):
@@ -265,7 +265,7 @@ class TestH2Frame(H2Base):
         deproxy_cl.send_bytes(cf_empty_end.serialize(), expect_response=False)
         deproxy_cl.send_bytes(df_end.serialize(), expect_response=False)
 
-        self.assertTrue(await deproxy_cl.wait_for_connection_close(timeout=5))
+        await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_settings_frame(self):
@@ -301,7 +301,7 @@ class TestH2Frame(H2Base):
         # send preamble + settings frame
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         # send WindowUpdate frame with window size increment = 5000
         client.h2_connection.increment_flow_control_window(5000)
@@ -414,9 +414,8 @@ class TestH2Frame(H2Base):
         # send RST_STREAM with id 0
         client.send_bytes(b"\x00\x00\x04\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 
-        self.assertTrue(
-            await client.wait_for_connection_close(),
-            "Tempesta did not close connection after receiving RST_STREAM with id 0.",
+        await client.wait_for_connection_close(
+            msg="Tempesta did not close connection after receiving RST_STREAM with id 0."
         )
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -448,9 +447,7 @@ class TestH2Frame(H2Base):
         # Tempesta MUST return GOAWAY frame with PROTOCOL_ERROR
         client.send_bytes(b"\x00\x00\x03\x00\x01\x00\x00\x00\x00asd")
 
-        self.assertTrue(
-            await client.wait_for_connection_close(), "Tempesta did not send GOAWAY frame."
-        )
+        await client.wait_for_connection_close(msg="Tempesta did not send GOAWAY frame.")
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
         self.assertEqual(
             client.last_stream_id,
@@ -487,9 +484,8 @@ class TestH2Frame(H2Base):
             client.stream_id = stream_id
             client.make_request(request="asd", end_stream=True)
 
-        self.assertTrue(
-            await client.wait_for_response(),
-            "Tempesta closed connection after receiving GOAWAY frame.",
+        await client.wait_for_response(
+            msg="Tempesta closed connection after receiving GOAWAY frame."
         )
 
     async def test_trailer_header_frame_without_end_stream(self):
@@ -509,13 +505,13 @@ class TestH2Frame(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def __assert_test(self, client, request_body: str, request_number: int):
         server = self.get_server("deproxy")
 
-        self.assertTrue(await client.wait_for_response(timeout=5))
+        await client.wait_for_response(timeout=5)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(len(server.requests), request_number)
         checks.check_tempesta_request_and_response_stats(
@@ -631,7 +627,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
                 ).serialize(),
                 expect_response=False,
             )
-        self.assertTrue(await client.wait_for_response(timeout, n=count))
+        await client.wait_for_response(timeout, n=count)
         self.assertFalse(client.connection_is_closed)
 
         for i in range(count):
@@ -829,7 +825,7 @@ class TestPostponedFrames(H2Base):
         )
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         ping_count = 500
 
@@ -838,17 +834,17 @@ class TestPostponedFrames(H2Base):
         for _ in range(0, ping_count):
             client.send_ping()
 
-        self.assertTrue(await client.wait_for_headers_frame(stream_id))
-        self.assertTrue(await client.wait_for_ping_frames(ping_count))
+        await client.wait_for_headers_frame(stream_id)
+        await client.wait_for_ping_frames(ping_count)
 
         client.send_settings_frame(initial_window_size=65535)
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         for _ in range(0, ping_count):
             client.send_ping()
 
-        self.assertTrue(await client.wait_for_headers_frame(stream_id))
-        self.assertTrue(await client.wait_for_ping_frames(2 * ping_count))
+        await client.wait_for_headers_frame(stream_id)
+        await client.wait_for_ping_frames(2 * ping_count)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertTrue(client.last_response.status, "200")

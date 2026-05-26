@@ -78,7 +78,7 @@ class TestMaxFrameSize(H2Base):
         client.make_request(
             request=self.post_request + [("qwerty", "x" * 17000)], end_stream=True, huffman=False
         )
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
 
     async def test_data_frame_is_large_than_max_frame_size(self):
         """
@@ -98,4 +98,4 @@ class TestMaxFrameSize(H2Base):
         client.make_request(
             request=(self.post_request, "x" * 18000), end_stream=True, huffman=False
         )
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()

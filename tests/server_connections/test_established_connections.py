@@ -175,9 +175,8 @@ srv_group default {{
 
         await client.send_request(client.create_request(method="GET", headers=[]), "504")
 
-        self.assertTrue(
-            await server.wait_for_connections(),
-            "Tempesta FW must recreate all connections to server.",
+        await server.wait_for_connections(
+            msg="Tempesta FW must recreate all connections to server."
         )
         tfw.get_stats()
 
@@ -253,7 +252,7 @@ srv_group default {{
         self.assertGreaterEqual(tfw.stats.srv_established_connections, 0, msg)
 
         msg = "Tempesta FW don't recreate connections to server after unblock firewall"
-        self.assertTrue(await server.wait_for_connections(), msg)
+        await server.wait_for_connections(msg=msg)
 
         tfw.get_stats()
         self.assertEqual(len(server.connections), self.conns_n, msg)

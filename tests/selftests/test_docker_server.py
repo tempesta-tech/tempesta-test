@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
+
 from framework.test_suite import tester
 
 
@@ -127,8 +129,9 @@ class TestHealthCheck(tester.TempestaTest):
 
         await self.start_tempesta()
 
-        self.assertFalse(await server.wait_for_connections(timeout=1))
-        self.assertTrue(await server.wait_for_connections(timeout=3))
+        with self.assertRaises(AssertionError):
+            await server.wait_for_connections(timeout=1)
+        await server.wait_for_connections(timeout=3)
         self.assertEqual(server.health_status, "healthy")
 
     async def test_unhealthy_server(self):
@@ -138,7 +141,8 @@ class TestHealthCheck(tester.TempestaTest):
         server.start()
 
         self.assertEqual(server.health_status, "starting")
-        self.assertFalse(await server.wait_for_connections(timeout=7))
+        with self.assertRaises(AssertionError):
+            await server.wait_for_connections(timeout=7)
         self.assertEqual(server.health_status, "unhealthy")
 
     async def test_override_default_healthcheck(self):
@@ -148,5 +152,4 @@ class TestHealthCheck(tester.TempestaTest):
 
         server.start()
 
-        await server.wait_for_connections(timeout=1)
-        self.assertEqual(server.health_status, "healthy")
+        await self.assertWaitUntilEqual(lambda: server.health_status, "healthy")

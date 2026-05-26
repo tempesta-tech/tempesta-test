@@ -208,11 +208,11 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client in clients:
             client.make_request(self.get_request)
 
-        self.assertTrue(await srv.wait_for_requests(3))
+        await srv.wait_for_requests(3)
 
         self.assertEqual(len(srv.requests), 3)
         for client in clients:
-            self.assertTrue(await client.wait_for_response())
+            await client.wait_for_response()
             self.assertEqual(client.last_response.status, "200")
 
     @marks.Parameterize.expand(
@@ -243,11 +243,11 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client, response, i in zip(clients, response_list, list(range(1, 4))):
             srv.set_response(response)
             client.make_request(self.get_request)
-            self.assertTrue(await srv.wait_for_requests(i))
+            await srv.wait_for_requests(i)
 
         for client, expected_status in zip(clients, expected_response_statuses):
             if expected_status:
-                self.assertTrue(await client.wait_for_response())
+                await client.wait_for_response()
                 self.assertEqual(client.last_response.status, expected_status)
             else:
                 self.assertFalse(client.last_response)
@@ -263,7 +263,7 @@ class TestH2ResponsesPipelined(H2ResponsesPipelinedBase):
         for client, expected_status in zip(clients, expected_response_statuses):
             if not expected_status:
                 i = i + 1
-                self.assertTrue(await srv.wait_for_requests(req_count + i))
+                await srv.wait_for_requests(req_count + i)
                 srv.flush()
-                self.assertTrue(await client.wait_for_response())
+                await client.wait_for_response()
                 self.assertEqual(client.last_response.status, "200")

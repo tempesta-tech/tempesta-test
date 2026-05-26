@@ -644,17 +644,17 @@ class TestHmCrc(tester.TempestaTest):
         server.set_response(self.build_response(self.content[0]))
         # step 1
         if self.auto_mode:
-            self.assertTrue(await server.wait_for_requests(n, timeout=12))
+            await server.wait_for_requests(n, timeout=12)
             n += 1
 
         # step 2
-        self.assertTrue(await server.wait_for_requests(n, timeout=12))
+        await server.wait_for_requests(n, timeout=12)
         n += 1
         self.assertFalse(await self.klog.find(warning))
 
         # step 3
         server.set_response(self.build_response(self.content[1]))
-        self.assertTrue(await server.wait_for_requests(n, timeout=12))
+        await server.wait_for_requests(n, timeout=12)
         self.assertTrue(await self.klog.find(warning))
 
 
@@ -717,14 +717,13 @@ class H2HmResponsesPipelined(H2ResponsesPipelinedBase):
         clients = self.get_clients()
         for client, i in zip(clients, list(range(1, 5))):
             if i == hm_num:
-                self.assertTrue(
-                    await srv.wait_for_requests(i),
-                    "Server did not receive hm request from TempestaFW.",
+                await srv.wait_for_requests(
+                    i, msg="Server did not receive hm request from TempestaFW."
                 )
                 i = i + 1
             client.make_request(self.get_request)
-            self.assertTrue(await srv.wait_for_requests(i))
+            await srv.wait_for_requests(i)
 
         for client in clients:
-            self.assertTrue(await client.wait_for_response())
+            await client.wait_for_response()
             self.assertEqual(client.last_response.status, "200")

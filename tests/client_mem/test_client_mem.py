@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 import asyncio
 import time
+
 import run_config
 from framework.helpers import error
 from framework.test_suite import marks, tester
@@ -108,7 +109,7 @@ tls_match_any_server_name;
         frame level, so connection will be closed with
         TCP RST without any response
         """
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
 
 @marks.parameterize_class(
@@ -173,7 +174,7 @@ class TestBlockByMemExceeded(TestBlockByMemExceededBase):
         )
 
         await client.send_request(request, "403")
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
 
 class TestReconfigClientMemStress(tester.TempestaTest):
@@ -323,7 +324,7 @@ tls_match_any_server_name;
         for _ in range(0, ping_count):
             client.send_ping()
 
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
 
 class TestSeveralClientsWithSmallLrusize(tester.TempestaTest):
@@ -375,6 +376,6 @@ tls_match_any_server_name;
             client.start()
             request = client.create_request(method="GET", uri="/", headers=[])
             client.make_requests([request] * 10)
-            await server.wait_for_requests((i + 1) * 10, strict=True)
+            await server.wait_for_requests((i + 1) * 10)
             await client.wait_for_response()
             self.assertTrue(len(client.responses), 10)

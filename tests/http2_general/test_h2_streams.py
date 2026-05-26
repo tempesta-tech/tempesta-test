@@ -36,7 +36,7 @@ class TestH2Stream(H2Base):
         client.h2_connection.remote_settings.acknowledge()
 
         client.make_request(request=self.post_request, end_stream=True)
-        self.assertTrue(await client.wait_for_reset_stream(stream_id=client.stream_id - 2))
+        await client.wait_for_reset_stream(stream_id=client.stream_id - 2)
 
         client.assert_error_code(expected_error_code=ErrorCodes.REFUSED_STREAM)
 
@@ -66,14 +66,14 @@ class TestH2Stream(H2Base):
 
         client.send_settings_frame(initial_window_size=0)
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         for _ in range(max_streams):
             client.make_request(self.post_request)
 
         client.send_settings_frame(initial_window_size=65536)
         client.h2_connection.clear_outbound_data_buffer()
-        self.assertTrue(await client.wait_for_ack_settings())
+        await client.wait_for_ack_settings()
 
         await client.wait_for_response()
         self.assertEqual(len(client.responses), 12)
@@ -98,7 +98,7 @@ class TestH2Stream(H2Base):
             data=b"\x00\x00\n\x01\x05\x00\x00\x00\x01A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -120,7 +120,7 @@ class TestH2Stream(H2Base):
             b"\x00\x00\n\x01\x05\x00\x00\x00\x00A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -140,7 +140,7 @@ class TestH2Stream(H2Base):
             b"\x00\x00\n\x01\x05\x00\x00\x00\x02A\x85\x90\xb1\x98u\x7f\x84\x87\x83",
             expect_response=True,
         )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
@@ -171,7 +171,7 @@ class TestH2Stream(H2Base):
             expect_response=True,
         )
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
 
 

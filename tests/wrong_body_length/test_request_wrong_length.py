@@ -345,7 +345,7 @@ class RequestLongBodyLength(TempestaTest):
             + "\r\n"
             + "body\r\n"
         )
-        await client.wait_for_response(timeout=3)
+        await client.wait_for_connection_close()
 
         self.assertIsNone(
             client.last_response,

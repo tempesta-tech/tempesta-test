@@ -433,7 +433,7 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         client = self.get_client("curl")
 
         client.start()
-        self.assertTrue(await client.wait_for_finish())
+        await client.wait_for_finish()
         client.stop()
 
         await self.assertWaitUntilEqual(
@@ -449,7 +449,7 @@ class TestClickhouseLogTiming(tester.TempestaTest):
         client = self.get_client("parallel")
 
         client.start()
-        self.assertTrue(await client.wait_for_finish())
+        await client.wait_for_finish()
         client.stop()
 
         await self.assertWaitUntilEqual(

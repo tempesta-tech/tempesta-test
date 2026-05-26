@@ -91,7 +91,7 @@ block_action error reply;
         df.flags.add("END_STREAM")
         client.send_bytes(df.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response(30))
+        await client.wait_for_response(30)
         self.assertEqual(client.last_response.status, "403")
         self.assertTrue(await self.loggers.dmesg.find("frang: HTTP body length exceeded for"))
 
@@ -156,7 +156,7 @@ block_action error reply;
         )
         client.send_bytes(data=tf.serialize(), expect_response=True)
 
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "403")
         self.assertTrue(
             await self.loggers.dmesg.find("frang: HTTP field appear in header and trailer")
@@ -370,7 +370,7 @@ block_action error reply;
         client.make_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
         )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
         self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
         self.assertTrue(await self.loggers.dmesg.find("Warning: block client"))
 
@@ -380,7 +380,7 @@ block_action error reply;
                 authority="another", method="GET", headers=[("x-my-xdr", "a" * 150)]
             )
         )
-        await another_client.wait_for_connection_close(strict=True)
+        await another_client.wait_for_connection_close()
         self.assertTrue(
             await self.loggers.dmesg.find(
                 "frang: HTTP header length exceeded for", cond=amount_equals(2)
@@ -418,7 +418,7 @@ block_action error reply;
         client.make_request(
             client.create_request(authority="vh1", method="GET", headers=[("x-my-xdr", "a" * 150)])
         )
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
         self.assertTrue(await self.loggers.dmesg.find("frang: HTTP header length exceeded for"))
         self.assertTrue(await self.loggers.dmesg.find("Warning: block client"))
         await asyncio.sleep(2)
@@ -735,14 +735,17 @@ block_action error reply;
     async def _test_not_override_concurrent_tcp_connections(self):
         client = self.get_client("deproxy")
         client_1 = self.get_client("deproxy_1")
+        server = self.get_server("deproxy")
+
         client.start()
         client_1.start()
 
         client.make_request(client.create_request(method="GET", headers=[]))
+        await server.wait_for_requests(n=1)
         client_1.make_request(client.create_request(method="GET", headers=[]))
 
-        await client.wait_for_response(timeout=2)
-        await client_1.wait_for_response(timeout=2)
+        await client.wait_for_response()
+        await client_1.wait_for_connection_close()
 
         self.assertTrue(await self.loggers.dmesg.find("frang: connections max num. exceeded for"))
         self.assertEqual(1, len(client.responses) + len(client_1.responses))

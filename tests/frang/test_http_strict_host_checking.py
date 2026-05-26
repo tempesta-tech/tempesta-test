@@ -260,7 +260,7 @@ block_action error reply;
             ]
             head.extend(header)
             client.make_request(head)
-            self.assertTrue(await client.wait_for_response(1))
+            await client.wait_for_response(1)
 
         await self.check_response(client, status_code="200", warning_msg="frang: ")
 

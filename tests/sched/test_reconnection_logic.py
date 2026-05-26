@@ -98,33 +98,30 @@ http_chain {
         await self.start_all_services()
 
         await client.send_request(request, "200")
-        self.assertTrue(
-            await primary_server.wait_for_requests(1),
-            "TempestaFW first send a request to the backup server.",
+        await primary_server.wait_for_requests(
+            1, msg="TempestaFW first send a request to the backup server."
         )
 
         primary_server.stop()
 
         await client.send_request(request, "200")
-        self.assertTrue(
-            await backup_server.wait_for_requests(1),
-            "TempestaFW doesn't send a request to the backup server when the primary server is down.",
+        await backup_server.wait_for_requests(
+            1,
+            msg="TempestaFW doesn't send a request to the backup server when the primary server is down.",
         )
 
         primary_server.start()
-        self.assertTrue(
-            await primary_server.wait_for_connections(),
-            "TempestaFW doesn't reconnect to the primary server.",
+        await primary_server.wait_for_connections(
+            msg="TempestaFW doesn't reconnect to the primary server."
         )
         self.assertEqual(
             len(primary_server.requests), 0, "Server must remove the old requests after restart."
         )
 
         await client.send_request(request, "200")
-        self.assertTrue(
-            await primary_server.wait_for_requests(1),
-            "TempestaFW doesn't send a request to the primary server "
-            "when it has restored operation.",
+        await primary_server.wait_for_requests(
+            1,
+            msg="TempestaFW doesn't send a request to the primary server when it has restored operation.",
         )
         self.assertLess(
             len(backup_server.requests), 2, "TempestaFW duplicated the request to the backup server"

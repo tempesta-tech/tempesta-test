@@ -324,7 +324,7 @@ http_chain {{
         # TODO: https://github.com/tempesta-tech/tempesta-test/issues/38
         #  issue - add checks to receiving a response from upstream
 
-        self.assertTrue(await client.wait_for_finish(timeout=DURATION + 5))
+        await client.wait_for_finish(timeout=DURATION + 5)
         client.stop()
 
         tempesta.get_stats()

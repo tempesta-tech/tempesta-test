@@ -45,9 +45,9 @@ class BaseJSChallenge(tester.TempestaTest):
         remote.tempesta.run_cmd(f"cp {srcdir}/etc/js_challenge.tpl {workdir}/js1.tpl")
 
     @staticmethod
-    async def client_send_pipelined_requests(client, reqs, error_expected) -> list:
+    async def client_send_pipelined_requests(client, reqs: list, error_expected: bool) -> list:
         client.make_requests(reqs, pipelined=True)
-        await client.wait_for_response(strict=True)
+        await client.wait_for_response()
 
         return client.responses[-len(reqs) :] if not error_expected else client.responses[-1:]
 
@@ -211,7 +211,7 @@ class JSChallenge(BaseJSChallenge):
                 f"accept header - {accept}",
             )
         if conn_is_closed:
-            self.assertTrue(await client.wait_for_connection_close())
+            await client.wait_for_connection_close()
         else:
             self.assertFalse(client.connection_is_closed)
 
@@ -353,7 +353,7 @@ class JSChallenge(BaseJSChallenge):
 
         # make third request without cookie, request misses = 3
         await client.send_request(self.prepare_first_req(client), expected_status_code="403")
-        await client.wait_for_connection_close(strict=True)
+        await client.wait_for_connection_close()
 
     async def test_disable_challenge_on_reload(self):
         """
@@ -481,16 +481,14 @@ class JSChallenge(BaseJSChallenge):
             await asyncio.sleep(sleep_time)
 
         requests = [self.prepare_second_req(client, cookie) for cookie in cookies]
-        responses = await self.client_send_pipelined_requests(
-            client, requests, True if conn_is_closed else False
-        )
+        client.make_requests(requests, pipelined=True)
 
         if conn_is_closed:
+            await client.wait_for_connection_close()
             self.assertEqual(client.last_response.status, "403", "unexpected response status code")
-            self.assertEqual(len(responses), 1)
         else:
-            self.assertEqual(len(responses), 2)
-            for resp in responses:
+            await client.wait_for_response()
+            for resp in client.responses[-len(requests) :]:
                 self.assertEqual(resp.status, "200", "unexpected response status code")
         self.assertEqual(client.connection_is_closed, conn_is_closed)
 

@@ -77,16 +77,14 @@ server ${server_ip}:8000 conns_n=1;
 
         deproxy_cl.make_requests(request, True)
 
-        self.assertTrue(await deproxy_cl.wait_for_response(timeout=5), "Response not received")
+        await deproxy_cl.wait_for_response(timeout=5, msg="Response not received")
 
         status = int(deproxy_cl.last_response.status)
-        self.assertTrue(
-            status == expect_status, f"Wrong status: {status}, expected: {expect_status}"
+        self.assertEqual(
+            status, expect_status, f"Wrong status: {status}, expected: {expect_status}"
         )
         if expect is None:
-            self.assertTrue(
-                deproxy_srv.last_request is None, "Request was unexpectedly sent to backend"
-            )
+            self.assertIsNone(deproxy_srv.last_request, "Request was unexpectedly sent to backend")
         elif expect:
             self.assertIn(
                 deproxy_srv.last_request.uri,

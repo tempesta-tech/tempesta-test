@@ -248,7 +248,7 @@ class StickySessionsPersistense(StickySessions):
         for _ in range(ATTEMPTS):
             await client.send_request(req, "502")
         srv.start()
-        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        await srv.wait_for_connections(timeout=3, msg="Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(s_id, new_s_id, "Sticky session was forwarded to not-pinned server")
@@ -400,7 +400,7 @@ class StickySessionsFailover(StickySessions):
         )
 
         srv.start()
-        self.assertTrue(await srv.wait_for_connections(timeout=3), "Can't restart backend server")
+        await srv.wait_for_connections(timeout=3, msg="Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(
@@ -436,8 +436,8 @@ class StickySessionsFailover(StickySessions):
 
         srv1.start()
         srv2.start()
-        self.assertTrue(await srv1.wait_for_connections(timeout=3), "Can't restart backend server")
-        self.assertTrue(await srv2.wait_for_connections(timeout=3), "Can't restart backend server")
+        await srv1.wait_for_connections(timeout=3, msg="Can't restart backend server")
+        await srv2.wait_for_connections(timeout=3, msg="Can't restart backend server")
         for _ in range(ATTEMPTS):
             new_s_id = await self.client_send_next_req(client, cookie)
             self.assertEqual(

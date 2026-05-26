@@ -20,7 +20,7 @@ from framework.test_suite import tester
 from .handshake import TlsHandshake, x509_check_cn
 
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2022-2024 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2022-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 
@@ -92,11 +92,9 @@ class X509(tester.TempestaTest):
 
         await self.start_all_services()
         client = self.get_client("deproxy")
-        client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        res = await client.wait_for_response(timeout=X509.TIMEOUT)
-        self.assertTrue(res, "Cannot process request")
-        status = client.last_response.status
-        self.assertEqual(status, "200", "Bad response status: %s" % status)
+        await client.send_request(
+            "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", "200", timeout=X509.TIMEOUT
+        )
 
     @dmesg.unlimited_rate_on_tempesta_node
     async def check_bad_alg(self, msg):
@@ -115,9 +113,7 @@ class X509(tester.TempestaTest):
         # Collect warnings before start w/ a bad certificate.
         self.start_all_clients()
         self.deproxy_manager.start()
-        self.assertTrue(
-            await deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT), "Cannot start Tempesta"
-        )
+        await deproxy_srv.wait_for_connections(timeout=X509.TIMEOUT, msg="Cannot start Tempesta")
         client = self.get_client("deproxy")
         client.make_request("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
         res = await client.wait_for_response(timeout=X509.TIMEOUT)
@@ -443,7 +439,7 @@ class TlsCertSelect(tester.TempestaTest):
         deproxy_srv.start()
         await self.start_tempesta()
         self.deproxy_manager.start()
-        self.assertTrue(await deproxy_srv.wait_for_connections(timeout=1), "Cannot start Tempesta")
+        await deproxy_srv.wait_for_connections(timeout=1, msg="Cannot start Tempesta")
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
         res = self.get_tls_handshake().do_12()
@@ -1048,22 +1044,15 @@ class BaseTlsSniWithHttpTable(tester.TempestaTest, base=True):
         self.tempesta = {"config": self.tempesta_tmpl % (self.frang_limits), "custom_cert": True}
         await tester.TempestaTest.asyncSetUp(self)
 
-    async def make_request(self, host):
-        """Make request with the specified `host` header and
-        return the body of response."""
-        client = self.get_client("deproxy")
-        client.make_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n")
-        return await client.wait_for_response(timeout=X509.TIMEOUT)
-
     async def expect_request_processed(self, host, expected_server):
-        self.assertTrue(await self.make_request(host))
         client = self.get_client("deproxy")
-        status = client.last_response.status
-        self.assertEqual(status, "200", f"Bad response status: {status}")
+        await client.send_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n", "200")
         self.assertEqual(client.last_response.body, expected_server)
 
     async def expect_request_fail(self, host):
-        self.assertFalse(await self.make_request(host))
+        client = self.get_client("deproxy")
+        client.make_request(f"GET / HTTP/1.1\r\nHost: {host}\r\n\r\n")
+        await client.wait_for_connection_close()
 
     async def test_valid(self):
         """
@@ -1209,6 +1198,7 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
     async def run_alterative_access(self):
         """Try to access multiple hosts in alterating order."""
+        self.disable_deproxy_auto_parser()
         generate_certificate(san=["example.com", "*.example.com"])
         REQ_NUM = 4
         self.assertFalse(REQ_NUM % 2, "REQ_NUM should be even")
@@ -1222,10 +1212,11 @@ class BaseTlsMultiTest(tester.TempestaTest, base=True):
 
         for request in self.build_requests(hosts=islice(host_iter, REQ_NUM)):
             client.make_request(request)
-            await client.wait_for_response()
+        await client.wait_for_connection_close()
 
         self.assertLess(len(client.responses), 2)
         # server1 received requests
+        await server1.wait_for_requests(n=1)
         self.assertGreater(len(server1.requests), 0)
         # server2 did not receive requests
         self.assertEqual(len(server2.requests), 0)

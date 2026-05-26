@@ -96,7 +96,7 @@ class TestLocHalfClosedStreamState(H2Base):
             expect_response=True,
         )
 
-        self.assertTrue(await client.wait_for_reset_stream(stream_id=stream.stream_id))
+        await client.wait_for_reset_stream(stream_id=stream.stream_id)
         # If error message found test fails.
         self.assertFalse(
             await klog.find(self.PARSER_WARN), "Frame is passed to parser in a CLOSED state."
@@ -135,12 +135,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         # When Tempesta receive RST STREAM frame, it immediately
         # close and delete stream
         if not isinstance(frame, RstStreamFrame):
-            self.assertTrue(await client.wait_for_reset_stream(stream_id=1))
+            await client.wait_for_reset_stream(stream_id=1)
 
         client.stream_id += 2
         client.make_request(self.get_request)
-        await client.wait_for_response(strict=True, n=1)
-        self.assertTrue(client.last_response.status, "200")
+        await client.wait_for_response(n=1)
+        self.assertEqual(client.last_response.status, "200")
 
     async def test_priority_frame_in_half_closed_state(self):
         await self.__base_scenario(frame=PriorityFrame(stream_id=1))
@@ -178,14 +178,14 @@ class TestHalfClosedStreamStateWindowUpdate(H2Base):
         await client.wait_for_ack_settings()
 
         client.make_request(self.post_request)
-        self.assertFalse(await client.wait_for_response(2))
+        await client.wait_for_headers_frame(stream_id=1)
 
         client.h2_connection.increment_flow_control_window(2000)
         client.h2_connection.increment_flow_control_window(2000, stream_id=1)
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
 
-        self.assertTrue(await client.wait_for_response(2))
+        await client.wait_for_response(2)
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
@@ -251,7 +251,7 @@ class TestStreamState(H2Base):
             flags=["END_HEADERS", "END_STREAM"],
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_headers_frame_for_other_stream_between_header_blocks(self):
@@ -271,7 +271,7 @@ class TestStreamState(H2Base):
             flags=["END_HEADERS", "END_STREAM"],
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_headers_frame_for_other_stream_after_rst(self):
@@ -284,7 +284,7 @@ class TestStreamState(H2Base):
         client.send_bytes(hf.serialize())
         client.stream_id = 3
         client.make_request(self.post_request)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
@@ -296,7 +296,7 @@ class TestStreamState(H2Base):
         but have error during processing request.
         """
         client = await self.__setup(self.post_request + [("BAD", "BAD")], True)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "400")
 
 
@@ -327,7 +327,7 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
 
         client.stream_id = 3
         client.make_request(self.post_request)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
@@ -335,7 +335,7 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
 
         client.stream_id = 1
         client.make_request([("header", "x" * 320)])
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
@@ -343,7 +343,7 @@ class TestTwoHeadersFramesFirstWithoutEndStream(H2Base):
 
         client.stream_id = 5
         client.make_request(self.post_request)
-        self.assertTrue(await client.wait_for_response())
+        await client.wait_for_response()
         self.assertEqual(client.last_response.status, "200")
         self.assertEqual(
             len(client.last_response.body), 2000, "Tempesta did not return full response body."
@@ -402,7 +402,7 @@ class TestIdleState(H2Base):
             ).serialize()
         )
 
-        self.assertTrue(await client.wait_for_connection_close())
+        await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
     async def test_not_closing_idle_stream(self):
@@ -458,5 +458,5 @@ class TestIdleState(H2Base):
         )
 
         client.send_bytes(pf.serialize() + hf.serialize())
-        self.assertTrue(await client.wait_for_reset_stream(stream.stream_id))
-        self.assertFalse(await client.wait_for_connection_close())
+        await client.wait_for_reset_stream(stream.stream_id)
+        self.assertFalse(client.connection_is_closed)
