@@ -254,10 +254,21 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
     def _wait_for_connections(self) -> bool:
         return len(self._connections) < self.conns_n
 
-    async def wait_for_connections_closed(self, timeout=1):
+    async def wait_for_connections_closed(
+        self, timeout: float = 1.0, msg: Optional[str] = None
+    ) -> None:
         if self.state != stateful.STATE_STARTED:
-            return False
-        return await util.wait_until(lambda: len(self._connections) != 0, timeout)
+            raise AssertionError(f"The {self} server is not started.")
+        timeout_not_exceeded = await util.wait_until(
+            lambda: len(self._connections) != 0,
+            timeout=timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+
+        assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
+            msg
+            or f"The server connections are not closed. The current connections N - {len(self.connections)}."
+        )
 
     def flush(self):
         for conn in self._connections:
@@ -318,8 +329,8 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         return self.__response, False
 
     async def wait_for_requests(
-        self, n: int, timeout=10, strict=False, adjust_timeout=False
-    ) -> bool:
+        self, n: int, timeout: float = 5.0, adjust_timeout: bool = False, msg: Optional[str] = None
+    ) -> None:
         """wait for the `n` number of responses to be received"""
         timeout_not_exceeded = await util.wait_until(
             lambda: len(self.requests) < n,
@@ -327,11 +338,10 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
             abort_cond=lambda: not self._accepting,
             adjust_timeout=adjust_timeout,
         )
-        if strict:
-            assert (
-                timeout_not_exceeded != False
-            ), f"Timeout exceeded while waiting connection close: {timeout}"
-        return timeout_not_exceeded
+
+        assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
+            msg or f"Timeout exceeded while waiting connection close: {timeout}"
+        )
 
 
 def deproxy_srv_initializer(
