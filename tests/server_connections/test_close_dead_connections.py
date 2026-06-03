@@ -225,19 +225,15 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         bad_client.stop()
         server.connections[0].readable = lambda: True
 
-        self.assertTrue(
-            await server.wait_for_requests(n=len(list(valid_clients)) * client_req_n, timeout=10),
-            f"Tempesta FW must forward all requests from not dead client connections.",
-        )
+        await server.wait_for_requests(n=len(list(valid_clients)) * client_req_n, timeout=10)
+
         self.assertEqual(
             len(server.requests),
             (len(list(valid_clients)) * client_req_n + 1),
             "Tempesta FW must forward requests to the server: client_N * client_requests_N + 1 (bad_requests).",
         )
 
-        await valid_clients.wait_for_response(
-            strict=True, msg="The valid clients doesn't receive responses."
-        )
+        await valid_clients.wait_for_response(msg="The valid clients doesn't receive responses.")
 
         for client in valid_clients:
             self.assertEqual(len(client.responses), client_req_n)
