@@ -163,7 +163,7 @@ class TestBlockByMemExceeded(TestBlockByMemExceededBase):
             + "Content-Length: 10000\r\n"
             + "Content-Type: text/html\r\n"
             + "\r\n"
-            + "a" * 10000
+            + "a" * 20000
         )
 
         client = self.get_client("deproxy")
