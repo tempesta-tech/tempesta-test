@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import getopt
 import inspect
 import logging
@@ -465,30 +464,24 @@ for t in tests:
     ):
         filtered_tests.append(t)
 
-# Repeat the tests according to the `-R` option
-tests = []
-for t in filtered_tests:
-    for _ in range(int(n_count)):
-        tests.append(t)
-
 # Sort tests by priority
 for p in t_priority_out:
-    for t in tests:
+    for t in filtered_tests:
         if t.id().startswith(p.rstrip()):
-            tests.insert(0, tests.pop(tests.index(t)))
+            filtered_tests.insert(0, filtered_tests.pop(filtered_tests.index(t)))
 
 if t_retry:
     # Create list of tests which can be retried
     retry_tests = []
     for t_ret in t_retry_out:
-        for t in tests:
+        for t in filtered_tests:
             if t.id().startswith(t_ret.rstrip()):
                 retry_tests.append(t)
 #
 # List tests and exit, if requested
 #
 if list_tests:
-    for t in tests:
+    for t in filtered_tests:
         print(t.id())
     sys.exit(0)
 
@@ -523,7 +516,7 @@ Running functional tests%s...
 # Run the discovered tests
 #
 with memworker.check_memory_leaks():
-    testsuite = unittest.TestSuite(tests)
+    testsuite = shell.TestSuite(filtered_tests, repeat=n_count)
     testRunner = unittest.runner.TextTestRunner(
         verbosity=v_level,
         failfast=fail_fast,
@@ -569,8 +562,8 @@ Run failed tests again ...
                     out = result.failures.pop(index)
 
     # check if we finished running the tests
-    if not tests or (
-        test_resume.state.last_id == tests[-1].id() and test_resume.state.last_completed
+    if not filtered_tests or (
+        test_resume.state.last_id == filtered_tests[-1].id() and test_resume.state.last_completed
     ):
         state_reader.drop()
 
