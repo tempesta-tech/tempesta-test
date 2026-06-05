@@ -1,3 +1,4 @@
+import copy
 import errno
 import json
 import os
@@ -227,6 +228,20 @@ class TestResume(object):
 
     def resultclass(self):
         return type("Result", (TestResume.Result,), {"matcher": self.state})
+
+
+class TestSuite(unittest.TestSuite):
+    def __init__(self, tests: list[unittest.IsolatedAsyncioTestCase], repeat: int):
+        self._repeat = repeat
+        super().__init__(tests)
+
+    def addTests(self, tests: list[unittest.IsolatedAsyncioTestCase]) -> None:
+        if isinstance(tests, str):
+            raise TypeError("tests must be an iterable of tests, not a string")
+
+        for test in tests:
+            for _ in range(self._repeat):
+                self.addTest(copy.copy(test))
 
 
 # I'd use a recursive generator, but `yield from` is python 3.3+
