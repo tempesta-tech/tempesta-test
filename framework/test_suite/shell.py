@@ -2,6 +2,8 @@ import copy
 import errno
 import json
 import os
+import sys
+import time
 import unittest
 
 from framework.helpers import remote, tf_cfg
@@ -150,6 +152,52 @@ class TestState(object):
                 raise
 
 
+class _TempestaTestResult(unittest.TextTestResult):
+    matcher = TestState()
+    max_retries = 3
+
+    def __init__(
+        self, rerun_tests: list[unittest.IsolatedAsyncioTestCase], *args, **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._rerun_tests: list[unittest.IsolatedAsyncioTestCase] = rerun_tests
+        self.tests_to_rerun: list[unittest.IsolatedAsyncioTestCase] = []
+
+    def startTest(self, test: unittest.IsolatedAsyncioTestCase) -> None:
+        self.matcher.advance(test.id())
+        test_logger.info(f"\n\n{'-' * 100}\n" f"Start test '{test.id()}'" f"\n{'-' * 100}")
+        tf_cfg.log_dmesg(remote.tempesta, f"Start test: {test.id()}")
+        super().startTest(test)
+
+    def stopTest(self, test: unittest.IsolatedAsyncioTestCase) -> None:
+        self.matcher.advance(test.id(), after=True)
+        super().stopTest(test)
+        tf_cfg.log_dmesg(remote.tempesta, f"End test:   {test.id()}")
+        test_logger.info(f"\n\n{'-' * 100}\n" f"End test '{test.id()}'" f"\n{'-' * 100}")
+
+    def addFailure(self, test: unittest.IsolatedAsyncioTestCase, err: Exception) -> None:
+        self._should_retry(test)
+        super().addFailure(test, err)
+
+    def addError(self, test: unittest.IsolatedAsyncioTestCase, err: Exception) -> None:
+        self._should_retry(test)
+        super().addError(test, err)
+
+    def addUnexpectedSuccess(self, test: unittest.IsolatedAsyncioTestCase) -> None:
+        self._should_retry(test)
+        super().addUnexpectedSuccess(test)
+
+    def _should_retry(self, test: unittest.IsolatedAsyncioTestCase) -> None:
+        """
+        Add failed tests to 'tests_to_rerun' list to try again after
+        """
+        if test in self._rerun_tests:
+            self._rerun_tests.remove(test)
+            for _ in range(self.max_retries):
+                new_test_instance = test.__class__(test._testMethodName)
+                self.tests_to_rerun.append(new_test_instance)
+
+
 class TestResume(object):
     # Filter is instantiated by TestResume.filter(), passing instance of the
     # matcher to the instance of the filter.
@@ -166,28 +214,6 @@ class TestResume(object):
                 self.flag = True
                 return not self.matcher.state.last_completed
             return False
-
-    # Result is instantiated not under our control, so we can't pass a matcher
-    # to Result.__init__(). Instead, we dynamically create derived classes
-    # that will refer to a certain matcher as a class attribute.
-    class Result(unittest.TextTestResult):
-        matcher = None
-
-        def __init__(self, *args, **kwargs):
-            unittest.TextTestResult.__init__(self, *args, **kwargs)
-
-        def startTest(self, test):
-            self.matcher.advance(test.id())
-            test_logger.info(f"\n\n{'-' * 100}\n" f"Start test '{test.id()}'" f"\n{'-' * 100}")
-            tf_cfg.log_dmesg(remote.tempesta, "Start test: %s" % test.id())
-            return unittest.TextTestResult.startTest(self, test)
-
-        def stopTest(self, test):
-            self.matcher.advance(test.id(), after=True)
-            res = unittest.TextTestResult.stopTest(self, test)
-            tf_cfg.log_dmesg(remote.tempesta, "End test:   %s" % test.id())
-            test_logger.info(f"\n\n{'-' * 100}\n" f"End test '{test.id()}'" f"\n{'-' * 100}")
-            return res
 
     def __init__(self, state_reader):
         self.from_file = False
@@ -226,13 +252,13 @@ class TestResume(object):
             return TestResume.Filter(self)
         return lambda test: True
 
-    def resultclass(self):
-        return type("Result", (TestResume.Result,), {"matcher": self.state})
 
+class _TempestaTestSuite(unittest.TestSuite):
+    _tests: list[unittest.IsolatedAsyncioTestCase]
 
-class TestSuite(unittest.TestSuite):
-    def __init__(self, tests: list[unittest.IsolatedAsyncioTestCase], repeat: int):
+    def __init__(self, tests: list[unittest.IsolatedAsyncioTestCase], repeat: int) -> None:
         self._repeat = repeat
+        self._retried_tests = []
         super().__init__(tests)
 
     def addTests(self, tests: list[unittest.IsolatedAsyncioTestCase]) -> None:
@@ -242,6 +268,112 @@ class TestSuite(unittest.TestSuite):
         for test in tests:
             for _ in range(self._repeat):
                 self.addTest(copy.copy(test))
+
+    def addTest(self, test: unittest.IsolatedAsyncioTestCase) -> None:
+        super().addTest(test)
+        self._retried_tests.append(test)
+
+    def run(self, result: _TempestaTestResult, debug: bool = False) -> _TempestaTestResult:
+        return super().run(result, debug)
+
+
+class TempestaTestRunner(unittest.TextTestRunner):
+    def __init__(
+        self, rerun_tests: list[unittest.IsolatedAsyncioTestCase], *args, **kwargs
+    ) -> None:
+        self._rerun_tests = rerun_tests
+        super().__init__(*args, **kwargs)
+
+    def _makeResult(self) -> _TempestaTestResult:
+        return _TempestaTestResult(
+            self._rerun_tests,
+            self.stream,
+            self.descriptions,
+            self.verbosity,
+            durations=self.durations,
+        )
+
+    def run(self, tests: _TempestaTestSuite) -> _TempestaTestResult:
+        self.stream.writeln(
+            """
+----------------------------------------------------------------------
+Running functional tests...
+----------------------------------------------------------------------
+            """
+        )
+        return super().run(tests)
+
+    def _print_rerun_info(
+        self, result: _TempestaTestResult, re_result: _TempestaTestResult, time_taken: float
+    ) -> None:
+        re_result.printErrors()
+        self.stream.writeln(re_result.separator2)
+        self.stream.writeln(f"Ran {re_result.testsRun} test in {time_taken:.2f}s")
+        self.stream.writeln()
+        infos = []
+        if not result.wasSuccessful():
+            self.stream.write("FAILED")
+            if re_result.failures:
+                infos.append(f"failures={len(re_result.failures)}")
+            if re_result.errors:
+                infos.append(f"errors={len(re_result.errors)}")
+            if re_result.unexpectedSuccesses:
+                infos.append(f"unexpected successes={len(re_result.unexpectedSuccesses)}")
+        else:
+            self.stream.write("OK")
+        if re_result.expectedFailures:
+            infos.append(f"expected failures={len(re_result.expectedFailures)}")
+
+        self.stream.writeln(f" ({', '.join(infos)}) " if infos else "\n")
+        self.stream.flush()
+
+    def _re_run_test_suite(self, result: _TempestaTestResult) -> None:
+        self.stream.writeln(
+            """
+----------------------------------------------------------------------
+Run failed tests again ...
+----------------------------------------------------------------------
+            """
+        )
+        rerun_tests = list(result.tests_to_rerun)
+        result.tests_to_rerun.clear()
+
+        start_time = time.perf_counter()
+        re_result = _TempestaTestSuite(tests=rerun_tests, repeat=1)(self._makeResult())
+        time_taken = time.perf_counter() - start_time
+
+        if re_result.errors:
+            re_errors_set = set(re_result.errors)
+            result.errors[:] = [err for err in result.errors if err in re_errors_set]
+
+        if re_result.failures:
+            re_failures_set = set(re_result.failures)
+            result.failures[:] = [fail for fail in result.failures if fail in re_failures_set]
+
+        if re_result.unexpectedSuccesses:
+            re_unexpected_success_set = set(re_result.unexpectedSuccesses)
+            result.unexpectedSuccesses[:] = [
+                success
+                for success in result.unexpectedSuccesses
+                if success in re_unexpected_success_set
+            ]
+        self._print_rerun_info(result, re_result, time_taken)
+
+    def run_test_suite(self, tests: list[unittest.IsolatedAsyncioTestCase], repeat: int) -> int:
+        """
+        Run the test suite and re-run the failed tests (if they are in the list of rerun tests)
+        """
+        test_suite = _TempestaTestSuite(tests=tests, repeat=repeat)
+        result = self.run(test_suite)
+
+        if result.tests_to_rerun:
+            self._re_run_test_suite(result)
+
+        return (
+            len(result.failures) > 0
+            or len(result.unexpectedSuccesses) > 0
+            or len(result.errors) > 0
+        )
 
 
 # I'd use a recursive generator, but `yield from` is python 3.3+

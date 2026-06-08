@@ -470,9 +470,9 @@ for p in t_priority_out:
         if t.id().startswith(p.rstrip()):
             filtered_tests.insert(0, filtered_tests.pop(filtered_tests.index(t)))
 
+# Create list of tests which can be retried
+retry_tests = []
 if t_retry:
-    # Create list of tests which can be retried
-    retry_tests = []
     for t_ret in t_retry_out:
         for t in filtered_tests:
             if t.id().startswith(t_ret.rstrip()):
@@ -501,65 +501,16 @@ if n_count != 1:
 if run_config.KERNEL_DBG_TESTS:
     remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
 
-print(
-    """
-----------------------------------------------------------------------
-Running functional tests%s...
-----------------------------------------------------------------------
-"""
-    % addn_status,
-    file=sys.stderr,
-)
-
-
 #
 # Run the discovered tests
 #
 with memworker.check_memory_leaks():
-    testsuite = shell.TestSuite(filtered_tests, repeat=n_count)
-    testRunner = unittest.runner.TextTestRunner(
+    result = shell.TempestaTestRunner(
+        rerun_tests=retry_tests,
         verbosity=v_level,
         failfast=fail_fast,
         descriptions=False,
-        resultclass=test_resume.resultclass(),
-    )
-    result = testRunner.run(testsuite)
-
-    if t_retry:
-        rerun_tests = []
-        for err in result.errors:
-            if err[0] in retry_tests:
-                retry_tests.pop(retry_tests.index(err[0]))
-                rerun_tests.append(err[0])
-        for err in result.failures:
-            if err[0] in retry_tests:
-                retry_tests.pop(retry_tests.index(err[0]))
-                rerun_tests.append(err[0])
-        if len(rerun_tests) > 0:
-            print(
-                """
-----------------------------------------------------------------------
-Run failed tests again ...
-----------------------------------------------------------------------
-"""
-            )
-            re_testsuite = unittest.TestSuite(rerun_tests)
-            re_testRunner = unittest.runner.TextTestRunner(
-                verbosity=v_level,
-                failfast=fail_fast,
-                descriptions=False,
-                resultclass=test_resume.resultclass(),
-            )
-            re_result = re_testRunner.run(re_testsuite)
-
-            for err in result.errors:
-                if err not in re_result.errors:
-                    index = result.errors.index(err)
-                    out = result.errors.pop(index)
-            for fail in result.failures:
-                if fail not in re_result.failures:
-                    index = result.failures.index(fail)
-                    out = result.failures.pop(index)
+    ).run_test_suite(tests=filtered_tests, repeat=n_count)
 
     # check if we finished running the tests
     if not filtered_tests or (
@@ -571,7 +522,6 @@ __check_kmemleak()
 
 # stop loggging
 tf_cfg.cfg.log_listener.stop()
-if len(result.failures) > 0 or len(result.unexpectedSuccesses) > 0 or len(result.errors) > 0:
-    sys.exit(1)
+sys.exit(result)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
