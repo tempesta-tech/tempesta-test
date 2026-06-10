@@ -343,6 +343,21 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             msg or f"Timeout exceeded while waiting connection close: {timeout}"
         )
 
+    async def wait_for_client_sends_requests(
+        self, valid_req_num: int = 0, timeout: float = 5, msg: str = ""
+    ) -> None:
+        """Wait for client sends requests from the buffers."""
+        valid_req_num = valid_req_num or self._valid_req_num
+        timeout_not_exceeded = await util.wait_until(
+            lambda: self._cur_req_num < valid_req_num,
+            timeout,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
+        )
+
+        assert timeout_not_exceeded, (
+            msg or f"Timeout exceeded while waiting connection close: {timeout}"
+        )
+
     async def wait_for_response(
         self,
         timeout: float = 5,

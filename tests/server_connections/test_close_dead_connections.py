@@ -3,6 +3,7 @@ __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 from framework.deproxy import deproxy_message
+from framework.helpers import util
 from framework.test_suite import marks, tester
 
 BODY_SIZE = 1024**2 * 10  # MB
@@ -12,6 +13,7 @@ CONNS_N = 64
 class FinishByClientBase(tester.TempestaTest):
     tempesta = {
         "config": f"""
+    listen 80 proto=http;
     listen 443 proto=h2,https;
 
     server ${{server_ip}}:8000 conns_n={CONNS_N};
@@ -22,6 +24,8 @@ class FinishByClientBase(tester.TempestaTest):
     tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
     tls_match_any_server_name;
     cache 0;
+    
+    http_max_header_list_size 200000;
     """
     }
 
@@ -34,9 +38,11 @@ class FinishByClientBase(tester.TempestaTest):
         }
     ]
 
-    def configure_deproxy_server(self) -> None:
+    def configure_deproxy_server(
+        self, *, conns_n: int, content_length: int, body_size: int
+    ) -> None:
         server = self.get_server("deproxy")
-        server.conns_n = CONNS_N
+        server.conns_n = conns_n
         server.segment_size = 1024
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
@@ -44,10 +50,10 @@ class FinishByClientBase(tester.TempestaTest):
             + "Content-type: text/html\r\n"
             + "Last-Modified: Mon, 12 Dec 2016 13:59:39 GMT\r\n"
             + "Server: Deproxy Server\r\n"
-            + f"Content-Length: {BODY_SIZE}\r\n"
+            + f"Content-Length: {content_length}\r\n"
             + f"Date: {deproxy_message.HttpMessage.date_time_string()}\r\n"
             + "\r\n"
-            + self.create_simpple_body(BODY_SIZE - 10)
+            + self.create_simpple_body(body_size)
         )
 
     @staticmethod
@@ -77,7 +83,9 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
         server = self.get_server("deproxy")
         client = self.get_client("h2")
 
-        self.configure_deproxy_server()
+        self.configure_deproxy_server(
+            conns_n=CONNS_N, content_length=BODY_SIZE, body_size=BODY_SIZE - 10
+        )
         self.disable_deproxy_auto_parser()
         await self.start_all_services(client=False)
         client.start()
@@ -102,18 +110,22 @@ class TestFinishH2StreamsByClient(FinishByClientBase):
 
 
 @marks.parameterize_class(
-    [{"name": "Https", "deproxy_type": "deproxy"}, {"name": "H2", "deproxy_type": "deproxy_h2"}]
+    [
+        {"name": "Http", "deproxy_type": "deproxy", "port": "80", "ssl": False},
+        {"name": "Https", "deproxy_type": "deproxy", "port": "443", "ssl": True},
+        {"name": "H2", "deproxy_type": "deproxy_h2", "port": "443", "ssl": True},
+    ]
 )
 class TestFinishTCPConnectionByClient(FinishByClientBase):
 
     deproxy_type: str = ""
+    port: str = ""
+    ssl: bool = False
 
     clients = [
         {
             "id": i,
             "addr": "${tempesta_ip}",
-            "port": "443",
-            "ssl": True,
         }
         for i in range(CONNS_N)
     ]
@@ -122,6 +134,8 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
     def setUpClass(cls):
         for client in cls.clients:
             client["type"] = cls.deproxy_type
+            client["port"] = cls.port
+            client["ssl"] = cls.ssl
         super().setUpClass()
 
     @marks.Parameterize.expand(
@@ -138,7 +152,9 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         and the server did not have time to send the full response.
         """
         server = self.get_server("deproxy")
-        self.configure_deproxy_server()
+        self.configure_deproxy_server(
+            conns_n=CONNS_N, content_length=BODY_SIZE, body_size=BODY_SIZE - 10
+        )
         self.disable_deproxy_auto_parser()
         await self.start_all_services()
 
@@ -163,4 +179,69 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         )
         await server.wait_for_connections(
             timeout=5, msg=f"Tempesta FW must recreate dead connections."
+        )
+
+    async def test_drop_request_of_closed_connection(self):
+        """
+        Tempesta FW must not send requests to the server if client
+        closes a connection.
+
+        We consider such requests as dead and remove them from the server connection queue.
+        Such requests are not removed from the queue when the connection is closed by the client.
+
+        This behavior is necessary to avoid memory loss on dead connections.
+        """
+        tempesta = self.get_tempesta()
+        server = self.get_server("deproxy")
+        bad_client = self.get_client(0)
+        valid_clients = util.ForEach(*self.get_clients()[1:])  # first client is bad
+        client_req_n = 5
+
+        tempesta.config.replace("conns_n=64", "conns_n=1")
+        server.rcv_buf_size = 2048
+        self.configure_deproxy_server(conns_n=1, content_length=10, body_size=10)
+        self.disable_deproxy_auto_parser()
+        await self.start_all_services()
+
+        self.assertEqual(len(server.connections), 1)
+        server.connections[0].readable = lambda: False
+
+        request_long = bad_client.create_request(
+            method="GET", uri="/long", headers=[("a", "a" * 150000)]
+        )
+        request_short = bad_client.create_request(method="GET", uri="/short", headers=[])
+
+        bad_client.make_request(request_long)
+        await self.assertWaitUntilEqual(lambda: tempesta.stats.get("cl_msg_forwarded"), 1)
+
+        bad_client.make_requests([request_long] * client_req_n)
+        valid_clients.make_requests([request_short] * client_req_n)
+        await self.assertWaitUntilEqual(
+            lambda: tempesta.stats.get("cl_msg_forwarded"),
+            client_req_n * len(self.get_clients()) + 1,
+            "Tempesta FW doesn't forward all requests to the server.",
+        )
+
+        bad_client.stop()
+        server.connections[0].readable = lambda: True
+
+        await server.wait_for_requests(n=len(list(valid_clients)) * client_req_n, timeout=10)
+
+        self.assertEqual(
+            len(server.requests),
+            (len(list(valid_clients)) * client_req_n + 1),
+            "Tempesta FW must forward requests to the server: client_N * client_requests_N + 1 (bad_requests).",
+        )
+
+        await valid_clients.wait_for_response(msg="The valid clients doesn't receive responses.")
+
+        for client in valid_clients:
+            self.assertEqual(len(client.responses), client_req_n)
+            for response in client.responses:
+                self.assertTrue(response.status, "200")
+
+        self.assertEqual(
+            1,
+            len([req for req in server.requests if "/long" in req.uri]),
+            "Tempesta FW sent requests to the server from the client that already closed the connection.",
         )

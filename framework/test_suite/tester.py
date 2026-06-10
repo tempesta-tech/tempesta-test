@@ -76,7 +76,11 @@ class WaitUntilAsserts(unittest.TestCase):
         if success:
             return None
 
-        self.fail(self._formatMessage(msg, f"Not equals even after {timeout} seconds"))
+        self.fail(
+            self._formatMessage(
+                msg, f"{func()} != {second} not equals even after {timeout} seconds"
+            )
+        )
 
     async def assertWaitUntilNotEqual(
         self,
@@ -90,7 +94,11 @@ class WaitUntilAsserts(unittest.TestCase):
         if success:
             return None
 
-        self.fail(self._formatMessage(msg, f"Still equals even after {timeout} seconds"))
+        self.fail(
+            self._formatMessage(
+                msg, f"{func()} != {second} still equals even after {timeout} seconds"
+            )
+        )
 
     async def assertWaitUntilIsNotNone(
         self,
@@ -137,7 +145,6 @@ class WaitUntilAsserts(unittest.TestCase):
         func: Callable,
         msg: str = None,
         timeout: int = 5,
-        poll_freq: float = run_config.asyncio_freq,
     ):
         success = await util.wait_until(wait_cond=lambda: func() is True, timeout=timeout)
 
