@@ -787,6 +787,9 @@ class DeproxyClientH2(BaseDeproxyClient):
             body=body,
         )
 
+    def update_local_settings(self, settings: dict):
+        self.h2_connection.local_settings.update(settings)
+
     def update_initial_settings(
         self,
         header_table_size: int = None,
@@ -812,7 +815,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         # if settings is empty, we should not change them
         if new_settings:
             self.h2_connection.local_settings = Settings(initial_values=new_settings)
-            self.h2_connection.local_settings.update(new_settings)
+            self.update_local_settings(new_settings)
 
         self.h2_connection.initiate_connection()
 

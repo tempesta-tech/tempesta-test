@@ -11,11 +11,12 @@ import string
 
 from h2.connection import AllowedStreamIDs, ConnectionInputs
 from h2.errors import ErrorCodes
+from h2.settings import SettingCodes
 from h2.stream import StreamInputs
 from hpack import HeaderTuple, NeverIndexedHeaderTuple
 from hpack.hpack import encode_integer
 from hyperframe import frame
-from hyperframe.frame import HeadersFrame
+from hyperframe.frame import HeadersFrame, SettingsFrame
 
 from framework.deproxy.deproxy_client import DeproxyClientH2, HuffmanEncoder
 from framework.deproxy.deproxy_message import HttpMessage
@@ -437,7 +438,7 @@ class TestHpack(TestHpackBase):
         self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
-        # and we expect \x3f\xe1\x07 bytes in first header frame
+        # and we expect \x3f\xe1\x1f bytes in first header frame
         client.send_settings_frame(header_table_size=12288)
         await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
@@ -468,10 +469,127 @@ class TestHpack(TestHpackBase):
         client.h2_connection.decoder.header_table_size = table_size
         await client.send_request(request=self.post_request, expected_status_code="200")
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
-        # and we expect \x3f\xe1\x07 bytes in first header frame
+        # and we expect \x3f\xe1\x1f bytes in first header frame
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x1f"),
             error_msg.format(4096),
+        )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
+
+    async def test_bytes_of_table_size_in_header_frame_multiple(self):
+        """
+        Multiple updates to the maximum table size can occur between the
+        transmission of two header blocks.  In the case that this size is
+        changed more than once in this interval, the smallest maximum table
+        size that occurs in that interval MUST be signaled in a dynamic table
+        size update.  The final maximum size is always signaled, resulting in
+        at most two dynamic table size updates.
+        RFC 7541 4.2
+
+        When multiple updates occur is expected that Tempesta sends two dynamic table updates -
+        smallest and final values.
+        """
+        await self.start_all_services()
+
+        client = self.get_client("deproxy")
+        error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
+
+        # Client set HEADER_TABLE_SIZE = 1024 bytes and expected \x3f\xe1\x07
+        # bytes in first header frame
+        client.update_initial_settings(header_table_size=1024)
+        await client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertTrue(
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x07"),
+            error_msg.format(1024),
+        )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
+
+        client.send_settings_frame(header_table_size=3072)
+        await client.wait_for_ack_settings(timeout=3)
+        client.send_settings_frame(header_table_size=768)
+        await client.wait_for_ack_settings(timeout=3)
+        client.send_settings_frame(header_table_size=2048)
+        await client.wait_for_ack_settings(timeout=3)
+
+        await client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertTrue(
+            # Expected the first update \x3f\xe1\x05 (768) smallest value
+            # Expected the second update \x3f\xe1\x0f (2048) final value
+            # Expected the response \x88\xc1\xc0\xbf\xbe
+            client.check_header_presence_in_last_response_buffer(
+                b"\x3f\xe1\x05\x3f\xe1\x0f\x88\xc1\xc0\xbf\xbe"
+            )
+        )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+    async def test_bytes_of_table_size_in_header_frame_multiple_not_override(self):
+        """
+        Multiple updates to the maximum table size can occur between the
+        transmission of two header blocks.  In the case that this size is
+        changed more than once in this interval, the smallest maximum table
+        size that occurs in that interval MUST be signaled in a dynamic table
+        size update.  The final maximum size is always signaled, resulting in
+        at most two dynamic table size updates.
+        RFC 7541 4.2
+
+        When multiple updates occur is expected that Tempesta sends two dynamic table updates -
+        smallest and final values. This test verifies that if a second update is sent before the
+        first one is acknowledged, the second update does not override the first and both are
+        applied.
+        """
+        await self.start_all_services()
+
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "hdr1: "
+            + ("x" * 128)
+            + "\r\n"
+            + "hdr2: "
+            + ("x" * 128)
+            + "\r\n"
+            + "hdr3: "
+            + ("x" * 128)
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: 0\r\n\r\n"
+        )
+
+        client = self.get_client("deproxy")
+        error_msg = "Tempesta did not add dynamic table size ({0}) before first header block."
+
+        # Client set HEADER_TABLE_SIZE = 2048 bytes and expected \x3f\xe1\x0f
+        # bytes in first header frame
+        client.update_initial_settings(header_table_size=2048)
+        await client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertTrue(
+            client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x0f"),
+            error_msg.format(2048),
+        )
+        self.assertEqual(client.h2_connection.decoder.header_table_size, 2048)
+
+        await client.send_request(request=self.post_request, expected_status_code="200")
+
+        new_settings = dict()
+        new_settings[SettingCodes.HEADER_TABLE_SIZE] = 0
+        client.update_local_settings(new_settings)
+
+        new_settings2 = dict()
+        new_settings2[SettingCodes.HEADER_TABLE_SIZE] = 4096
+        client.update_local_settings(new_settings2)
+        frame = (
+            SettingsFrame(settings=new_settings).serialize()
+            + SettingsFrame(settings=new_settings2).serialize()
+        )
+        client.send_bytes(data=frame)
+
+        await client.send_request(request=self.post_request, expected_status_code="200")
+        self.assertTrue(
+            # Expected the first update \x20 (0)
+            # Expected the second update \x3f\xe1\x1f (4096)
+            # Expected the response \x88\xc1\xc0\xbf\xbe
+            client.check_header_presence_in_last_response_buffer(b"\x20\x3f\xe1\x1f")
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
 

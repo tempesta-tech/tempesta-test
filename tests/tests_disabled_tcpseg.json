@@ -93,6 +93,10 @@
             "name": "tests.http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
             "reason": "These tests should not be run with TCP segmentation."
         },
+	{
+            "name": "tests.http2_general.test_h2_hpack.TestHpack.test_bytes_of_table_size_in_header_frame_multiple_not_override",
+            "reason": "On segmentation ack may be generated before receiving the second settings frame."
+        },
         {
             "name": "tests.http2_general.test_h2_responses.TestH2ResponsesPipelined",
             "reason": "These tests should not be run with TCP segmentation."
