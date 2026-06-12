@@ -11,7 +11,8 @@ import ssl
 import sys
 import time
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from collections.abc import Iterable
+from typing import Any, Dict, List, Optional, Union
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
@@ -30,6 +31,18 @@ from h2.events import (
 from h2.settings import SettingCodes, Settings
 from h2.stream import StreamInputs
 from hpack import Encoder
+from hyperframe.frame import (
+    ContinuationFrame,
+    DataFrame,
+    GoAwayFrame,
+    HeadersFrame,
+    PingFrame,
+    PriorityFrame,
+    PushPromiseFrame,
+    RstStreamFrame,
+    SettingsFrame,
+    WindowUpdateFrame,
+)
 
 import run_config
 from framework.deproxy import deproxy_message
@@ -305,6 +318,145 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         self._nrreq += 1
         if expect_response:
             self._valid_req_num += 1
+
+    """
+    The next set of methods send a raw HTTP/2 frame on the given stream.
+
+    This is a low-level API that bypasses higher-level helpers and allows
+    direct control over the frame construction and transmission.
+    """
+
+    def send_headers_frame(
+        self,
+        stream_id: int,
+        data: bytes,
+        depends_on: int = 0x0,
+        stream_weight: int = 0x0,
+        exclusive: bool = False,
+        pad_length: int = 0,
+        flags: Iterable[str] = (),
+        expect_response=False,
+        **kwargs: Any,
+    ) -> None:
+        frame = HeadersFrame(
+            stream_id=stream_id,
+            data=data,
+            depends_on=depends_on,
+            stream_weight=stream_weight,
+            exclusive=exclusive,
+            pad_length=pad_length,
+            flags=flags,
+            **kwargs,
+        )
+
+        self.send_bytes(data=frame.serialize(), expect_response=expect_response)
+
+    def send_data_frame(
+        self,
+        stream_id: int,
+        data: bytes,
+        pad_length: int = 0,
+        flags: Iterable[str] = (),
+        **kwargs: Any,
+    ) -> None:
+        frame = DataFrame(
+            stream_id=stream_id, data=data, pad_length=pad_length, flags=flags, **kwargs
+        )
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_priority_frame(
+        self,
+        stream_id: int,
+        depends_on: int = 0x0,
+        stream_weight: int = 0x0,
+        exclusive: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        frame = PriorityFrame(
+            stream_id=stream_id,
+            depends_on=depends_on,
+            stream_weight=stream_weight,
+            exclusive=exclusive,
+            **kwargs,
+        )
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_rst_stream_frame(self, stream_id: int, error_code: int = 0, **kwargs: Any) -> None:
+        frame = RstStreamFrame(stream_id=stream_id, error_code=error_code, **kwargs)
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_settings_frame(
+        self,
+        stream_id: int = 0,
+        settings: dict[int, int] | None = None,
+        flags: Iterable[str] = (),
+        **kwargs: Any,
+    ) -> None:
+        frame = SettingsFrame(stream_id=stream_id, settings=settings, flags=flags, **kwargs)
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_push_promise_frame(
+        self,
+        stream_id: int,
+        promised_stream_id: int = 0,
+        data: bytes = b"",
+        pad_length: int = 0,
+        flags: Iterable[str] = (),
+        **kwargs: Any,
+    ) -> None:
+        frame = PushPromiseFrame(
+            stream_id=stream_id,
+            promised_stream_id=promised_stream_id,
+            data=data,
+            pad_length=pad_legnth,
+            flags=flags,
+            **kwargs,
+        )
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_ping_frame(
+        self, stream_id: int = 0, opaque_data: bytes = b"", flags: Iterable[str] = (), **kwargs: Any
+    ) -> None:
+        frame = PingFrame(stream_id=stream_id, opaque_data=opaque_data, flags=flags, **kwargs)
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_go_away_frame(
+        self,
+        stream_id: int = 0,
+        last_stream_id: int = 0,
+        error_code: int = 0,
+        additional_data: bytes = b"",
+        **kwargs: Any,
+    ) -> None:
+        frame = GoAwayFrame(
+            stream_id=stream_id,
+            last_stream_id=last_stream_id,
+            error_code=error_code,
+            additional_data=additional_data,
+            **kwargs,
+        )
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_window_update_frame(
+        self, stream_id: int, window_increment: int = 0, **kwargs: Any
+    ) -> None:
+        frame = WindowUpdateFrame(stream_id=stream_id, window_increment=window_increment, **kwargs)
+
+        self.send_bytes(data=frame.serialize())
+
+    def send_continuation_frame(
+        self, stream_id: int = 0, data: bytes = b"", flags: Iterable[str] = (), **kwargs: Any
+    ) -> None:
+        frame = ContinuationFrame(stream_id=stream_id, data=data, flags=flags, **kwargs)
+
+        self.send_bytes(data=frame.serialize())
 
     async def wait_for_connection_open(
         self, timeout: float = 5, adjust_timeout: bool = True, msg: Optional[str] = None
@@ -635,6 +787,9 @@ class DeproxyClientH2(BaseDeproxyClient):
             body=body,
         )
 
+    def update_local_settings(self, settings: dict):
+        self.h2_connection.local_settings.update(settings)
+
     def update_initial_settings(
         self,
         header_table_size: int = None,
@@ -660,7 +815,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         # if settings is empty, we should not change them
         if new_settings:
             self.h2_connection.local_settings = Settings(initial_values=new_settings)
-            self.h2_connection.local_settings.update(new_settings)
+            self.update_local_settings(new_settings)
 
         self.h2_connection.initiate_connection()
 
