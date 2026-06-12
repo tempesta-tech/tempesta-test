@@ -4,6 +4,8 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2024 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
+
 from h2.errors import ErrorCodes
 from hyperframe.frame import DataFrame
 
@@ -39,6 +41,75 @@ class TestFlowControl(H2Base, asserts.Sniffer):
             response_body,
             "Tempesta returned invalid response body.",
         )
+
+    def _ensure_ack_received_after_headers(self, data: bytes) -> bool:
+        """
+        Ensure that SETTINGS ack frame received immediately after HEADERS frame.
+        """
+        offset = 0
+
+        while offset + 9 <= len(data):
+            length = int.from_bytes(data[offset : offset + 3])
+            frame_type = data[offset + 3]
+            flags = data[offset + 4]
+
+            frame_size = 9 + length
+
+            if offset + frame_size > len(data):
+                break
+
+            offset += frame_size
+            if frame_type == 0x01:  # HEADERS
+                length = int.from_bytes(data[offset : offset + 3])
+                frame_type = data[offset + 3]
+                flags = data[offset + 4]
+                if frame_type == 0x04:  # SETTINGS
+                    return True
+                return False
+
+        return False
+
+    async def test_apply_new_window_size_on_blocked_stream(self):
+        """
+        The test is designed to force Tempesta to stop sending the first DATA frame due to an
+        insufficient flow-control window while the final chunk of the HEADERS frame is still
+        pending. At this point, Tempesta may apply the new initial_window_size, value that
+        was received earlier, however does it after sending the first DATA frame that is
+        incorrect behavior - settings must be applied upon receive. Also verifies that SETTINGS
+        ack is received after HEADERS block, it implies that new settings were applied before
+        sending the new DATA frame.
+        """
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 2048
+
+        await self.start_all_services()
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * (930))
+            + "\r\n"  # The value 930 selected during testing
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: 2048\r\n\r\n"
+            + ("q" * 2048)
+        )
+
+        client.readable = lambda: False
+        client.auto_flow_control = False
+
+        client.update_initial_settings(initial_window_size=0)
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.make_request(self.get_request)
+        client.send_settings_frame(initial_window_size=1024)
+        # Wait while settigns frame will be processed
+        await asyncio.sleep(2)
+        client.readable = lambda: True
+        await client.wait_for_ack_settings()
+        client.send_settings_frame(initial_window_size=2048)
+        await client.wait_for_ack_settings()
+        await client.wait_for_response()
+        self._ensure_ack_received_after_headers(client._last_response_buffer)
 
     @marks.Parameterize.expand(
         [
