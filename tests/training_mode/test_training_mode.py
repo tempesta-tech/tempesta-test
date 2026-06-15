@@ -381,8 +381,26 @@ class CommonTestCases(TestTrainingBaseDeproxy):
                 id_ += 1
             remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
 
-    async def test_data_dribble(self):
-        await self.setup_test("training_z_score_mem 3;\n", False)
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="blocked_by_mem",
+                config="""
+                    training_z_score_mem 3;
+                    training_z_score_cpu 1000;
+                """,
+            ),
+            marks.Param(
+                name="blocked_by_cpu",
+                config="""
+                    training_z_score_mem 1000;
+                    training_z_score_cpu 3;
+                """,
+            ),
+        ]
+    )
+    async def test_data_dribble(self, name, config):
+        await self.setup_test(config, False)
         await self.__training()
         client = self.get_client("deproxy")
         client.start()
@@ -392,7 +410,31 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         client.make_request(request)
         await client.wait_for_connection_close()
 
-    async def test_ping_flood(self):
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="blocked_by_mem",
+                config="""
+                    ctrl_frame_rate_multiplier 10000;
+                    training_z_score_mem 2;
+                    training_z_score_connection_num 10000;
+                    training_z_score_request_num 10000;
+                    training_z_score_cpu 10000;
+                """,
+            ),
+            marks.Param(
+                name="blocked_by_cpu",
+                config="""
+                    ctrl_frame_rate_multiplier 10000;
+                    training_z_score_mem 10000;
+                    training_z_score_connection_num 10000;
+                    training_z_score_request_num 10000;
+                    training_z_score_cpu 3;
+                """,
+            ),
+        ]
+    )
+    async def test_ping_flood(self, name, config):
         defconfig = self.get_tempesta().config.defconfig
 
         await self.setup_test(
