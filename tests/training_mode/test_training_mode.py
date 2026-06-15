@@ -7,7 +7,7 @@ import asyncio
 from hyperframe.frame import PingFrame
 
 from framework.deproxy import deproxy_message
-from framework.helpers import analyzer, networker, remote, tf_cfg
+from framework.helpers import analyzer, dmesg, networker, remote, tf_cfg
 from framework.helpers.analyzer import RST, TCP
 from framework.helpers.error import ProcessBadExitStatusException
 from framework.test_suite import marks, tester
@@ -76,18 +76,21 @@ server ${server_ip}:8000 conns_n=64;
         self.setup_config(extra_config)
         await self.start_all_services(client=start_client)
 
+    async def check_dmesg(self, msg):
+        return await self.loggers.dmesg.find(msg, cond=dmesg.amount_greater_eq(1))
+
 
 class TestConfig(TestTrainingBase):
     @marks.Parameterize.expand(
         [
             marks.Param(name="negative_period", invalid_config="training_period -1;\n"),
-            marks.Param(name="negative_mem", invalid_config="training_z_score_mem -1;\n"),
-            marks.Param(name="negative_cpu", invalid_config="training_z_score_cpu -1;\n"),
+            marks.Param(name="negative_mem", invalid_config="adaptive_limits_z_score_mem -1;\n"),
+            marks.Param(name="negative_cpu", invalid_config="adaptive_limits_z_score_cpu -1;\n"),
             marks.Param(
-                name="negative_req_num", invalid_config="training_z_score_request_num -1;\n"
+                name="negative_req_num", invalid_config="adaptive_limits_z_score_request_num -1;\n"
             ),
             marks.Param(
-                name="negative_conn_num", invalid_config="training_z_score_connection_num -1;\n"
+                name="negative_conn_num", invalid_config="adaptive_limits_z_score_connection_num -1;\n"
             ),
         ]
     )
@@ -159,9 +162,9 @@ class TestTrainingConnections(TestTrainingBase):
             marks.Param(
                 name="default",
                 extra_config="""
-                    training_z_score_request_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_request_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                 """,
                 conn_num=40,
                 block_expected=True,
@@ -169,10 +172,10 @@ class TestTrainingConnections(TestTrainingBase):
             marks.Param(
                 name="1",
                 extra_config="""
-                    training_z_score_connection_num 1;
-                    training_z_score_request_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_connection_num 1;
+                    adaptive_limits_z_score_request_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                 """,
                 conn_num=40,
                 block_expected=True,
@@ -180,10 +183,10 @@ class TestTrainingConnections(TestTrainingBase):
             marks.Param(
                 name="5",
                 extra_config="""
-                    training_z_score_connection_num 5;
-                    training_z_score_request_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_connection_num 5;
+                    adaptive_limits_z_score_request_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                 """,
                 conn_num=40,
                 block_expected=False,
@@ -259,9 +262,9 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
                 name="default",
                 extra_config="""
                     nonidempotent POST * *;
-                    training_z_score_connection_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_connection_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                     max_concurrent_streams 10000;
                 """,
                 req_num=40,
@@ -272,10 +275,10 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
                 name="1",
                 extra_config="""
                     nonidempotent POST * *;
-                    training_z_score_request_num 1;
-                    training_z_score_connection_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_request_num 1;
+                    adaptive_limits_z_score_connection_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                     max_concurrent_streams 10000;
                 """,
                 req_num=40,
@@ -286,10 +289,10 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
                 name="5",
                 extra_config="""
                     nonidempotent POST * *;
-                    training_z_score_request_num 5;
-                    training_z_score_connection_num 1000;
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_request_num 5;
+                    adaptive_limits_z_score_connection_num 1000;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 1000;
                     max_concurrent_streams 10000;
                 """,
                 req_num=40,
@@ -298,6 +301,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
             ),
         ]
     )
+    @dmesg.unlimited_rate_on_tempesta_node
     async def test_request_num_exceeded_z_score(
         self, name, extra_config, req_num, block_expected, frang_config
     ):
@@ -336,6 +340,11 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
             client.make_requests(requests)
             if block_expected:
                 await client.wait_for_connection_close()
+                self.assertTrue(
+                    await self.check_dmesg(
+                        "Client connection dropped: non-idempotent request z-score exceeded the configured threshold"
+                    )
+                )
             else:
                 await server.wait_for_requests(req_num)
                 server.flush()
@@ -353,9 +362,6 @@ class CommonTestCases(TestTrainingBaseDeproxy):
             "cmd_args": "",
         },
     ]
-
-    def __reset_conn_n(self, client):
-        return sum(1 for line in client.stderr.decode().splitlines() if "reset by peer" in line)
 
     def __setup_external_client(self, cmd_args):
         client = self.get_client("ctrl_frames_flood")
@@ -386,20 +392,23 @@ class CommonTestCases(TestTrainingBaseDeproxy):
             marks.Param(
                 name="blocked_by_mem",
                 config="""
-                    training_z_score_mem 3;
-                    training_z_score_cpu 1000;
+                    adaptive_limits_z_score_mem 3;
+                    adaptive_limits_z_score_cpu 1000;
                 """,
+                msg="Client connection dropped: client memory usage z-score exceeded the configured threshold",
             ),
             marks.Param(
                 name="blocked_by_cpu",
                 config="""
-                    training_z_score_mem 1000;
-                    training_z_score_cpu 3;
+                    adaptive_limits_z_score_mem 1000;
+                    adaptive_limits_z_score_cpu 3;
                 """,
+                msg="Client connection dropped: client cpu usage z-score exceeded the configured threshold",
             ),
         ]
     )
-    async def test_data_dribble(self, name, config):
+    @dmesg.unlimited_rate_on_tempesta_node
+    async def test_data_dribble(self, name, config, msg):
         await self.setup_test(config, False)
         await self.__training()
         client = self.get_client("deproxy")
@@ -409,6 +418,7 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         client.segment_size = 1
         client.make_request(request)
         await client.wait_for_connection_close()
+        self.assertTrue(await self.check_dmesg(msg))
 
     @marks.Parameterize.expand(
         [
@@ -416,33 +426,37 @@ class CommonTestCases(TestTrainingBaseDeproxy):
                 name="blocked_by_mem",
                 config="""
                     ctrl_frame_rate_multiplier 10000;
-                    training_z_score_mem 2;
-                    training_z_score_connection_num 10000;
-                    training_z_score_request_num 10000;
-                    training_z_score_cpu 10000;
+                    adaptive_limits_z_score_mem 2;
+                    adaptive_limits_z_score_connection_num 10000;
+                    adaptive_limits_z_score_request_num 10000;
+                    adaptive_limits_z_score_cpu 10000;
                 """,
+                msg="Client connection dropped: client memory usage z-score exceeded the configured threshold",
             ),
             marks.Param(
                 name="blocked_by_cpu",
                 config="""
                     ctrl_frame_rate_multiplier 10000;
-                    training_z_score_mem 10000;
-                    training_z_score_connection_num 10000;
-                    training_z_score_request_num 10000;
-                    training_z_score_cpu 3;
+                    adaptive_limits_z_score_mem 10000;
+                    adaptive_limits_z_score_connection_num 10000;
+                    adaptive_limits_z_score_request_num 10000;
+                    adaptive_limits_z_score_cpu 3;
                 """,
+                msg="Client connection dropped: client cpu usage z-score exceeded the configured threshold",
             ),
         ]
     )
-    async def test_ping_flood(self, name, config):
+    @dmesg.unlimited_rate_on_tempesta_node
+    async def test_ping_flood(self, name, config, msg):
         defconfig = self.get_tempesta().config.defconfig
 
         await self.setup_test(
             """
             ctrl_frame_rate_multiplier 10000;
-            training_z_score_mem 10000;
-            training_z_score_connection_num 10000;
-            training_z_score_request_num 10000;
+            adaptive_limits_z_score_mem 10000;
+            adaptive_limits_z_score_connection_num 10000;
+            adaptive_limits_z_score_request_num 10000;
+            adaptive_limits_z_score_cpu 10000;
         """,
             False,
         )
@@ -459,17 +473,10 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         tempesta.get_stats()
         self.assertEqual(tempesta.stats.cl_ping_frame_exceeded, 0)
         self.assertEqual(tempesta.stats.wq_full, 0)
-        self.assertEqual(self.__reset_conn_n(client), 0)
+        self.assertFalse(await self.check_dmesg(msg))
 
         self.get_tempesta().config.defconfig = defconfig
-        self.setup_config(
-            """
-            ctrl_frame_rate_multiplier 10000;
-            training_z_score_mem 2;
-            training_z_score_connection_num 1000;
-            training_z_score_request_num 1000;
-        """
-        )
+        self.setup_config(config)
         self.get_tempesta().reload()
         remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
 
@@ -480,7 +487,7 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         tempesta.get_stats()
         self.assertEqual(tempesta.stats.cl_ping_frame_exceeded, 0)
         self.assertEqual(tempesta.stats.wq_full, 0)
-        self.assertGreater(self.__reset_conn_n(client), 0)
+        self.assertTrue(await self.check_dmesg(msg))
 
 
 class TestTrainingStress(TestTrainingBase):
@@ -558,10 +565,10 @@ class TestTrainingStress(TestTrainingBase):
         await self.__test_reload_base(
             """
                 client_mem  50G 100G;
-                training_z_score_connection_num 1;
-                training_z_score_mem 1000;
-                training_z_score_cpu 1000;
-                training_z_score_request_num 1000;
+                adaptive_limits_z_score_connection_num 1;
+                adaptive_limits_z_score_mem 1000;
+                adaptive_limits_z_score_cpu 1000;
+                adaptive_limits_z_score_request_num 1000;
             """
         )
 
@@ -577,7 +584,7 @@ class TestTrainingStress(TestTrainingBase):
         self.assertEqual(conn_num - success_cnt, 0)
 
     async def test_restart_training_under_load(self):
-        await self.__start("training_z_score_connection_num 1;")
+        await self.__start("adaptive_limits_z_score_connection_num 1;")
         task = None
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
