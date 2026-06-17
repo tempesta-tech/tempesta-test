@@ -305,7 +305,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
     async def test_request_num_exceeded_z_score(
         self, name, extra_config, req_num, block_expected, frang_config
     ):
-        await self.setup_test(extra_config, True)
+        await self.setup_test(extra_config, False)
         server = self.get_server("deproxy")
 
         with networker.create_and_cleanup_interfaces(
@@ -315,6 +315,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
             id_ = 0
             for ip in ips:
                 client = self.get_client(f"deproxy-interface-{id_}")
+                client.start()
                 request = client.create_request(method="POST", headers=[])
                 requests = [request] * (id_ + 1)
                 server.pipelined = (id_ + 1) + 1
@@ -335,6 +336,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
             server.restart()
             await server.wait_for_connections()
             client = self.get_client("deproxy")
+            client.start()
             request = client.create_request(method="POST", headers=[])
             requests = [request] * req_num
             client.make_requests(requests)
