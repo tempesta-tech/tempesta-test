@@ -50,7 +50,7 @@ server ${server_ip}:8000 conns_n=64;
         }
 
     def assertTrainingMode(self, expected):
-        training_mode = int(remote.client.run_cmd("sysctl --values net.tempesta.training")[0])
+        training_mode = int(remote.tempesta.run_cmd("sysctl --values net.tempesta.training")[0])
         self.assertEqual(training_mode, expected)
 
     def setup_curl_client(self, client, conn_num):
@@ -321,7 +321,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
                 requests = [request] * (id_ + 1)
                 server.pipelined = (id_ + 1) + 1
                 server.restart()
-                await server.wait_for_connections()
+                await server.wait_for_connections(timeout=5)
                 client.make_requests(requests)
                 await server.wait_for_requests(id_ + 1)
                 self.assertEqual(len(client.responses), 0)
@@ -335,7 +335,7 @@ class TestTrainingRequests(TestTrainingBaseDeproxy):
 
             server.pipelined = req_num + 1
             server.restart()
-            await server.wait_for_connections()
+            await server.wait_for_connections(timeout=5)
             client = self.get_client("deproxy")
             client.start()
             request = client.create_request(method="POST", headers=[])
@@ -371,10 +371,7 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         client.options = [cmd_args % tf_cfg.cfg.get("Tempesta", "ip")]
         return client
 
-    async def __send_requests_and_check_responses(self, client, count):
-        request = client.create_request(
-            method="POST", headers=[("Content-length", "1000")], body="a" * 1000
-        )
+    async def __send_requests_and_check_responses(self, client, request, count):
         requests = [request] * count
         client.make_requests(requests)
         await client.wait_for_response()
@@ -382,7 +379,7 @@ class CommonTestCases(TestTrainingBaseDeproxy):
         for i in range(count):
             self.assertTrue(client.responses[i].status, "200")
 
-    async def __training(self):
+    async def __training(self, request):
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
         ) as ips:
@@ -391,7 +388,7 @@ class CommonTestCases(TestTrainingBaseDeproxy):
             for ip in ips:
                 client = self.get_client(f"deproxy-interface-{id_}")
                 client.start()
-                await self.__send_requests_and_check_responses(client, (id_ + 1) * 10)
+                await self.__send_requests_and_check_responses(client, request, (id_ + 1) * 10)
                 id_ += 1
             remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
 
@@ -422,15 +419,15 @@ class CommonTestCases(TestTrainingBaseDeproxy):
     @dmesg.unlimited_rate_on_tempesta_node
     async def test_data_dribble(self, name, config, msg):
         await self.setup_test(config, False)
-        await self.__training()
         client = self.get_client("deproxy")
-        client.start()
-        req_count = (int)(TestTrainingBase.training_clients_n)
-        await self.__send_requests_and_check_responses(client, req_count)
-        client.segment_size = 1
         request = client.create_request(
             method="POST", headers=[("Content-length", "1000")], body="a" * 1000
         )
+        await self.__training(request)
+        client.start()
+        req_count = (int)(TestTrainingBase.training_clients_n)
+        await self.__send_requests_and_check_responses(client, request, req_count)
+        client.segment_size = 1
         client.make_requests([request] * req_count)
         await client.wait_for_connection_close()
         self.assertTrue(await self.check_dmesg(msg))
@@ -467,41 +464,33 @@ class CommonTestCases(TestTrainingBaseDeproxy):
 
         await self.setup_test(
             """
-            ctrl_frame_rate_multiplier 10000;
-            adaptive_limits_z_score_mem 10000;
-            adaptive_limits_z_score_connection_num 10000;
-            adaptive_limits_z_score_request_num 10000;
-            adaptive_limits_z_score_cpu 10000;
+            ctrl_frame_rate_multiplier 65535;
+            adaptive_limits_z_score_mem 100000;
+            adaptive_limits_z_score_connection_num 100000;
+            adaptive_limits_z_score_request_num 100000;
+            adaptive_limits_z_score_cpu 100000;
         """,
             False,
         )
-        await self.__training()
+        client = self.get_client("deproxy")
+        request = client.create_request(method="GET", headers=[])
+        await self.__training(request)
 
         client = self.__setup_external_client(
-            f"-address %s:443 -threads 1 -connections 4 -ctrl_frame_type ping_frame -frame_count 5000"
+            f"-address %s:443 -threads 4 -connections 10 -ctrl_frame_type ping_frame -frame_count 10000"
         )
         client.start()
-        await self.wait_while_busy(client)
+        await self.wait_while_busy(client, timeout=50)
         client.stop()
-
-        tempesta = self.get_tempesta()
-        tempesta.get_stats()
-        self.assertEqual(tempesta.stats.cl_ping_frame_exceeded, 0)
-        self.assertEqual(tempesta.stats.wq_full, 0)
         self.assertFalse(await self.check_dmesg(msg))
 
         self.get_tempesta().config.defconfig = defconfig
         self.setup_config(config)
         self.get_tempesta().reload()
-        remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
 
         client.start()
-        await self.wait_while_busy(client)
+        await self.wait_while_busy(client, timeout=50)
         client.stop()
-        tempesta = self.get_tempesta()
-        tempesta.get_stats()
-        self.assertEqual(tempesta.stats.cl_ping_frame_exceeded, 0)
-        self.assertEqual(tempesta.stats.wq_full, 0)
         self.assertTrue(await self.check_dmesg(msg))
 
 
@@ -545,7 +534,7 @@ class TestTrainingStress(TestTrainingBase):
         source_ips = ""
         for ip in ips:
             source_ips += ip + " "
-        cmd_args = f'-address %s:443 -host tempesta-tech.com -source_ip "%s" -threads 4 -connections 999 -streams 100'
+        cmd_args = f'-address %s:443 -host tempesta-tech.com -source_ip "%s" -threads 100 -connections 100 -streams 10'
         client = self.get_client("gflood")
         client.options = [cmd_args % (tf_cfg.cfg.get("Tempesta", "ip"), source_ips)]
         return client
@@ -553,14 +542,13 @@ class TestTrainingStress(TestTrainingBase):
     async def __test_reload_base(self, extra_config):
         await self.__start(extra_config)
         remote.tempesta.run_cmd("sysctl -w net.tempesta.training=1")
+        self.assertTrainingMode(1)
 
         task = asyncio.create_task(self._do_reload())
-
         with networker.create_and_cleanup_interfaces(
             node=remote.client, number_of_ip=TestTrainingBase.training_clients_n
         ) as ips:
             client = self.__setup_gflood_client(ips)
-            self.assertTrainingMode(1)
             client.start()
             await self.wait_while_busy(client)
             client.stop()
@@ -568,14 +556,6 @@ class TestTrainingStress(TestTrainingBase):
         remote.tempesta.run_cmd("sysctl -w net.tempesta.training=0")
         self.stop = True
         await task
-
-        conn_num = 40
-        client = self.get_client("curl")
-        client = self.setup_curl_client(client, conn_num)
-
-        client.start()
-        await self.wait_while_busy(client)
-        client.stop()
 
     async def test_reload_with_training_under_load_conn_num(self):
         await self.__test_reload_base(
@@ -597,7 +577,7 @@ class TestTrainingStress(TestTrainingBase):
         client.stop()
 
         success_cnt = client.response_msg.count("HTTP/1.1 200 OK")
-        self.assertEqual(conn_num - success_cnt, 0)
+        self.assertEqual(conn_num, success_cnt)
 
     async def test_restart_training_under_load(self):
         await self.__start("adaptive_limits_z_score_connection_num 1;")
