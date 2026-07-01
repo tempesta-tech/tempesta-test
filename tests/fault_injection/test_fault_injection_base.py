@@ -761,13 +761,89 @@ tls_certificate {TEMPESTA_WORKDIR}/tempesta.crt;
 tls_certificate_key {TEMPESTA_WORKDIR}/tempesta.key;
 server {SERVER_IP}:8000 conns_n=10;
 
-srv_group test {{
+health_check auto {{
+    request     "GET / HTTP/1.0\r\n\r\n";
+    request_url "/";
+    resp_code   200;
+    resp_crc32    auto;
+    timeout     3;
+}}
+
+srv_group test1 {{
+    health auto;
     sched hash;
     server {SERVER_IP}:8001 conns_n=10;
 }}
 
+srv_group test2 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test3 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test4 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test5 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test6 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test7 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test8 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test9 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test10 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test11 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+srv_group test12 {{
+    health auto;
+    sched hash;
+    server {SERVER_IP}:8001 conns_n=10;
+}}
+
+
 vhost tests {{
-    proxy_pass test;
+    proxy_pass test1;
 }}
 
 http_chain {{
