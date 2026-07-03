@@ -1026,23 +1026,10 @@ class DeproxyClientH2(BaseDeproxyClient):
                 elif isinstance(event, SettingsAcknowledged):
                     self._ack_settings = True
                     self._ack_cnt += 1
-                    if event == events[-1]:
-                        # TODO should be changed by issue #358
-                        self._handle_read()
                 elif isinstance(event, WindowUpdated):
-                    if event == events[-1]:
-                        # TODO should be changed by issue #358
-                        self._handle_read()
-                    else:
-                        continue
+                    continue
                 elif isinstance(event, PingAckReceived):
                     self._ping_received += 1
-                    if event == events[-1]:
-                        # TODO should be changed by issue #358
-                        self._handle_read()
-                # TODO should be changed by issue #358
-                else:
-                    self._handle_read()
 
         except deproxy_message.IncompleteMessage:
             self._http_logger.debug(f"Receive IncompleteMessage")
