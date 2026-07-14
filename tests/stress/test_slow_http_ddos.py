@@ -1,10 +1,17 @@
-"""Slow HTTP (RUDY / low-and-slow) DDoS tests against Tempesta FW.
+"""Slow HTTP *request body* (RUDY / low-and-slow upload) DDoS tests.
 
-Uses the RUDY tool with HTTP/1.1 and HTTP/2 support
-(https://github.com/symstu-tempesta/rudy/tree/symstu/added-http2-support)
-to open concurrent connections that drip-feed the request body one byte at a
-time. Tempesta FW must keep serving legitimate clients while frang
+Direction: **client → server** — large POST drip-fed one byte at a time.
+
+This is the opposite of CVE-2019-9511 Data Dribble (slow *response* read,
+server → client; see ``tests/cve/test_cve.py::TestSlowRead``).
+
+Uses RUDY with HTTP/1.1 and HTTP/2 support
+(https://github.com/symstu-tempesta/rudy/tree/symstu/added-http2-support).
+Tempesta FW must keep serving legitimate clients while frang
 ``client_body_timeout`` closes the stalled attack connections.
+
+Deproxy multi-stream H2 upload variant:
+``tests/cve/test_cve.py::TestSlowHttp2RequestBody``.
 """
 
 __author__ = "Tempesta Technologies, Inc."
