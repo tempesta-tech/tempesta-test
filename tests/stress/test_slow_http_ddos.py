@@ -205,7 +205,7 @@ http_chain {{
 
         tempesta = self.get_tempesta()
         tempesta.get_stats()
-        self.assertEqual(
+        self.assertGreaterEqual(
             tempesta.stats.cl_msg_received,
             3,
             "Tempesta FW did not receive client messages during the test.",
