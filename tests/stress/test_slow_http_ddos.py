@@ -120,6 +120,10 @@ srv_group main {{server ${{server_ip}}:8000 conns_n=128;}}
 
 vhost tempesta-tech.com {{proxy_pass main;}}
 
+tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+tls_match_any_server_name;
+
 http_chain {{
     -> tempesta-tech.com;
 }}
