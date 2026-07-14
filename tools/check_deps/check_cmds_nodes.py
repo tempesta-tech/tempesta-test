@@ -23,6 +23,7 @@ cmds = {
         {"cmd": tf_cfg.cfg.get("Client", "wrk"), "install": "wrk"},
         {"cmd": tf_cfg.cfg.get("Client", "h2load"), "install": "nghttp2-client"},
         {"cmd": tf_cfg.cfg.get("Client", "tls-perf"), "install": ""},
+        {"cmd": tf_cfg.cfg.get("Client", "rudy"), "install": "rudy (setup.py)"},
     ],
     remote.tempesta: [
         {"cmd": "netstat", "install": "net-tools"},

@@ -174,6 +174,19 @@ def main():
     # gutils - Common golang utils
     shell("sudo go build -o /usr/bin/ratecheck ./tools/gutils/cmd/ratecheck/main.go")
 
+    # rudy - R-U-Dead-Yet? slow HTTP (low and slow) DoS tool
+    # https://github.com/darkweak/rudy
+    build_path = os.path.join(TEMP_DIR, "rudy")
+    if os.path.exists(build_path):
+        shutil.rmtree(build_path)
+    shell(f"git clone --depth=1 https://github.com/darkweak/rudy.git {build_path}")
+    # GOTOOLCHAIN=auto downloads the Go version required by rudy's go.mod if needed.
+    shell("GOTOOLCHAIN=auto go build -o rudy ./cmd/rudy", cwd=build_path)
+    compile_dir = os.path.join(build_path, "rudy")
+    shell(f"sudo cp {compile_dir} /usr/bin/rudy")
+    if os.path.exists(build_path):
+        shutil.rmtree(build_path)
+
     # curl
     build_path = os.path.join(TEMP_DIR, "curl")
     if os.path.exists(build_path):
