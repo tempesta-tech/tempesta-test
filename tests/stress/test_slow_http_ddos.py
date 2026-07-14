@@ -95,8 +95,9 @@ class TestSlowHttpDDoS(tester.TempestaTest):
     tempesta = {
         "config": f"""
 listen 80 proto=http;
+listen 443 proto=h2,https;
 
-cache 1;
+cache 2;
 cache_fulfill * *;
 cache_methods GET HEAD;
 cache_ttl 3600;
@@ -115,16 +116,12 @@ frang_limits {{
 block_action attack drop;
 block_action error reply;
 
-srv_group main {{
-    server ${{server_ip}}:8000 conns_n=32;
-}}
+srv_group main {{server ${{server_ip}}:8000 conns_n=128;}}
 
-vhost default {{
-    proxy_pass main;
-}}
+vhost tempesta-tech.com {{proxy_pass main;}}
 
 http_chain {{
-    -> default;
+    -> tempesta-tech.com;
 }}
 """
     }
