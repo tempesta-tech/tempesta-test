@@ -124,6 +124,7 @@ class TestFrameworkCfg:
                     "wrk": "wrk",
                     "h2load": "h2load",
                     "tls-perf": "tls-perf",
+                    "rudy": "rudy",
                     "workdir": "/tmp/client",
                 },
                 "Tempesta": {

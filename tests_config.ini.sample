@@ -153,6 +153,14 @@ h2load = h2load
 #
 tls-perf = tls-perf
 
+# RUDY (R-U-Dead-Yet?) slow HTTP/1.1 and HTTP/2 DoS tool for low-and-slow tests.
+# Installed by setup.py from https://github.com/symstu-tempesta/rudy
+# (branch symstu/added-http2-support: --protocol http1|http2|h2c, -k insecure TLS).
+#
+# ex.: rudy = /usr/bin/rudy
+#
+rudy = rudy
+
 
 [Tempesta]
 # Configuration for the host running TempestaFW. It may be configured to run
