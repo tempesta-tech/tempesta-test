@@ -2,6 +2,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import random
 import string
 from pathlib import Path
@@ -14,6 +15,18 @@ from framework.test_suite import marks, tester
 
 
 class TestSlowRead(tester.TempestaTest):
+    """
+    Slow *response consumption* attacks (server → client).
+
+    CVE-2019-9511 Data Dribble: attacker GETs a large object and keeps the
+    HTTP/2 flow-control window tiny so Tempesta must queue/send the response
+    in 1-byte DATA frames.
+
+    This is the opposite of a slow *request body* (client → server) attack
+    such as RUDY / large POST with small DATA chunks — see
+    ``TestSlowHttp2RequestBody`` and ``tests/stress/test_slow_http_ddos.py``.
+    """
+
     clients = [
         {
             "id": f"deproxy-{i}",
@@ -113,16 +126,27 @@ http {
 
     async def test_cve_2019_9511(self):
         """
-        CVE-2019-9511 - “Data Dribble”
-        Some HTTP/2 implementations are vulnerable to window size manipulation
-        and stream prioritization manipulation, potentially leading to a denial of service.
-        The attacker requests a large amount of data from a specified resource over multiple streams.
-        They manipulate window size and stream priority to force the server to queue the data in 1-byte chunks.
-        Depending on how efficiently this data is queued, this can consume excess CPU, memory, or both.
+        CVE-2019-9511 — “Data Dribble” (tempesta-test#612, first checkbox).
 
-        Tempesta FW blocks the attack using `client_mem`, `ctrl_frame_rate_multiplier`
-        and `window_update_frame_rate_multiplier`.
+        Direction: **server → client** (slow consumption of a large *response*).
+
+        The attacker GETs a large resource over many streams and keeps the
+        receive window tiny so the peer is forced to queue and deliver the body
+        in 1-byte DATA frames. That is *not* a slow POST/upload; the opposite
+        (client → server body dribble) is covered separately.
+
+        Attack shape here:
+        - large response file on nginx (``long_body_size`` MB);
+        - SETTINGS INITIAL_WINDOW_SIZE = 1 → at most 1-byte response DATA frames;
+        - ``dribble_window_size = 1`` so ``handle_read`` only re-opens the window
+          by 1 byte after each DATA (issue #612: constrain auto flow control);
+        - many streams + PRIORITY churn (CVE text also mentions prioritization).
+
+        Tempesta FW is expected to block via ``client_mem`` (and related
+        control-frame / window-update rate limits), closing the attack clients.
         """
+        streams_per_client = 50
+
         await self.start_all_services()
 
         request = self.get_clients()[0].create_request(
@@ -135,15 +159,32 @@ http {
         clients = util.ForEach(*self.get_clients())
 
         for client in self.get_clients():
+            # Response-side dribble: tiny inbound window + 1-byte WINDOW_UPDATE.
+            client.auto_flow_control = True
+            client.dribble_window_size = 1
             client.update_initial_settings(initial_window_size=1)
             client.send_bytes(client.h2_connection.data_to_send())
 
         await clients.wait_for_ack_settings()
-        clients.make_requests([request] * 100)
+
+        # Many concurrent GETs of the large object + priority tree churn.
+        for client in self.get_clients():
+            client.make_request(request, priority_weight=random.randint(1, 255))
+            for _ in range(streams_per_client - 1):
+                depends_on = client.stream_id - 2
+                client.make_request(
+                    request,
+                    priority_weight=random.randint(1, 255),
+                    priority_depends_on=depends_on,
+                    priority_exclusive=bool(random.randint(0, 1)),
+                )
 
         await clients.wait_for_connection_close(
             timeout=30,
-            msg="`client_mem` doesn't block the clients that using a small window_update (~0).",
+            msg=(
+                "Tempesta FW did not close Data Dribble (slow response read) clients "
+                "(`client_mem` / control-frame limits expected to block)."
+            ),
         )
 
     async def test_cve_2019_9517(self):
@@ -174,6 +215,124 @@ http {
         await clients.wait_for_connection_close(
             timeout=20,
             msg="`client_mem` doesn't block the clients that using a small TCP rcv_buf_size (~0).",
+        )
+
+
+class TestSlowHttp2RequestBody(tester.TempestaTest):
+    """
+    Slow HTTP/2 *upload* — opposite direction of Data Dribble (CVE-2019-9511).
+
+    Data Dribble: client slowly consumes a large **response** (server → client).
+    This class: client slowly sends a large **request** body (client → server)
+    as tiny DATA frames with a long gap between chunks (RUDY-like over H2).
+
+    External tool coverage for the same direction: RUDY with ``--protocol http2``
+    in ``tests/stress/test_slow_http_ddos.py``. Here we use DeproxyClientH2 for
+    multi-stream control and frang ``client_body_timeout``.
+    """
+
+    # Gap without body DATA must exceed frang client_body_timeout.
+    CLIENT_BODY_TIMEOUT = 1
+    STREAMS_PER_CLIENT = 10
+    # Incomplete body prefix (no END_STREAM) kept open until the timeout fires.
+    BODY_PREFIX_LEN = 8
+
+    clients = [
+        {
+            "id": f"deproxy-{i}",
+            "type": "deproxy_h2",
+            "addr": "${tempesta_ip}",
+            "port": "443",
+            "ssl": True,
+            "ssl_hostname": "tempesta-tech.com",
+        }
+        for i in range(10)
+    ]
+
+    backends = [
+        {
+            "id": "deproxy",
+            "type": "deproxy",
+            "port": "8000",
+            "response": "static",
+            "response_content": (
+                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n"
+            ),
+        }
+    ]
+
+    tempesta = {
+        "config": f"""
+        listen 443 proto=h2;
+        cache 0;
+        keepalive_timeout 30;
+
+        tls_match_any_server_name;
+        client_mem 100M 200M;
+
+        frang_limits {{
+            client_body_timeout {CLIENT_BODY_TIMEOUT};
+            http_strict_host_checking false;
+            http_methods get post head;
+        }}
+
+        block_action attack drop;
+        block_action error reply;
+
+        srv_group default {{
+            server ${{server_ip}}:8000;
+        }}
+
+        vhost tempesta-tech.com {{
+           tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+           tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+           proxy_pass default;
+        }}
+        """
+    }
+
+    async def test_slow_post_small_data_frames(self):
+        """
+        Open many H2 streams and start POSTs with small DATA frames, then
+        stall (no further body) longer than ``client_body_timeout``.
+
+        This is RUDY-like *upload* (client → server), not Data Dribble
+        (server → client response window). Frang must close the connections.
+        """
+        await self.start_all_services()
+        clients = util.ForEach(*self.get_clients())
+
+        post = self.get_clients()[0].create_request(
+            method="POST",
+            headers=[("content-type", "application/octet-stream")],
+            authority="tempesta-tech.com",
+            uri="/",
+        )
+
+        for client in self.get_clients():
+            client.parsing = False
+            client.update_initial_settings()
+            client.send_bytes(client.h2_connection.data_to_send())
+
+        await clients.wait_for_ack_settings()
+
+        # Many incomplete POSTs: HEADERS + small DATA, no END_STREAM.
+        # Explicit stream_id: make_request does not advance id when end_stream=False.
+        for client in self.get_clients():
+            for stream_id in range(1, self.STREAMS_PER_CLIENT * 2, 2):
+                client.stream_id = stream_id
+                client.make_request(post, end_stream=False)
+                client.make_request("x" * self.BODY_PREFIX_LEN, end_stream=False)
+
+        # Stall past client_body_timeout without sending more body DATA.
+        await asyncio.sleep(self.CLIENT_BODY_TIMEOUT + 1)
+
+        await clients.wait_for_connection_close(
+            timeout=15,
+            msg=(
+                "Tempesta FW did not close slow HTTP/2 POST clients "
+                "(frang client_body_timeout expected to fire on incomplete body)."
+            ),
         )
 
 

@@ -765,6 +765,26 @@ class DeproxyClientH2(BaseDeproxyClient):
         self._auto_flow_control = auto_flow_control
 
     @property
+    def dribble_window_size(self) -> Optional[int]:
+        """
+        When set (and ``auto_flow_control`` is True), each *received* DATA frame
+        (response body, server → client) is answered with a WINDOW_UPDATE of
+        only this many bytes instead of ``event.flow_controlled_length``.
+
+        Used for CVE-2019-9511 **Data Dribble** — slow consumption of a large
+        response. This is not for slow request uploads (client → server); those
+        are sent via ``make_request(..., end_stream=False)`` and small DATA
+        chunks / RUDY.
+        """
+        return self._dribble_window_size
+
+    @dribble_window_size.setter
+    def dribble_window_size(self, size: Optional[int]) -> None:
+        if size is not None and size < 1:
+            raise ValueError("dribble_window_size must be >= 1 or None")
+        self._dribble_window_size = size
+
+    @property
     def last_stream_id(self) -> int:
         return self._last_stream_id
 
@@ -832,9 +852,14 @@ class DeproxyClientH2(BaseDeproxyClient):
                     response = self._active_responses.get(event.stream_id)
                     response.body += body
                     if self.auto_flow_control:
-                        self.increment_flow_control_window(
-                            event.stream_id, event.flow_controlled_length
+                        # Data Dribble (CVE-2019-9511): reopen by a fixed tiny
+                        # amount so the peer keeps sending 1-byte DATA frames.
+                        incr = (
+                            self._dribble_window_size
+                            if self._dribble_window_size is not None
+                            else event.flow_controlled_length
                         )
+                        self.increment_flow_control_window(event.stream_id, incr)
                 elif isinstance(event, TrailersReceived):
                     response = self._active_responses.get(event.stream_id)
                     for trailer in event.headers:
@@ -1053,6 +1078,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self._response_sequence = []
         self._req_body_buffers: List[ReqBodyBuffer] = list()
         self._auto_flow_control = True
+        self._dribble_window_size: Optional[int] = None
         self._ping_received = 0
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
