@@ -222,6 +222,8 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             payload_size=client.get("payload_size", "1MB"),
             method=client.get("method", "POST"),
             headers=headers,
+            protocol=client.get("protocol", "http1"),
+            insecure=client.get("insecure", False),
             duration=client.get("duration"),
         )
 
