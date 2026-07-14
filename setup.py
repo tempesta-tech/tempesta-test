@@ -181,7 +181,7 @@ def main():
         shutil.rmtree(build_path)
     shell(f"git clone --depth=1 https://github.com/darkweak/rudy.git {build_path}")
     # GOTOOLCHAIN=auto downloads the Go version required by rudy's go.mod if needed.
-    shell("GOTOOLCHAIN=auto go build -o rudy ./cmd/rudy", cwd=build_path)
+    shell("GOTOOLCHAIN=go1.26.0 go build -o rudy rudy.go", cwd=build_path)
     compile_dir = os.path.join(build_path, "rudy")
     shell(f"sudo cp {compile_dir} /usr/bin/rudy")
     if os.path.exists(build_path):
