@@ -180,9 +180,9 @@ http {
 
 class TestSlowHttp2RequestBody(tester.TempestaTest):
     """
-    Slow HTTP/2 *upload* — opposite direction of Data Dribble (CVE-2019-9511).
+    Slow HTTP/2 *upload*.
 
-    Data Dribble: client slowly consumes a large **response** (server → client).
+    Client slowly consumes a large **response** (server → client).
     This class: client slowly sends a large **request** body (client → server)
     as tiny DATA frames with a long gap between chunks (RUDY-like over H2).
 
