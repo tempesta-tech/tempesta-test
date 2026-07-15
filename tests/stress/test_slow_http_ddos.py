@@ -120,11 +120,6 @@ class TestSlowHttpDDoS(tester.TempestaTest):
 listen 80 proto=http;
 listen 443 proto=h2,https;
 
-cache 2;
-cache_fulfill * *;
-cache_methods GET HEAD;
-cache_ttl 3600;
-
 access_log dmesg;
 keepalive_timeout 15;
 
@@ -239,4 +234,11 @@ http_chain {{
             tempesta.stats.cl_msg_received,
             3,
             f"[{name}] Tempesta FW did not receive client messages during the test.",
+        )
+
+        server = self.get_server("nginx")
+        self.assertEqual(
+            server.requests,
+            3,
+            "Server did not received legit messages",
         )
