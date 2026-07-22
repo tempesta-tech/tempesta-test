@@ -70,7 +70,7 @@ class TestFailovering(tester.TempestaTest):
         self.assertTrue(self.is_srvs_ready())
         self.assertEqual(tempesta.stats.srv_conns_active, len(self.server_connection_pool()))
 
-        self.random_close_connections()
+        await self.random_close_connections()
         self.check_server_connections(tempesta)
 
     def check_server_connections(self, tempesta: Tempesta) -> None:
@@ -80,12 +80,12 @@ class TestFailovering(tester.TempestaTest):
         self.assertLessEqual(tempesta.stats.srv_conns_active, worker_connections)
         self.assertLessEqual(len(self.server_connection_pool()), expected_conns_n)
 
-    def random_close_connections(self) -> None:
+    async def random_close_connections(self) -> None:
         expected_conns_n = sum(srv.conns_n for srv in self.get_servers())
         for _ in range(expected_conns_n // 4):
             conn: ServerConnection = random.choice(self.server_connection_pool())
             if conn:
-                conn._handle_close()
+                await conn.close()
 
     def is_srvs_ready(self) -> bool:
         expected_conns_n: int = sum(srv.conns_n for srv in self.get_servers())
