@@ -433,13 +433,13 @@ class TlsCertSelect(tester.TempestaTest):
         await self.start_all_services(client=False)
         # TlsHandshake proposes EC only cipher suite and it must successfully
         # request Tempesta.
-        res = self.get_tls_handshake().do_12()
+        res = await self.get_tls_handshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # Similarly it must fail on RSA-only vhost.
         hs = TlsHandshake()
         hs.sni = "example.com"
         hs.ciphers = list(range(49196, 49198))  # EC Ciphers
-        res = hs.do_12()
+        res = await hs.do_12()
         self.assertFalse(res, "Wrong handshake result: %s" % res)
 
 
@@ -472,22 +472,22 @@ class TlsCertSelectBySan(tester.TempestaTest):
         "custom_cert": True,
     }
 
-    def check_handshake_success(self, sni):
+    async def check_handshake_success(self, sni):
         """Run TLS handshake with the given SNI and check it is completes successfully."""
         hs = TlsHandshake()
         hs.sni = sni
         # TLS 1.2 handshake completed with no exception => SNI is accepted
-        hs.do_12()
+        await hs.do_12()
         self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "tempesta-tech.com"))
 
-    def check_handshake_unrecognized_name(self, sni):
+    async def check_handshake_unrecognized_name(self, sni):
         """
         Run TLS handshake with the given SNI
         and check server name is not recognised by the server.
         """
         hs = TlsHandshake()
         hs.sni = sni
-        hs.do_12()
+        await hs.do_12()
         self.assertTrue(hs.hs.alert_received, "Alert not recieved")
 
     async def test_sni_matched(self):
@@ -510,7 +510,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             f"{'-' * 239}.example.com",
         ):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
-                self.check_handshake_success(sni=sni)
+                await self.check_handshake_success(sni=sni)
 
     async def test_sni_not_matched(self):
         """SAN certificate does not match the passed SNI."""
@@ -534,7 +534,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             "a" * 251,  # max length, 252 will give DECODE_ERROR
         ):
             with self.subTest(msg="Trying TLS handshake with expected unknown SNI", sni=sni):
-                self.check_handshake_unrecognized_name(sni=sni)
+                await self.check_handshake_unrecognized_name(sni=sni)
 
     async def test_various_san_and_sni_matched(self):
         """Various SAN certificates match the passed SNI."""
@@ -555,7 +555,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             generate_certificate(san=san)
             self.get_tempesta().reload()
             with self.subTest(msg="Trying TLS handshake", san=san, sni=sni):
-                self.check_handshake_success(sni=sni)
+                await self.check_handshake_success(sni=sni)
 
     async def test_various_san_and_sni_not_matched(self):
         """Various SAN certificates do not match the passed SNI."""
@@ -576,7 +576,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
             with self.subTest(
                 msg="Trying TLS handshake with expected unknown SNI", san=san, sni=sni
             ):
-                self.check_handshake_unrecognized_name(sni=sni)
+                await self.check_handshake_unrecognized_name(sni=sni)
 
     @dmesg.unlimited_rate_on_tempesta_node
     async def test_unknown_server_name_warning(self):
@@ -598,7 +598,7 @@ class TlsCertSelectBySan(tester.TempestaTest):
                 async with dmesg.wait_for_msg(
                     re.escape(f"requested unknown server name {printable_name}")
                 ):
-                    self.check_handshake_unrecognized_name(sni=sni)
+                    await self.check_handshake_unrecognized_name(sni=sni)
 
     async def test_sni_match_after_reload(self):
         """
@@ -606,10 +606,10 @@ class TlsCertSelectBySan(tester.TempestaTest):
         """
         RELOAD_COUNT = 5
 
-        def handshake(sni):
+        async def handshake(sni):
             hs = TlsHandshake()
             hs.sni = sni
-            return hs.do_12()
+            return await hs.do_12()
 
         san_iter = cycle(
             [
@@ -628,8 +628,8 @@ class TlsCertSelectBySan(tester.TempestaTest):
             generate_certificate(san=next(san_iter))
             self.get_tempesta().reload()
 
-            self.assertTrue(handshake(next(sni_iter)), "First handshake should pass")
-            self.assertFalse(handshake(next(sni_iter)), "Second handshake should fail")
+            self.assertTrue(await handshake(next(sni_iter)), "First handshake should pass")
+            self.assertFalse(await handshake(next(sni_iter)), "Second handshake should fail")
             next(sni_iter)  # additional shift to alternate the order
 
 
@@ -728,7 +728,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             with self.subTest(msg="Trying TLS handshake", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
-                hs.do_12()
+                await hs.do_12()
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_no_private_section)
@@ -741,7 +741,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             with self.subTest(msg="Trying TLS handshake after config reload", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
-                hs.do_12()
+                await hs.do_12()
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
         self.reload_with_config(self.config_only_private_section)
@@ -750,7 +750,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             # 'private' certificate is provided for 'private' section,
             hs = TlsHandshake()
             hs.sni = sni
-            hs.do_12()
+            await hs.do_12()
             self.assertTrue(x509_check_cn(hs.hs.server_cert[0], "private"))
 
         # and no certificate provided for removed 'wildcard' section subdomains
@@ -758,7 +758,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             with self.subTest(msg="Check 'unknown server name' warning after reload", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
-                hs.do_12()
+                await hs.do_12()
                 self.assertTrue(hs.hs.alert_received, "Alert not recieved")
 
         # After Tempesta reload, certificates are provided as at the beginning of the test
@@ -771,7 +771,7 @@ class TlsCertSelectBySanwitMultipleSections(tester.TempestaTest):
             with self.subTest(msg="Trying TLS handshake after second config reload", sni=sni):
                 hs = TlsHandshake()
                 hs.sni = sni
-                hs.do_12()
+                await hs.do_12()
                 self.assertTrue(x509_check_cn(hs.hs.server_cert[0], expected_cert))
 
 

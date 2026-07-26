@@ -173,7 +173,7 @@ return 200;
         for _ in range(n):
             curl = self.get_client("curl")
             await curl.start()
-            curl.wait_for_finish()
+            await curl.wait_for_finish()
             await curl.stop()
             res[curl.response_msg[:-1]] += 1
         return res
