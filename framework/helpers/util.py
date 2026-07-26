@@ -43,6 +43,54 @@ async def wait_until(
     return True
 
 
+async def wait_until_event(
+    wait_cond: typing.Callable,
+    event: asyncio.Event,
+    timeout=5,
+    abort_cond: typing.Callable = lambda: False,
+    adjust_timeout: bool = False,
+) -> typing.Optional[bool]:
+    """
+    Asynchronously waits for a condition to clear, synchronized by an event.
+
+    This function loops and yields control to the event loop via `event.wait()`.
+    It re-evaluates the wait condition every time the event fires or a timeout
+    slice expires, while managing a strict overall time.
+
+    Args:
+        wait_cond: A callable predicate. The loop continues as long as this returns True.
+        event: An asyncio Event signaling potential state changes in the system.
+        timeout: Total maximum time allowed for the wait operation, in seconds.
+        abort_cond: A callable predicate to trigger an early exit. If True, returns None.
+        adjust_timeout: If True, modifies the initial timeout value for TCP segmentation.
+
+    Returns:
+        True: The wait condition successfully evaluated to False within the timeout.
+        False: The total timeout expired, and the wait condition remains True.
+        None: The execution was explicitly aborted by the abort condition.
+    """
+    t0 = time.time()
+
+    if adjust_timeout:
+        timeout = __adjust_timeout_for_tcp_segmentation(timeout)
+
+    while wait_cond():
+        if abort_cond():
+            return None
+
+        rem_timeout = timeout - (time.time() - t0)
+        if rem_timeout <= 0:
+            return not wait_cond()
+
+        try:
+            await asyncio.wait_for(event.wait(), timeout=rem_timeout)
+            event.clear()
+        except asyncio.TimeoutError:
+            return not wait_cond()
+
+    return True
+
+
 class ForEach:
     def __init__(self, *objects):
         self.objects = objects

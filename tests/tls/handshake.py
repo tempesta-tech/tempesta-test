@@ -7,6 +7,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import ssl
 
 import scapy.layers.tls.crypto.suites as suites
@@ -395,7 +396,7 @@ class TlsHandshake:
 
         return ch
 
-    def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
+    async def do_12_res(self, cached_secrets, automaton=ModifiedTLSClientAutomaton):
         """TLS Handshake Resumption
 
         Args:
@@ -425,11 +426,11 @@ class TlsHandshake:
         if self.send_data is not None:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
-        self.hs.control_thread.join(5)
+        await asyncio.get_running_loop().run_in_executor(None, self.hs.control_thread.join, 5)
         self.hs.stop()
         return self.hs.hs_state
 
-    def do_12(self, automaton=ModifiedTLSClientAutomaton):
+    async def do_12(self, automaton=ModifiedTLSClientAutomaton):
         """Full TLS v1.2 Handshake
 
         Args:
@@ -458,7 +459,9 @@ class TlsHandshake:
         if self.send_data is not None:
             self.hs.set_data(self.send_data)
         self.hs.run(wait=False)
-        self.hs.control_thread.join(self.timeout)
+        await asyncio.get_running_loop().run_in_executor(
+            None, self.hs.control_thread.join, self.timeout
+        )
         self.hs.stop()
         tls_logger.debug(f"Fin_state: {self.hs.state.state}")
         tls_logger.debug(f"Server_data: {self.hs.server_data}")

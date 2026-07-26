@@ -585,11 +585,11 @@ http_chain {{
             )
         )
 
-        self.assertEqual(
-            len(server_2.connections),
-            0,
-            "Tempesta did not remove connections to a deleted server/srv_group after reload. "
-            + "But this server/srv_group was removed.",
+        await server_2.wait_for_connections_closed(
+            msg=(
+                "Tempesta did not remove connections to a deleted server/srv_group after reload. "
+                + "But this server/srv_group was removed."
+            )
         )
 
         request = client.create_request(method="GET", headers=[], authority="grp1")

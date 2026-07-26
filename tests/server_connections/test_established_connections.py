@@ -116,7 +116,7 @@ srv_group default {{
 
         await tfw.stop()
         msg = "Tempesta FW must close all connections after stop."
-        self.assertEqual(len(server.connections), 0, msg)
+        await server.wait_for_connections_closed(msg=msg)
         await self.check_total_sockets(
             server_ip_and_port=self.get_server_ip_and_port(server), expected_n=0, msg=msg
         )

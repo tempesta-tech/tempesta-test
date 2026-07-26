@@ -53,7 +53,7 @@ class TlsTicketTest(tester.TempestaTest):
         """
         await self.start_all_services()
         hs = TlsHandshake()
-        res = hs.do_12()
+        res = await hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
 
     async def test_empty_ticket(self):
@@ -66,7 +66,7 @@ class TlsTicketTest(tester.TempestaTest):
         await self.start_all_services()
         hs = TlsHandshake()
         hs.ticket_data = ""
-        res = hs.do_12()
+        res = await hs.do_12()
         ticket = hs.hs.session_ticket.ticket
         cached_secrets = SessionSecrets(hs.hs.cur_session)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
@@ -78,7 +78,7 @@ class TlsTicketTest(tester.TempestaTest):
 
         hs_abb = TlsHandshake()
         hs_abb.ticket_data = ticket
-        res = hs_abb.do_12_res(cached_secrets)
+        res = await hs_abb.do_12_res(cached_secrets)
         # ticket = getattr(hs_abb.sock.tls_ctx, 'ticket', None)
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         # self.assertNotEqual(ticket, None,
@@ -96,7 +96,7 @@ class TlsTicketTest(tester.TempestaTest):
         hs = TlsHandshake()
         hs.ticket_data = t_random_data
         hs.session_id = "\x38" * 32
-        res = hs.do_12()
+        res = await hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         ticket = hs.hs.session_ticket
         self.assertIsNotNone(
@@ -116,7 +116,7 @@ class TlsTicketTest(tester.TempestaTest):
         hs = TlsHandshake()
         hs.ticket_data = t_data
         hs.session_id = "\x39" * 32
-        res = hs.do_12()
+        res = await hs.do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
         ticket = hs.hs.session_ticket
         self.assertIsNotNone(
@@ -207,7 +207,7 @@ class TlsVhostConfusion(tester.TempestaTest):
         hs = TlsHandshake()
         hs.ticket_data = ""
         hs.sni = "tempesta-tech.com"
-        res = hs.do_12()
+        res = await hs.do_12()
         cached_secrets = SessionSecrets(hs.hs.cur_session)
         master_secret = hs.hs.master_secret
         self.assertTrue(res, "Wrong handshake result: %s" % res)
@@ -222,7 +222,7 @@ class TlsVhostConfusion(tester.TempestaTest):
         hs_abb.ticket_data = hs.hs.session_ticket.ticket
         hs_abb.sni = "tempesta.com"
         hs.send_data = []
-        res = hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
+        res = await hs_abb.do_12_res(cached_secrets)  # Try abbreviated handshake
         self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
         self.assertFalse(res, "Wrong handshake result")
 
@@ -346,7 +346,7 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         hs = TlsHandshake()
         hs.ticket_data = ""
         hs.sni = "tempesta-tech.com"
-        res = hs.do_12()
+        res = await hs.do_12()
         cached_secrets = SessionSecrets(hs.hs.cur_session)
         ticket = hs.hs.session_ticket.ticket
         self.assertTrue(res, "Wrong handshake result: %s" % res)
@@ -361,7 +361,7 @@ class TlsVhostConfusionDfltCerts(tester.TempestaTest):
         hs_abb.ticket_data = ticket
         hs_abb.sni = "tempesta.com"
         hs_abb.send_data = []
-        res = hs_abb.do_12_res(cached_secrets)
+        res = await hs_abb.do_12_res(cached_secrets)
         self.assertTrue(hs_abb.hs.full_hs, "Abbreviated handshake detected")
         self.assertFalse(res, "Wrong handshake result")
 
