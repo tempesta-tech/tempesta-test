@@ -60,6 +60,7 @@ class TestH2Stream(H2Base):
             + ("x" * 10)
         )
         max_streams = 10
+        client.auto_flow_control = False
 
         for _ in range(2):
             await client.send_request(self.post_request, "200")

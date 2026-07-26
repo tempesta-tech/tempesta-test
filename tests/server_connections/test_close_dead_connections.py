@@ -39,11 +39,12 @@ class FinishByClientBase(tester.TempestaTest):
     ]
 
     def configure_deproxy_server(
-        self, *, conns_n: int, content_length: int, body_size: int
+        self, *, conns_n: int, content_length: int, body_size: int, segment_gap: float = 0.1
     ) -> None:
         server = self.get_server("deproxy")
         server.conns_n = conns_n
         server.segment_size = 1024
+        server.segment_gap = segment_gap
         server.set_response(
             "HTTP/1.1 200 OK\r\n"
             + "Connection: keep-alive\r\n"
@@ -199,15 +200,15 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
 
         tempesta.config.replace("conns_n=64", "conns_n=1")
         server.rcv_buf_size = 2048
-        self.configure_deproxy_server(conns_n=1, content_length=10, body_size=10)
+        self.configure_deproxy_server(conns_n=1, content_length=10, body_size=10, segment_gap=0.0)
         self.disable_deproxy_auto_parser()
         await self.start_all_services()
 
         self.assertEqual(len(server.connections), 1)
-        server.connections[0].readable = lambda: False
+        await server.connections[0].disable_readable()
 
         request_long = bad_client.create_request(
-            method="GET", uri="/long", headers=[("a", "a" * 150000)]
+            method="GET", uri="/long", headers=[("a", "a" * 100000)]
         )
         request_short = bad_client.create_request(method="GET", uri="/short", headers=[])
 
@@ -223,7 +224,7 @@ class TestFinishTCPConnectionByClient(FinishByClientBase):
         )
 
         await bad_client.stop()
-        server.connections[0].readable = lambda: True
+        server.connections[0].enable_readable()
 
         await server.wait_for_requests(n=len(list(valid_clients)) * client_req_n, timeout=10)
 

@@ -2,22 +2,28 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2018-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+import asyncio
 import logging
 import socket
-import sys
-import time
-from typing import Optional
+import typing
+from typing import Awaitable, Callable, Optional
 
-from framework.deproxy import asyncore, deproxy_message
-from framework.deproxy.deproxy_base import BaseDeproxy
-from framework.helpers import error, tf_cfg, util
+import run_config
+from framework.deproxy import deproxy_message
+from framework.helpers import tf_cfg, util
 from framework.helpers.util import fill_template
 from framework.services import base_server, stateful
 
 
-class ServerConnection(asyncore.DeproxyAsyncore):
-    def __init__(self, *, server: "StaticDeproxyServer", sock: socket.socket):
-        self.addr = sock.getpeername()
+class ServerConnection:
+
+    def __init__(
+        self,
+        server: "StaticDeproxyServer",
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ):
+        self.addr = writer.get_extra_info("peername")
         self._id = f"{self.__class__.__name__}({self.addr[0]}:{self.addr[1]})"
         self._tcp_logger = logging.LoggerAdapter(
             logging.getLogger("tcp"), extra={"service": f"{self._id}"}
@@ -25,20 +31,25 @@ class ServerConnection(asyncore.DeproxyAsyncore):
         self._http_logger = logging.LoggerAdapter(
             logging.getLogger("http"), extra={"service": f"{self._id}"}
         )
-        super().__init__(is_ipv6=server.is_ipv6)
-        self._set_socket(sock)
-        self.connected = True
-        self._server = server
-        self._last_segment_time: int = 0
-        self._responses_done: int = 0
-        self._request_buffer: str = ""
-        self._response_buffer: list[bytes] = []
 
+        self._server: StaticDeproxyServer = server
+        self._reader: asyncio.StreamReader = reader
+        self._writer: asyncio.StreamWriter = writer
+
+        self._read_task: asyncio.Task = asyncio.create_task(self._read_loop())
+        self._write_task: asyncio.Task = asyncio.create_task(self._write_loop())
+        self._readwrite = asyncio.Event()
+        self._readwrite.set()
+        self._queue: asyncio.Queue[tuple[bytes, int] | None] = asyncio.Queue()
+        self._write_func: Callable[[bytes], Awaitable[None]] = None
+
+        self._responses_done: int = 0
+        self.update_segment_size()
+
+        self.nrreq = 0
         self._cur_pipelined = 0
         self._cur_responses_list = []
-        self.__time_to_send: float = 0
-        self.__new_response: bool = True
-        self.nrreq: int = 0
+
         if self._server.send_after_conn_established:
             self._add_response_to_sending_buffer(self._server.response)
             self.flush()
@@ -52,117 +63,160 @@ class ServerConnection(asyncore.DeproxyAsyncore):
         self._cur_responses_list.append(response)
         self._cur_pipelined += 1
 
-    def sleep(self) -> None:
-        """
-        Stops server responding. Required in the cases when the server have
-        to respond with the some delay
-        """
-        self.__time_to_send = time.time() + self._server.delay_before_sending_response
+    async def disable_readable(self) -> None:
+        if not self._read_task.done():
+            self._read_task.cancel()
+            try:
+                await self._read_task
+            except asyncio.CancelledError:
+                ...
 
-    def is_sleeping(self) -> bool:
-        """
-        Return true in server does not responding now and waiting for
-        some delay
-        """
-        if not self._server.delay_before_sending_response:
-            return False
+    def enable_readable(self) -> None:
+        if not self._read_task.cancelled():
+            raise Exception("Call disable_readable first.")
+        self._read_task: asyncio.Task = asyncio.create_task(self._read_loop())
 
-        if not self.__time_to_send:
-            return False
+    def update_segment_size(self) -> None:
+        self._write_func = (
+            self._send_bytes_with_tcp_segmentation
+            if self._server.segment_size
+            else self._send_bytes
+        )
 
-        return self.__time_to_send > time.time()
+    async def close(self) -> None:
+        if not self._readwrite.is_set():
+            return
+        self._readwrite.clear()
+
+        self._queue.put_nowait(None)
+        try:
+            self._writer.close()
+            await self._writer.wait_closed()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            if self in self._server.connections:
+                self._server.remove_connection(connection=self)
 
     def flush(self):
-        self._response_buffer.append(b"".join(self._cur_responses_list))
+        self._queue.put_nowait((b"".join(self._cur_responses_list), self._cur_pipelined))
         self._cur_pipelined = 0
         self._cur_responses_list = []
 
-    def writable(self):
-        if self.is_sleeping():
-            return False
-
-        if (
-            self._server.segment_gap != 0
-            and time.time() - self._last_segment_time < self._server.segment_gap / 1000.0
-        ):
-            return False
-        return (not self.connected) or len(self._response_buffer) > self._responses_done
-
-    def _handle_error(self):
-        _, v, _ = sys.exc_info()
-        error.bug("\tDeproxy: SrvConnection: %s" % v)
-
-    def _handle_close(self):
-        self._tcp_logger.debug("Close connection")
-        super()._handle_close()
-        if self._server and self in self._server.connections:
-            self._server.remove_connection(connection=self)
-
-    def _handle_read(self):
-        self._request_buffer += self._recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
-
-        while self._request_buffer:
-            try:
-                request = deproxy_message.Request(self._request_buffer)
-                self.nrreq += 1
-            except deproxy_message.IncompleteMessage:
-                return None
-            except deproxy_message.ParseError as e:
-                self._http_logger.error(
-                    f"Can't parse message\n<<<<<\n{self._request_buffer}>>>>>", exc_info=True
-                )
-                return None
-
-            self._http_logger.info("Receive request")
-            self._http_logger.debug(request)
-            response, need_close = self._server.receive_request(request, self)
-            if self._server.drop_conn_when_request_received:
-                self._handle_close()
-            if response:
-                self._add_response_to_sending_buffer(response)
-                if self._cur_pipelined >= self._server.pipelined:
-                    self.flush()
-
-            if need_close:
-                self._handle_close()
-            self._request_buffer = self._request_buffer[len(request.msg) :]
-        # Handler will be called even if buffer is empty.
-        else:
-            return None
-
-    def _handle_write(self):
-        if self._server.delay_before_sending_response and self.__new_response:
-            self.__new_response = False
-            return self.sleep()
-
-        resp = self._response_buffer[self._responses_done]
-        sent = self._send(resp[: self._server.segment_size] if self._server.segment_size else resp)
-
-        if sent < 0:
+    async def _send_bytes_with_tcp_segmentation(self, data: bytes) -> None:
+        initial_len = len(data)
+        if initial_len == 0:
             return
 
-        self._response_buffer[self._responses_done] = resp[sent:]
+        seg_size = self._server.segment_size
+        seg_gap = self._server.segment_gap
 
-        self._last_segment_time = time.time()
-        if self._response_buffer[self._responses_done] == b"":
-            self._responses_done += 1
-            self.__new_response = True
-            self._http_logger.info(
-                f"A response was send. The current number of a response - {self._responses_done}"
-            )
-        elif not self._server.segment_size:
-            self._tcp_logger.info(
-                f"{sent} bytes sent. {len(self._response_buffer[self._responses_done])} bytes left."
-            )
+        view = memoryview(data)
+        offset = 0
 
-        if self._responses_done == self._server.keep_alive and self._server.keep_alive:
-            self._handle_close()
+        while offset < initial_len:
+            data_to_send = view[offset : offset + seg_size]
+            self._writer.write(data_to_send)
+            await self._writer.drain()
+
+            offset += seg_size
+
+            if seg_gap:
+                await asyncio.sleep(seg_gap)
+
+        self._tcp_logger.info(f"Segmented transfer finished. Total size: {initial_len} bytes.")
+
+    async def _send_bytes(self, data: bytes) -> None:
+        if len(data) == 0:
+            return
+        self._writer.write(data)
+        await self._writer.drain()
+        self._http_logger.info(
+            f"A response was sent. The current number of responses - {self._responses_done}"
+        )
+
+    @staticmethod
+    def __safe_readwrite(func):
+        async def wrapper(self: "ServerConnection"):
+            try:
+                await func(self)
+            except (BrokenPipeError, ConnectionResetError):
+                self._tcp_logger.info("Close TCP connection from the remote side.")
+                await self.close()
+
+        return wrapper
+
+    @__safe_readwrite
+    async def _read_loop(self):
+        req_buffer = bytearray()
+        while self._readwrite.is_set():
+            data = await self._reader.read(deproxy_message.MAX_MESSAGE_SIZE)
+            if not data:
+                await self.close()
+                return
+            req_buffer.extend(data)
+
+            while req_buffer:
+                try:
+                    request = deproxy_message.Request(req_buffer.decode("utf-8", errors="ignore"))
+                    self.nrreq += 1
+                except deproxy_message.IncompleteMessage:
+                    break
+                except deproxy_message.ParseError:
+                    self._http_logger.error(
+                        f"Can't parse message\n<<<<<\n{req_buffer}>>>>>", exc_info=True
+                    )
+                    break
+
+                self._http_logger.info("Receive request")
+                self._http_logger.debug(request)
+
+                self._http_logger.info(f"A request is received.")
+                response, need_close = self._server._receive_request(request, self)
+
+                if self._server.drop_conn_when_request_received:
+                    await self.close()
+                    break
+
+                if response:
+                    self._add_response_to_sending_buffer(response)
+                    if self._cur_pipelined >= self._server.pipelined:
+                        self.flush()
+
+                if need_close:
+                    self.flush()
+                    await self.close()
+                    break
+
+                del req_buffer[: request.original_length]
+
+    @__safe_readwrite
+    async def _write_loop(self) -> None:
+        while self._readwrite.is_set():
+            item = await self._queue.get()
+
+            if item is None:
+                self._queue.task_done()
+                break
+
+            if self._server.delay_before_sending_response:
+                await asyncio.sleep(self._server.delay_before_sending_response)
+
+            data, count = item
+            await self._write_func(data)
+            self._responses_done += count
+            self._queue.task_done()
+
+            if self._server.keep_alive and self._responses_done >= self._server.keep_alive:
+                await self.close()
+                break
 
 
-class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
+class StaticDeproxyServer(base_server.BaseServer):
+    _connection_factory = ServerConnection
+
     def __init__(
         self,
-        # BaseDeproxy
         *,
         id_: str,
         deproxy_auto_parser,
@@ -171,7 +225,6 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         segment_size: int,
         segment_gap: int,
         is_ipv6: bool,
-        # StaticDeproxyServer
         response: str | bytes | deproxy_message.Response,
         keep_alive: int,
         drop_conn_when_request_received: bool,
@@ -184,25 +237,33 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         # this variable is needed for tests with common response for all tests in one class.
         self._default_response = response
 
-        # Initialize the `BaseDeproxy`
-        BaseDeproxy.__init__(
-            self,
-            id_=id_,
-            deproxy_auto_parser=deproxy_auto_parser,
-            port=port,
-            bind_addr=bind_addr,
-            segment_size=segment_size,
-            segment_gap=segment_gap,
-            is_ipv6=is_ipv6,
-            rcv_buf_size=rcv_buf_size,
+        self.__request_event = asyncio.Event()
+        self.__connection_event = asyncio.Event()
+
+        self.port = port
+        self.bind_addr = bind_addr
+        self._tcp_logger = logging.LoggerAdapter(
+            logging.getLogger("tcp"), extra={"service": f"{self}"}
         )
-        base_server.BaseServer.__init__(self, id_)
+        self._http_logger = logging.LoggerAdapter(
+            logging.getLogger("http"), extra={"service": f"{self}"}
+        )
+        super().__init__(id_=id_)
+        self._server = None
+        self._deproxy_auto_parser = deproxy_auto_parser
+        self.is_ipv6 = is_ipv6
+        self.segment_size = segment_size or run_config.TCP_SEGMENTATION or 0
+        self.segment_gap = segment_gap
         self.keep_alive = keep_alive
         self.drop_conn_when_request_received = drop_conn_when_request_received
         self.send_after_conn_established = send_after_conn_established
         self.delay_before_sending_response = delay_before_sending_response
         self.hang_on_req_num = hang_on_req_num
         self.pipelined = pipelined
+        self.rcv_buf_size = rcv_buf_size
+
+    def __str__(self):
+        return f"{self.__class__.__name__}({self.bind_addr}:{self.port})"
 
     def clear_stats(self):
         super().clear_stats()
@@ -210,25 +271,19 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         self._requests: list[deproxy_message.Request] = list()
         self.response = self._default_response
 
-    def _handle_accept(self):
-        pair = self._accept()
-        if pair is not None:
-            sock, _ = pair
-            if self.segment_size:
-                sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-            self._set_recv_buffer_size(sock)
-            handler = ServerConnection(server=self, sock=sock)
-            self._connections.append(handler)
-            # ATTENTION
-            # Due to the polling cycle, creating new connection can be
-            # performed before removing old connection.
-            # So we can have case with > expected amount of connections
-            # It's not a error case, it's a problem of polling
+        self.__request_event.clear()
+        self.__connection_event.clear()
 
-    def _handle_error(self):
-        type_, v, _ = sys.exc_info()
-        self._handle_close()
-        raise v
+    async def _accept_connection(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        if self.rcv_buf_size:
+            writer.get_extra_info("socket").setsockopt(
+                socket.SOL_SOCKET, socket.SO_RCVBUF, self.rcv_buf_size
+            )
+        conn = self._connection_factory(self, reader, writer)
+        self._connections.append(conn)
+        self.__connection_event.set()
 
     def reset_new_connections(self) -> None:
         """
@@ -236,20 +291,25 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         This method should not be used to stop the server
         because the existing connections will be work.
         """
-        self._handle_close()
+        self._server.close()
 
-    def _run_deproxy(self):
-        self._create_socket()
-        self._set_reuse_addr()
-        self._set_recv_buffer_size(self._socket)
-        self._bind((self.bind_addr, self.port))
-        self._listen()
+    def _stop_procedures(self) -> list[typing.Callable]:
+        return [self._stop_deproxy]
 
-    def _stop_deproxy(self):
-        self._handle_close()
-        connections = [conn for conn in self._connections]
-        for conn in connections:
-            conn._handle_close()
+    async def run_start(self) -> None:
+        self._server = await asyncio.start_server(
+            client_connected_cb=self._accept_connection,
+            host=self.bind_addr,
+            port=self.port,
+            family=socket.AF_INET6 if self.is_ipv6 else socket.AF_INET,
+            reuse_address=True,
+        )
+
+    async def _stop_deproxy(self) -> None:
+        self._server.close()
+        await asyncio.gather(*(conn.close() for conn in self._connections[:]))
+        await self._server.wait_closed()
+        self.clear_stats()
 
     def _wait_for_connections(self) -> bool:
         return len(self._connections) < self.conns_n
@@ -259,8 +319,9 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
     ) -> None:
         if self.state != stateful.STATE_STARTED:
             raise AssertionError(f"The {self} server is not started.")
-        timeout_not_exceeded = await util.wait_until(
+        timeout_not_exceeded = await util.wait_until_event(
             lambda: len(self._connections) != 0,
+            event=self.__connection_event,
             timeout=timeout,
             abort_cond=lambda: self.state != stateful.STATE_STARTED,
         )
@@ -273,6 +334,18 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
     def flush(self):
         for conn in self._connections:
             conn.flush()
+
+    @property
+    def segment_size(self) -> int:
+        return self._segment_size
+
+    @segment_size.setter
+    def segment_size(self, segment_size: int) -> None:
+        if segment_size < 0:
+            raise ValueError("`segment_size` MUST be greater than or equal to 0.")
+        self._segment_size = segment_size
+        for conn in self.connections:
+            conn.update_segment_size()
 
     @property
     def response(self) -> bytes:
@@ -309,11 +382,13 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
 
     def remove_connection(self, connection: ServerConnection) -> None:
         self._connections.remove(connection)
+        self.__connection_event.set()
 
-    def receive_request(
+    def _receive_request(
         self, request: deproxy_message.Request, connection: ServerConnection
     ) -> tuple[bytes, bool]:
         self._requests.append(request)
+        self.__request_event.set()
         req_num = len(self.requests)
         self._http_logger.info(f"A request was receive. The current number of requests - {req_num}")
 
@@ -332,10 +407,11 @@ class StaticDeproxyServer(BaseDeproxy, base_server.BaseServer):
         self, n: int, timeout: float = 5.0, adjust_timeout: bool = False, msg: Optional[str] = None
     ) -> None:
         """wait for the `n` number of responses to be received"""
-        timeout_not_exceeded = await util.wait_until(
+        timeout_not_exceeded = await util.wait_until_event(
             lambda: len(self.requests) < n,
+            event=self.__request_event,
             timeout=timeout,
-            abort_cond=lambda: not self._accepting,
+            abort_cond=lambda: not self._server.is_serving(),
             adjust_timeout=adjust_timeout,
         )
 
@@ -349,7 +425,6 @@ def deproxy_srv_initializer(
 ):
     is_ipv6 = server.get("is_ipv6", False)
     srv = default_server_class(
-        # BaseDeproxy
         id_=name,
         deproxy_auto_parser=tester._deproxy_auto_parser,
         port=int(server["port"]),
@@ -357,7 +432,6 @@ def deproxy_srv_initializer(
         segment_size=server.get("segment_size", 0),
         segment_gap=server.get("segment_gap", 0),
         is_ipv6=is_ipv6,
-        # StaticDeproxyServer
         response=fill_template(server.get("response_content", ""), server),
         keep_alive=server.get("keep_alive", 0),
         drop_conn_when_request_received=server.get("drop_conn_when_request_received", False),
@@ -367,8 +441,6 @@ def deproxy_srv_initializer(
         pipelined=server.get("pipelined", 0),
         rcv_buf_size=server.get("rcv_buf_size", -1),
     )
-
-    tester.deproxy_manager.add_server(srv)
     return srv
 
 
