@@ -110,7 +110,7 @@ frang_limits {{
     http_method_override_allowed true;
     http_methods head post put get;
     http_strict_host_checking true;
-
+    ip_block 0;
 }}
 
 # Allow only following characters in URI: %+,/a-zA-Z0-9&?:-.[]_=
@@ -257,12 +257,6 @@ http_chain {{
               addresses through other directives. For example: http_resp_code_blocks,
               http_strict_host_checking, http_ct_vals etc. The memory consumption
               is higher, but less than 500 MB for me;
-
-        - block_action attack reply\drop and ip_block off are not effective for protection,
-          because a lot of memory is consumed. If the attacker exceeds the limits, TempestaFW
-          eventually consumes all available memory and my VM was shutdown.
-          Perhaps this problem will be solved after closing issues #2284 and #2286.
-          It took me 2-5 minutes to use all available resources (depends on the methods).
 
         Getting a response from the cache/upstream:
           - responses from the cache were returned without delay under any load and
