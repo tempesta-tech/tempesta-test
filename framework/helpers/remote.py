@@ -27,7 +27,7 @@ __copyright__ = "Copyright (C) 2024-2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 # Don't remove files from remote node. Helpful for tests development.
-# The flag is also managed from many places, for example `run_tests.py` and `./t_stress/test_stress.py`
+# The flag is also managed from many places, for example `./t_stress/test_stress.py`
 # this is the reason it declared outside any node class and linked inside them.
 # TODO may be a good candidate to declare it where all constants are declared (in the future).
 DEBUG_FILES = False

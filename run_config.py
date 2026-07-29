@@ -23,7 +23,7 @@ REQUESTS_COUNT = int(tf_cfg.cfg.get("General", "stress_requests_count"))
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
 
 # ------------------------------------
-# Global params from run_tests.py
+# Global params
 # ------------------------------------
 
 # save tls secrets for curl and deproxy clients
