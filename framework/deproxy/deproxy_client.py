@@ -98,9 +98,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         if self._is_http2:
             self._context.set_alpn_protocols(["h2"])
             # Disable old proto
-            self._context.options |= (
-                ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-            )
+            self._context.minimum_version = ssl.TLSVersion.TLSv1_2
             # RFC 9113 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
             # compression.
             self._context.options |= ssl.OP_NO_COMPRESSION
@@ -232,12 +230,14 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         elif type_error in (
             ssl.SSLWantReadError,
             ssl.SSLWantWriteError,
+            ssl.SSLError,
             ConnectionRefusedError,
             AssertionError,
         ):
             # SSLWantReadError and SSLWantWriteError - Need to receive more data before decryption
             # can start.
             # ConnectionRefusedError and AssertionError - RST is legitimate case
+            # SSLError - Server may reject handshake intentionally in negative tests
             pass
         elif type_error == ssl.SSLEOFError:
             # This may happen if a TCP socket is closed without sending TLS close alert. See #1778

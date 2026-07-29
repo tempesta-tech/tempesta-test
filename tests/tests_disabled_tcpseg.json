@@ -2,271 +2,271 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "tests.cve",
+            "name": "tests/cve",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.nonidempotent.test_nonidempotent.RetryNonIdempotentPostH1Test",
+            "name": "tests/nonidempotent/test_nonidempotent.py::RetryNonIdempotentPostH1Test",
             "reason": "These tests should not be run with TCP segmentation. It is difficult to ensure stability in this test."
         },
         {
-            "name": "tests.fault_injection",
+            "name": "tests/fault_injection",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.mixed_requests",
+            "name": "tests/mixed_requests",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.multiple_listeners",
+            "name": "tests/multiple_listeners",
             "reason": "These tests should not be run with TCP segmentation. These tests doesn't use deproxy."
         },
         {
-            "name": "tests.multiple_clients",
+            "name": "tests/multiple_clients",
             "reason": "These tests should not be run with TCP segmentation. These tests doesn't use deproxy."
         },
         {
-            "name": "tests.stress",
+            "name": "tests/stress",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.tls.test_tls_stress",
+            "name": "tests/tls/test_tls_stress.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.selftests",
+            "name": "tests/selftests",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_http_body_and_header_chunk_cnt",
+            "name": "tests/frang/test_http_body_and_header_chunk_cnt.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_request_rate_burst",
+            "name": "tests/frang/test_request_rate_burst.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.leaks",
+            "name": "tests/leaks",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.long_body",
+            "name": "tests/long_body",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.access_log.test_access_log.AccessLogFrang",
+            "name": "tests/access_log/test_access_log.py::AccessLogFrang",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.deadtime",
+            "name": "tests/deadtime",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_streams.TestMultiplexing",
+            "name": "tests/http2_general/test_h2_streams.py::TestMultiplexing",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_stream_states.TestHalfClosedStreamStateUnexpectedFrames",
+            "name": "tests/http2_general/test_h2_stream_states.py::TestHalfClosedStreamStateUnexpectedFrames",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.tls.test_tls_integrity.CloseConnection.test8",
+            "name": "tests/tls/test_tls_integrity.py::CloseConnection::test8",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_connection_rate_burst",
+            "name": "tests/frang/test_connection_rate_burst.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockHttp",
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockHttp",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockH2",
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockH2",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_hpack.TestHpack.test_big_header_in_response",
+            "name": "tests/http2_general/test_h2_hpack.py::TestHpack::test_big_header_in_response",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_hpack.TestHpack.test_big_header_and_body_in_response",
+            "name": "tests/http2_general/test_h2_hpack.py::TestHpack::test_big_header_and_body_in_response",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_responses.TestH2ResponsesPipelined",
+            "name": "tests/http2_general/test_h2_responses.py::TestH2ResponsesPipelined",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.health_monitoring.test_health_monitor.H2HmResponsesPipelined",
+            "name": "tests/health_monitoring/test_health_monitor.py::H2HmResponsesPipelined",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_frame.TestH2Frame.test_triple_header_frame_in_single_stream",
+            "name": "tests/http2_general/test_h2_frame.py::TestH2Frame::test_triple_header_frame_in_single_stream",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_client_body_and_header_timeout",
+            "name": "tests/frang/test_client_body_and_header_timeout.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieConfigGlobal",
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigGlobal",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieConfigVhost",
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigVhost",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_path",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_max_age",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_expires",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.reconf",
+            "name": "tests/reconf",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_stream_priority.TestStreamPriorityStress",
+            "name": "tests/http2_general/test_h2_stream_priority.py::TestStreamPriorityStress",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPage::test_block_action_attack_reply",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_error_reply_with_conn_close",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPage::test_block_action_error_reply_with_conn_close",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPage.test_block_action_attack_reply_not_on_req_rcv_event",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPage::test_block_action_attack_reply_not_on_req_rcv_event",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPageSmallWindow::test_block_action_attack_reply",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_error_reply_with_conn_close",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPageSmallWindow::test_block_action_error_reply_with_conn_close",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_block_action.TestBlockActionH2ReplyWithCustomErrorPageSmallWindow.test_block_action_attack_reply_not_on_req_rcv_event",
+            "name": "tests/http2_general/test_h2_block_action.py::TestBlockActionH2ReplyWithCustomErrorPageSmallWindow::test_block_action_attack_reply_not_on_req_rcv_event",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http2_general.test_h2_hpack.TestHpackBomb",
+            "name": "tests/http2_general/test_h2_hpack.py::TestHpackBomb",
             "reason": "These tests should not be run with TCP segmentation. We have separate tests for `http_max_header_list_size`."
         },
         {
-            "name": "tests.frang.test_config",
+            "name": "tests/frang/test_config.py",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.cache.test_purge.TestPurgeInvalidConfig",
+            "name": "tests/cache/test_purge.py::TestPurgeInvalidConfig",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsH2::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttps::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttp::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with TCP segmentation. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.server_options",
+            "name": "tests/server_options",
             "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
-            "name": "tests.clickhouse.test_clickhouse_logs.TestClickhouseLogTiming",
+            "name": "tests/clickhouse/test_clickhouse_logs.py::TestClickhouseLogTiming",
             "reason": "These tests should not be run with TCP segmentation. TCP segmentation has no effect on these tests."
         },
         {
-            "name": "tests.server_connections",
+            "name": "tests/server_connections",
             "reason": "These tests should not be run with TCP segmentation. These tests check a connection level."
         },
         {
-            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededHttp.test_response",
+            "name": "tests/client_mem/test_client_mem.py::TestBlockByMemExceededHttp::test_response",
             "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
         },
         {
-            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededHttps.test_response",
+            "name": "tests/client_mem/test_client_mem.py::TestBlockByMemExceededHttps::test_response",
             "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
         },
         {
-            "name": "tests.client_mem.test_client_mem.TestBlockByMemExceededH2.test_response",
+            "name": "tests/client_mem/test_client_mem.py::TestBlockByMemExceededH2::test_response",
             "reason": "These tests should not be run with TCP segmentation. In case of segmentation we drop request, not response."
         },
         {
-            "name": "tests.tls.test_tls_integrity.ProxyH2",
+            "name": "tests/tls/test_tls_integrity.py::ProxyH2",
             "reason": "Disabled by issue #1714"
         },
         {
-            "name": "tests.wrong_body_length.test_response_wrong_length",
+            "name": "tests/wrong_body_length/test_response_wrong_length.py",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.wrong_body_length.test_h2_request_wrong_length",
+            "name": "tests/wrong_body_length/test_h2_request_wrong_length.py",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.http2_general.test_h2_headers.HeadersParsing",
+            "name": "tests/http2_general/test_h2_headers.py::HeadersParsing",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.forwarding.test_forwarded_hdr.TestForwardedBaseAllowed",
+            "name": "tests/forwarding/test_forwarded_hdr.py::TestForwardedBaseAllowed",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "name": "tests/http2_general/test_h2_headers.py::TestH2Host::test_forwarded_and_empty_host_header",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.http2_general.test_h2_headers.TestH2Host.test_forwarded_and_empty_host_header",
+            "name": "tests/http2_general/test_h2_headers.py::TestH2Host::test_forwarded_and_empty_host_header",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.malformed.test_h2_field_validity.TestH2HeaderFieldRequest.test_ascii_from_0x00_to_0x20_in_header_name",
+            "name": "tests/malformed/test_h2_field_validity.py::TestH2HeaderFieldRequest::test_ascii_from_0x00_to_0x20_in_header_name",
             "reason": "Disabled by issue #450"
         },
         {
-            "name": "tests.malformed.test_h2_field_validity.TestH2HeaderFieldRequest",
+            "name": "tests/malformed/test_h2_field_validity.py::TestH2HeaderFieldRequest",
             "reason": "Disabled by test issue #450"
         },
         {
-            "name": "tests.ws",
+            "name": "tests/ws",
             "reason": "Disabled by test issue #672."
         },
         {
-            "name": "tests.tf.test_tft.TestTFtStress",
+            "name": "tests/tf/test_tft.py::TestTFtStress",
             "reason": "This test should not be run with TCP segmentation. It use h2load and wrk clients and tf only works for requests."
         },
         {
-            "name": "tests.http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_send_full_request",
+            "name": "tests/http_general/test_expect_100_continue.py::TestExpect100ContinueBehavior::test_send_full_request",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_request_pipeline_3_all_100",
+            "name": "tests/http_general/test_expect_100_continue.py::TestExpect100ContinueBehavior::test_request_pipeline_3_all_100",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.http_general.test_expect_100_continue.TestExpect100ContinueBehavior.test_request_pipeline_3_requests_encoding_chunked",
+            "name": "tests/http_general/test_expect_100_continue.py::TestExpect100ContinueBehavior::test_request_pipeline_3_requests_encoding_chunked",
             "reason": "These tests should not be run with TCP segmentation."
         },
         {
-            "name": "tests.frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
+            "name": "tests/frang/test_concurrent_connections.py::TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run with segmentation."
         }
     ]

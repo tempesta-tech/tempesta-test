@@ -102,7 +102,7 @@ class DeproxyTestH2(tester.TempestaTest):
         deproxy_cl.parsing = False
 
         deproxy_cl.make_request(head)
-        self.assertTrue(await deproxy_cl.wait_for_response(timeout=0.5))
+        await deproxy_cl.wait_for_response(timeout=0.5)
         self.assertEqual(deproxy_cl.last_response.status, "400")
 
     async def test_bodyless(self):

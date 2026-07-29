@@ -93,7 +93,7 @@ You can also create default tests configuration
 (see `TestFrameworkCfg.defaults` method from `helpers/tf_cfg.py`) by calling:
 
 ```sh
-./run_tests.py -d local
+pytest --save-config local
 ```
 
 ### Run tests
@@ -101,51 +101,10 @@ The tests work with Ubuntu settings, please use the root user directly.
 
 To run the tests:
 ```sh
-./run_tests.py # all tests
-./run_tests.py tests/cache/test_cache.py # from file
-./run_tests.py tests/cache/test_cache.TestCacheDisabled.test_cache_fullfill_all
-./run_tests.py tests/cache -tests/cache.test_purge # run cache.*, and not run cache.test_purge.*
-./run_tests.py -- -tests/cache # run everything, except cache.*
+pytest # all tests
+pytest tests/cache/test_cache.py # from file
+pytest tests/cache/test_cache.py::TestCacheHttp::test_disabled_cache_bypass_all
 ```
-
-Or you can run individual tests (or test class) using `-H` options:
-
-```sh
-./run_tests.py -H tests/selftests/test_deproxy.py 
-[?] Select test class: DeproxyTestH2
-   DeproxyChunkedTest
-   DeproxyClientTest
-   DeproxyDummyTest
-   DeproxyTest
-   DeproxyTestFailOver
- > DeproxyTestH2
-   ProtocolError
-
-[?] Select test method: ALL
- > ALL
-   test_bodyless
-   test_bodyless_multiplexed
-   test_disable_huffman_encoding
-   test_get_4xx_response
-   test_make_request
-   test_no_parsing_make_request
-   test_parsing_make_request
-   test_with_body
-```
-
-If the testsuite was interrupted or aborted, next run will continue from the
-interruption point. The resumption information is stored in the
-`tests_resume.txt` file in the current working directory. It is also possible
-to resume the testsuite from a specific test:
-```sh
-./run_tests.py --resume tests/server_connections
-./run_tests.py --resume-after tests/cache.test_purge
-```
-
-In all cases, prefix specifications are allowed, i. e. `tests/cache.test_cache` will
-match all tests in `tests/cache/test_cache.py`, but `tests/test_cache` will not match
-anything. When resuming, execution will continue from (after) the first test
-that matches the specified string.
 
 ## Adding new tests
 
@@ -262,7 +221,7 @@ This division is controlled by `segment_size` parameter of the client or the bac
 or backend configuration. You can run any test with TCP segmentation using `-T` option:
 
 ```shell
-./run_tests.py -T 10 tests/selftests/test_deproxy.py 
+pytest -T 10 tests/selftests/test_deproxy.py 
 ```
 
 ## Internal structure and motivation of user configured tests

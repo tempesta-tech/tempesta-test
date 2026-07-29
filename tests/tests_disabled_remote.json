@@ -2,119 +2,119 @@
     "disable" : true,
     "disabled" : [
         {
-            "name": "tests.multiple_listeners.test_multiple_listening.TestMultipleListening",
+            "name": "tests/multiple_listeners/test_multiple_listening.py::TestMultipleListening",
             "reason": "This test should not be run with remote setup. This test uses only loopback interface."
         },
         {
-            "name": "tests.stress.test_nginx",
+            "name": "tests/stress/test_nginx.py",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.reconf",
+            "name": "tests/reconf",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.server_options",
+            "name": "tests/server_options",
             "reason": "These tests should not be run with remote setup. Remote setup has no effect on these tests."
         },
         {
-            "name": "tests.fault_injection",
+            "name": "tests/fault_injection",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.frang.test_ip_block",
+            "name": "tests/frang/test_ip_block.py",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_request_rate_burst.TestFrangRequestRateHttp",
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestRateHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_request_rate_burst.TestFrangRequestBurstHttp",
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestBurstHttp",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_request_rate_burst.TestFrangRequestRateH2",
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestRateH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_request_rate_burst.TestFrangRequestBurstH2",
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestBurstH2",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_concurrent_connections.ConcurrentConnections.test_clear_client_connection_stats",
+            "name": "tests/frang/test_concurrent_connections.py::ConcurrentConnections::test_clear_client_connection_stats",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_concurrent_connections.ConcurrentConnections.test_three_clients_same_ip_with_block_ip",
+            "name": "tests/frang/test_concurrent_connections.py::ConcurrentConnections::test_three_clients_same_ip_with_block_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockH2.test_two_clients_one_ip",
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockH2::test_two_clients_one_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.frang.test_http_resp_code_block.TestRespCodeBlockHttp.test_two_clients_one_ip",
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockHttp::test_two_clients_one_ip",
             "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieConfigGlobal",
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigGlobal",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieConfigVhost",
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigVhost",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_path",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_path",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_max_age",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_max_age",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.sessions.test_cookies.StickyCookieOptions.test_dublicate_expires",
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_expires",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.frang.test_config",
+            "name": "tests/frang/test_config.py",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.cache.test_purge.TestPurgeInvalidConfig",
+            "name": "tests/cache/test_purge.py::TestPurgeInvalidConfig",
             "reason": "These tests should not be run with remote setup."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsH2.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsH2::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttps.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttps::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.tcp_options.test_tcp_options.TestTcpOptionsHttp.test_large_response_tcp_mtu_probing_40000",
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttp::test_large_response_tcp_mtu_probing_40000",
             "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
         },
         {
-            "name": "tests.http2_general.test_h2_frame.TestPostponedFrames",
+            "name": "tests/http2_general/test_h2_frame.py::TestPostponedFrames",
 	        "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
 	    },
         {
-            "name": "tests.frang.test_concurrent_connections.TestConcurrentConnectionsNonTempesta",
+            "name": "tests/frang/test_concurrent_connections.py::TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run on remote setup. Local only."
         },
         {
-            "name": "tests.stress.test_stress.H2LoadStressMTU80",
+            "name": "tests/stress/test_stress.py::H2LoadStressMTU80",
             "reason": "Disabled by test issue #816"
         },
         {
-            "name": "tests.stress.test_stress.TlsWrkStressMTU80",
+            "name": "tests/stress/test_stress.py::TlsWrkStressMTU80",
             "reason": "Disabled by test issue #816"
         },
         {
-            "name": "tests.stress.test_stress.WrkStressMTU80",
+            "name": "tests/stress/test_stress.py::WrkStressMTU80",
             "reason": "Disabled by test issue #816"
         }
     ]
