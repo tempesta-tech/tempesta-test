@@ -21,7 +21,7 @@ from framework.helpers.memworker import MemoryChecker
 from framework.helpers.networker import NetWorker
 from framework.helpers.tf_cfg import test_logger
 from framework.helpers.util import fill_template
-from framework.services import curl_client, external_client
+from framework.services import curl_client, external_client, rudy_client
 from framework.services import tempesta as tfw
 from framework.services import wrk_client
 from framework.services.base_client import BaseClient
@@ -213,6 +213,27 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         wrk.set_script(client["id"] + "_script", content="")
         return wrk
 
+    def __create_client_rudy(self, client, ssl):
+        addr = fill_template(client["addr"], client)
+        uri = client.get("uri", "/")
+        headers = client.get("headers", [])
+        # Expand ${...} placeholders in header values (e.g. Host).
+        headers = [fill_template(h, client) for h in headers]
+        return rudy_client.Rudy(
+            id_=client["id"],
+            server_addr=addr,
+            uri=uri,
+            ssl=ssl,
+            concurrents=client.get("concurrents"),
+            interval=client.get("interval", "10s"),
+            payload_size=client.get("payload_size", "1MB"),
+            method=client.get("method", "POST"),
+            headers=headers,
+            protocol=client.get("protocol", "http1"),
+            insecure=client.get("insecure", False),
+            duration=client.get("duration"),
+        )
+
     def __create_client_external(self, client_descr):
         cmd_args = fill_template(client_descr["cmd_args"], client_descr)
         ext_client = external_client.ExternalTester(
@@ -259,6 +280,8 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             self.deproxy_manager.add_client(self.__clients[cid])
         elif ctype == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
+        elif ctype == "rudy":
+            self.__clients[cid] = self.__create_client_rudy(client, ssl)
         elif ctype == "curl":
             self.__clients[cid] = self.__create_client_curl(client, bind_addr)
         elif ctype == "external":
@@ -317,6 +340,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         curl_client.CurlClient,
         external_client.ExternalTester,
         wrk_client.Wrk,
+        rudy_client.Rudy,
         None,
     ]:
         """Return client with specified id"""
