@@ -174,9 +174,9 @@ http_chain {{
         curl = self.get_client(curl_id)
         curl.headers["Host"] = "tempesta-tech.com"
         curl.set_uri(path)
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
     @marks.Parameterize.expand(
         [
@@ -203,7 +203,7 @@ http_chain {{
         self.assertEqual(curl.last_response.status, 200)
 
         rudy = self.get_client(rudy_id)
-        rudy.start()
+        await rudy.start()
 
         # Let RUDY open connections and hit client_body_timeout at least once.
         await asyncio.sleep(CLIENT_BODY_TIMEOUT + 2)
@@ -224,7 +224,7 @@ http_chain {{
         )
 
         await rudy.wait_for_finish(timeout=RUDY_DURATION + 10)
-        rudy.stop()
+        await rudy.stop()
 
         # Frang must have observed incomplete slow bodies.
         found = await klog.find(
