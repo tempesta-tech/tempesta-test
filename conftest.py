@@ -2,7 +2,11 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from typing import Optional
+
 import pytest
+from _pytest.config import Config, argparsing
+from _pytest.runner import runtestprotocol
 
 import run_config
 from framework.helpers import memworker, remote, tf_cfg
@@ -12,9 +16,18 @@ from framework.test_suite import tester
 from framework.test_suite.tester import test_logger
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: argparsing.Parser) -> None:
     group = parser.getgroup("tempesta")
 
+    group.addoption(
+        "-R",
+        "--repeat",
+        action="store",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Repeat every selected test N times",
+    )
     group.addoption(
         "--save-config",
         action="store",
@@ -101,15 +114,15 @@ def pytest_addoption(parser):
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_main(config):
-    save_config = config.getoption("--save-config")
+def pytest_cmdline_main(config: Config) -> Optional[int]:
+    save_config: Optional[str] = config.getoption("--save-config")
     if save_config:
         tf_cfg.cfg.save_defaults(save_config)
         return 0
     return None
 
 
-def pytest_configure(config):
+def pytest_configure(config: Config) -> None:
     if config.getoption("--identifier"):
         tester.build_path = config.getoption("--identifier")
 
@@ -146,7 +159,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "flaky(reruns): rerun test up to `reruns` times")
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]):
+def pytest_collection_modifyitems(config: Config, items: list[pytest.Item]) -> None:
     ps.handle_disabled_tests(config, items)
     if not items:
         return
@@ -155,12 +168,23 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     ps.apply_retry_markers(config, items)
 
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
     tf_cfg.cfg.log_listener.stop()
 
 
+def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) -> Optional[bool]:
+    count: int = item.config.getoption("--repeat")
+    if count <= 1:
+        return None
+
+    for _ in range(count):
+        runtestprotocol(item, nextitem=nextitem, log=True)
+
+    return True
+
+
 @pytest.fixture(scope="session")
-def _configure_tcp(pytestconfig):
+def _configure_tcp(pytestconfig: Config) -> None:
     """allows run tests from docker container."""
     if not pytestconfig.getoption("--dont-prepare"):
         prepare.configure_tcp()
@@ -168,7 +192,7 @@ def _configure_tcp(pytestconfig):
 
 
 @pytest.fixture(scope="session")
-def _manage_kernel_debug_session(_configure_tcp):
+def _manage_kernel_debug_session(_configure_tcp: None) -> None:
     if run_config.KERNEL_DBG_TESTS:
         ps.check_kmemleak_availability()
         remote.tempesta.run_cmd("echo clear > /sys/kernel/debug/kmemleak")
@@ -178,16 +202,16 @@ def _manage_kernel_debug_session(_configure_tcp):
 
 
 @pytest.fixture(scope="session")
-def _tempesta_session_memory_check(_manage_kernel_debug_session):
+def _tempesta_session_memory_check(_manage_kernel_debug_session: None) -> None:
     """Whole-suite memory-leak check."""
     with memworker.check_memory_leaks():
         yield
 
 
 @pytest.fixture(scope="function", autouse=True)
-def _log_test_lifecycle(request):
+def _log_test_lifecycle(request: pytest.FixtureRequest) -> None:
     """Per-test logging: start/stop + dmesg."""
-    nodeid = request.node.nodeid
+    nodeid: str = request.node.nodeid
 
     test_logger.info(f"\n\n{'-' * 100}\nStart test '{nodeid}'\n{'-' * 100}")
     tf_cfg.log_dmesg(remote.tempesta, f"Start test: {nodeid}")

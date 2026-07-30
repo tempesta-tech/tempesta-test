@@ -6,7 +6,7 @@
             "reason" : "These tests don't check Tempesta FW. These are comparison tests."
         },
         {
-            "name": "tests/wrong_body_length/test_request_wrong_length.py::RequestSmallBodyLength",
+            "name": "tests/wrong_body_length/test_response_wrong_length.py::ResponseSmallBodyLength",
             "reason" : "Disabled by issue #1752"
         },
         {
