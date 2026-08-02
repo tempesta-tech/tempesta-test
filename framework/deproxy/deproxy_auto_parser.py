@@ -13,7 +13,6 @@ from framework.deproxy.deproxy_client import (
     DeproxyClient,
     DeproxyClientH2,
 )
-from framework.deproxy.deproxy_manager import DeproxyManager
 from framework.deproxy.deproxy_message import (
     H2Request,
     H2Response,
@@ -37,8 +36,7 @@ class DeproxyAutoParser:
     Please do not create class objects in tests!!!
     """
 
-    def __init__(self, deproxy_manager: DeproxyManager, tempesta_config: Config):
-        self.__deproxy_manager: DeproxyManager = deproxy_manager
+    def __init__(self, tempesta_config: Config):
         self.__expected_response: Response | None = None
         self.__expected_request: Request | None = None
         self.__client_request: Request | H2Request | None = None

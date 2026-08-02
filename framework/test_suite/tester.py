@@ -13,7 +13,7 @@ from typing import Callable, Optional, Union
 from unittest.util import strclass
 
 import run_config
-from framework.deproxy import deproxy_client, deproxy_manager
+from framework.deproxy import deproxy_client
 from framework.deproxy.deproxy_auto_parser import DeproxyAutoParser
 from framework.deproxy.deproxy_server import StaticDeproxyServer, deproxy_srv_factory
 from framework.helpers import clickhouse, dmesg, error, remote, tf_cfg, util
@@ -255,8 +255,7 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
                 bind_addr = client_ip
         if ctype in ["deproxy", "deproxy_h2"]:
             self.__clients[cid] = self.__create_client_deproxy(client, ssl, bind_addr)
-            self.__clients[cid].set_rps(client.get("rps", 0))
-            self.deproxy_manager.add_client(self.__clients[cid])
+            self.__clients[cid].rps = client.get("rps", 0)
         elif ctype == "wrk":
             self.__clients[cid] = self.__create_client_wrk(client, ssl)
         elif ctype == "curl":
@@ -333,7 +332,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             ([self.__tempesta] if self.__tempesta is not None else [])
             + self.get_clients()
             + list(self.get_servers())
-            + [self.deproxy_manager]
         )
 
     def get_clients_id(self):
@@ -412,14 +410,11 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         self.__tcpdump: subprocess.Popen = None
         self.__ips = []
         self.__tempesta = None
-        self.deproxy_manager = deproxy_manager.DeproxyManager()
         self.__save_memory_consumption()
         self.loggers = TempestaLoggers(dmesg=dmesg.DmesgFinder(), _get_tempesta=self.get_tempesta)
         self.oops_ignore = []
         self.__create_tempesta()
-        self._deproxy_auto_parser = DeproxyAutoParser(
-            self.deproxy_manager, self.get_tempesta().config
-        )
+        self._deproxy_auto_parser = DeproxyAutoParser(self.get_tempesta().config)
         self.__create_servers()
         self.__create_clients()
         self.__run_tcpdump()
@@ -430,7 +425,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.cleanup_check_dmesg)
         self.addAsyncCleanup(self.cleanup_stop_tcpdump)
         self.addAsyncCleanup(self.cleanup_interfaces)
-        self.addAsyncCleanup(self.cleanup_deproxy)
         self.addAsyncCleanup(self.cleanup_services)
         self.addAsyncCleanup(self.__cleanup_tasks)
         test_logger.info(f"setUp completed '{self.id()}'")
@@ -455,15 +449,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
 
         if self.__exceptions:
             raise error.ServiceStoppingException(self.__exceptions)
-
-    async def cleanup_deproxy(self):
-        test_logger.info("Cleanup: finish all deproxy sockets...")
-        try:
-            self.deproxy_manager.finish_all_deproxy()
-        except Exception as e:
-            test_logger.critical("Unknown exception in stopping deproxy", exc_info=True)
-        self.deproxy_manager = None
-        test_logger.info("Cleanup: all deproxy sockets are closed.")
 
     async def cleanup_interfaces(self):
         test_logger.info("Cleanup: Removing interfaces")
@@ -531,11 +516,6 @@ class TempestaTest(WaitUntilAsserts, unittest.IsolatedAsyncioTestCase):
             asyncio.create_task(self.start_all_servers()),
             asyncio.create_task(self.start_tempesta()),
         ]
-
-        if "deproxy" or "deproxy_h2" in [
-            element["type"] for element in (self.clients + self.backends)
-        ]:
-            tasks.append(asyncio.create_task(self.deproxy_manager.start()))
 
         conn_task = asyncio.create_task(self.wait_all_connections())
         tfw_logger_task = asyncio.create_task(self.__tempesta.wait_while_logger_start())

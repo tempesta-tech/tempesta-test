@@ -464,7 +464,6 @@ server ${server_ip}:8000;
         client.make_requests(request, pipelined=True)
         await client.wait_for_response(timeout=3)
 
-        self.assertEqual(client._nrreq, 1, "The estimated number of requests does not match.")
         self.assertEqual(len(client.responses), messages)
         for res in client.responses:
             self.assertEqual(res.status, "200")

@@ -102,7 +102,7 @@ class TestRespCodeBlockOneClient(FrangTestCase):
             (10, [client.create_request(method="GET", uri=self.uri_200, headers=[]).msg] * 10),
         ]:
             with self.subTest():
-                client.set_rps(rps)
+                client.rps = rps
                 client.make_requests(requests)
                 await client.wait_for_response()
 
