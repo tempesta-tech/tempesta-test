@@ -4,14 +4,11 @@ __license__ = "GPL2"
 
 
 import abc
+import asyncio
 import dataclasses
-import errno
-import socket
 import ssl
-import sys
-import time
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import h2.connection
 from h2.connection import AllowedStreamIDs, ConnectionState
@@ -33,18 +30,74 @@ from hpack import Encoder
 
 import run_config
 from framework.deproxy import deproxy_message
-from framework.deproxy.deproxy_base import BaseDeproxy
-from framework.deproxy.deproxy_message import ParseError
-from framework.helpers import error, tf_cfg, util
+from framework.deproxy.deproxy_connection import (
+    DeproxyBase,
+    DeproxyConnection,
+    safe_readwrite,
+)
+from framework.helpers import tf_cfg, util
 from framework.services import stateful
 
 
-class BaseDeproxyClient(BaseDeproxy, abc.ABC):
+class ClientConnection(DeproxyConnection):
+    _deproxy: "BaseDeproxyClient"
+
     def __init__(
         self,
-        # BaseDeproxy
+        client: "BaseDeproxyClient",
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ):
+        super().__init__(client, reader, writer)
+        self._queue = client._queue
+        self._start_readwrite()
+        self._tcp_logger.debug("New client connection")
+
+    @safe_readwrite
+    async def _read_loop(self) -> None:
+        resp_buffer = bytearray()
+        while self._readwrite.is_set():
+            data = await self._reader.read(deproxy_message.MAX_MESSAGE_SIZE)
+            if not data:
+                await self.close()
+                return
+            resp_buffer.extend(data)
+
+            while resp_buffer:
+                response = self._deproxy._process_received_data(data)
+                if response is None:
+                    break
+                del resp_buffer[: response.original_length]
+
+    @safe_readwrite
+    async def _write_loop(self) -> None:
+        while self._readwrite.is_set():
+            item = await self._queue.get()
+
+            if item is None:
+                self._queue.task_done()
+                break
+
+            data, count = item
+            await self._write_func(data)
+            self._queue.task_done()
+
+    def _after_close(self) -> None:
+        if self in self._deproxy.connections:
+            self._deproxy.remove_connection(connection=self)
+        self._deproxy._connecting = False
+        self._deproxy._connected = False
+
+
+class BaseDeproxyClient(DeproxyBase, stateful.Stateful, abc.ABC):
+    _connection_factory: Callable[..., ClientConnection]
+
+    def __init__(
+        self,
         *,
+        # Stateful
         id_,
+        # DeproxyBase
         deproxy_auto_parser,
         port: int,
         bind_addr: Optional[str],
@@ -57,9 +110,8 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         server_hostname: str,
         rcv_buf_size: int,
     ):
-        # Initialize the `BaseDeproxy`
-        super().__init__(
-            id_=id_,
+        DeproxyBase.__init__(
+            self,
             deproxy_auto_parser=deproxy_auto_parser,
             port=port,
             bind_addr=bind_addr,
@@ -68,26 +120,34 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             is_ipv6=is_ipv6,
             rcv_buf_size=rcv_buf_size,
         )
-
-        self.writable = self._in_connecting_state
-        self._handle_write = self.__setup_write
-
+        stateful.Stateful.__init__(self, id_=id_)
+        # state flags
+        self._connected: bool = False
+        self._connecting: bool = False
+        # unchangeable flags
         self.ssl = is_ssl
-        self._is_http2 = isinstance(self, DeproxyClientH2)
-        self._create_context()
-        self.server_hostname = server_hostname
-
-        self.request_buffer = ""
-        self.response_buffer = ""
-        self.conn_addr = conn_addr
-        self.__error_codes: list[Exception | ErrorCodes] = []
-        self.__is_rst_received: bool = None
-
-        self.rps = 0
+        self._is_http2 = not isinstance(self, DeproxyClient)
+        # changeable flags and params
         self.parsing = True
         self.close_connection_for_tcp_fin = True
-
+        self.server_hostname = server_hostname
+        self.conn_addr = conn_addr
+        self.rps = 0
+        # asyncio
+        self._connect_task: Optional[asyncio.Task] = None
+        self._queue: asyncio.Queue[tuple[bytes, int] | None] = asyncio.Queue()
+        # internal logic
+        self._nrresp = 0
+        self.__error_codes: list[Exception | ErrorCodes] = []
+        self._create_context()
         self.simple_get = self.create_request("GET", headers=[])
+
+    def _add_to_requests_queue(self, data: bytes, *_, **__) -> None:
+        """
+        Add the finished data to the sending queue.
+        The client and the connection work with the same queue
+        """
+        self._queue.put_nowait((data, 0))
 
     def _create_context(self):
         self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -104,8 +164,14 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             self._context.options |= ssl.OP_NO_COMPRESSION
 
     @property
+    def _connection(self) -> Optional[ClientConnection]:
+        if self.connections:
+            return self.connections[0]
+        return None
+
+    @property
     def is_rst_received(self) -> bool:
-        return self.__is_rst_received
+        return self._connection.is_rst_received
 
     @property
     def statuses(self) -> Dict[int, int]:
@@ -129,17 +195,6 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             return None
         return self.responses[-1]
 
-    @property
-    def request_buffers(self) -> List[bytes]:
-        return self._request_buffers
-
-    @property
-    def ack_cnt(self):
-        return self._ack_cnt
-
-    @abc.abstractmethod
-    def _add_to_request_buffers(self, *args, **kwargs) -> None: ...
-
     def _add_error_code(self, error_code: Exception | ErrorCodes) -> None:
         self.__error_codes.append(error_code)
 
@@ -157,127 +212,64 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
                 expected_error_code in self.__error_codes
             ), f"{expected_error_code} not found in {self.__error_codes}\n{msg}"
 
-    def _in_connecting_state(self):
-        return self._connecting
-
-    def _has_pending_data(self):
-        if self._cur_req_num >= self._nrreq:
-            return False
-        if time.time() < self.next_request_time():
-            return False
-        if (
-            self.segment_gap != 0
-            and time.time() - self._last_segment_time < self.segment_gap / 1000.0
-        ):
-            return False
-        return True
-
-    def _send_data(self):
-        """Send data from `self.request_buffers` and cut them."""
-        reqs = self.request_buffers[self._cur_req_num]
-
-        sent = self._send(reqs[: self.segment_size] if self.segment_size else reqs)
-        if sent < 0:
+    async def run_start(self) -> None:
+        if self._connecting or self._connected:
             return
-        self._last_segment_time = time.time()
-        self.request_buffers[self._cur_req_num] = reqs[sent:]
-        if len(self.request_buffers[self._cur_req_num]) == 0:
-            self._cur_req_num += 1
-            self._http_logger.info(
-                f"A request was send. The current number of a request - {self._cur_req_num}"
+        self._connected = False
+        self._connecting = True
+        self._connect_task = asyncio.create_task(self._connect())
+
+    async def _connect(self) -> None:
+        try:
+            reader, writer = await asyncio.open_connection(
+                host=self.conn_addr,
+                port=self.port,
+                ssl=self._context if self.ssl else None,
+                server_hostname=self.server_hostname if self.ssl else None,
+                local_addr=(self.bind_addr, 0) if self.bind_addr else None,
             )
-        elif not self.segment_size:
-            self._tcp_logger.info(
-                f"{sent} bytes sent. {len(self.request_buffers[self._cur_req_num])} bytes left."
-            )
+            self._connections.append(self._connection_factory(self, reader, writer))
+        except (OSError, ssl.SSLError) as exc:
+            self._add_error_code(type(exc))
+            self._tcp_logger.warning(f"Failed to connect - {type(exc)} with message - {exc}")
+            self._connecting = False
+            return
 
-    def __setup_write(self):
-        self.writable = self._has_pending_data
-        self._handle_write = self._send_data
+        self._connecting = False
+        self._connected = True
 
-        # Connection established and client has pending data to send
-        if self.writable():
-            self._handle_write()
+        self._tcp_logger.info(f"Connected to {self.conn_addr}:{self.port}.")
 
-    def _handle_connect(self):
-        if self.ssl:
-            self._socket = self._context.wrap_socket(
-                self._socket, do_handshake_on_connect=False, server_hostname=self.server_hostname
-            )
-        self._start_time = time.time()
-
-    def _handle_close(self):
-        if self.close_connection_for_tcp_fin:
-            try:
-                err = self._socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-                self._tcp_logger.info(f"Close with errno={err}")
-                self.__is_rst_received = True if err == errno.EPIPE else False
-            except OSError as why:
-                if why.errno != errno.EBADF:
-                    raise
-            super()._handle_close()
-            self.writable = self._in_connecting_state
-            self._handle_write = self.__setup_write
-
-    def _handle_error(self):
-        type_error, v, _ = sys.exc_info()
-        self._add_error_code(type_error)
-        self._tcp_logger.warning(f"Receive error - {type_error} with message - {v}")
-
-        if type_error == ParseError:
-            self._handle_close()
-            raise v
-        elif type_error in (
-            ssl.SSLWantReadError,
-            ssl.SSLWantWriteError,
-            ssl.SSLError,
-            ConnectionRefusedError,
-            AssertionError,
-        ):
-            # SSLWantReadError and SSLWantWriteError - Need to receive more data before decryption
-            # can start.
-            # ConnectionRefusedError and AssertionError - RST is legitimate case
-            # SSLError - Server may reject handshake intentionally in negative tests
-            pass
-        elif type_error == ssl.SSLEOFError:
-            # This may happen if a TCP socket is closed without sending TLS close alert. See #1778
-            self._handle_close()
-        else:
-            self._handle_close()
-            error.bug("\tDeproxy: Client: %s" % v)
-
-    def set_rps(self, rps):
-        self.rps = rps
-
-    def _stop_deproxy(self):
+    async def _stop_deproxy(self) -> None:
+        if self._connection:
+            await self._connection.close()
+        self.clear_stats()
         self.close_connection_for_tcp_fin = True
-        self._handle_close()
-
-    def _run_deproxy(self):
-        self._create_socket()
-        self._set_recv_buffer_size(self._socket)
-        if self.bind_addr:
-            self._bind(
-                (self.bind_addr, 0),
-            )
-            self._src_ip, self._src_port, *_ = self._socket.getsockname()
-
-        self._tcp_logger.info(f"Trying to connect to {self.conn_addr}:{self.port}.")
-        self._connect((self.conn_addr, self.port))
+        self._connected = False
+        self._connecting = False
 
     @abc.abstractmethod
-    def _handle_read(self): ...
-
-    def next_request_time(self):
-        if self.rps == 0:
-            return self._start_time
-        return self._start_time + float(self._cur_req_num) / self.rps
+    def _process_received_data(self, data: bytearray) -> Optional[deproxy_message.Response]: ...
 
     @abc.abstractmethod
     def make_requests(self, requests): ...
 
     @abc.abstractmethod
     def make_request(self, request, **kwargs): ...
+
+    @staticmethod
+    @abc.abstractmethod
+    def create_request(
+        method,
+        headers,
+        uri="/",
+        date=None,
+        body="",
+        version="HTTP/1.1",
+        authority=tf_cfg.cfg.get("Client", "hostname"),
+        *args,
+        **kwargs,
+    ) -> deproxy_message.Request: ...
 
     async def send_request(
         self,
@@ -301,8 +293,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             )
 
     def send_bytes(self, data: bytes, expect_response: bool = False) -> None:
-        self._add_to_request_buffers(data=data, end_stream=None)
-        self._nrreq += 1
+        self._add_to_requests_queue(data=data, end_stream=None)
         if expect_response:
             self._valid_req_num += 1
 
@@ -316,7 +307,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         timeout_not_exceeded = await util.wait_until(
             lambda: not self.conn_is_active,
             timeout,
-            abort_cond=lambda: not self._connecting,
+            abort_cond=lambda: self.state != stateful.STATE_STARTED,
             adjust_timeout=adjust_timeout,
         )
         assert timeout_not_exceeded, f"{timeout_not_exceeded} is not True." + (
@@ -379,9 +370,8 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             msg or f"Timeout exceeded while waiting response: {timeout}"
         )
 
-    def receive_response(self, response: deproxy_message.Response) -> None:
+    def _receive_response(self, response: deproxy_message.Response) -> None:
         self.responses.append(response)
-        self._clear_last_response_buffer = True
         self._http_logger.info(
             f"A response was receive. The response status={response.status}. "
             f"The current number of responses - {self._nrresp}."
@@ -395,19 +385,14 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
     def clear_stats(self):
         super().clear_stats()
         self._nrresp = 0  # number of responses that the client received
-        self._nrreq = 0  # number of requests that the client must send
-        self._request_buffers: List[bytes] = []
         # The HTTP1 client must be informed about a request method to parse body.
         # So we store all request methods. See `parse_body` method in Response.
         self.methods = []
-        self._start_time = 0
         self._valid_req_num = 0  # number of requests that are expected to receive responses
         # number of the current request to send. It needed for RPS and TCP segmentation
         self._cur_req_num = 0
         # This state variable contains a timestamp of the last segment sent
-        self._last_segment_time = 0
         self.responses: List[deproxy_message.Response] = list()
-        self._ack_cnt = 0
         self._src_ip = None
         self._src_port = None
 
@@ -417,9 +402,15 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
     @property
     def selected_alpn_protocol(self):
-        if isinstance(self._socket, ssl.SSLSocket):
-            return self._socket.selected_alpn_protocol()
-        return None
+        connection = self._connection
+        if connection is None:
+            return None
+
+        ssl_object = self._connection.ssl_object
+        if ssl_object is None:
+            return None
+
+        return ssl_object.selected_alpn_protocol()
 
     @property
     def src_ip(self) -> str | None:
@@ -447,6 +438,8 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
 
 
 class DeproxyClient(BaseDeproxyClient):
+    _connection_factory = ClientConnection
+
     def make_requests(self, requests: list[deproxy_message.Request | str], pipelined=False) -> None:
         """
         if pipelined is True:
@@ -459,14 +452,13 @@ class DeproxyClient(BaseDeproxyClient):
                 self.__check_request(request)
 
             requests = [
-                request if isinstance(request, str) else request.msg for request in requests
+                request.encode() if isinstance(request, str) else request.msg.encode()
+                for request in requests
             ]
 
-            req_buf_len = len(self.request_buffers)
-            self._add_to_request_buffers("".join(requests))
+            self._add_to_requests_queue(b"".join(requests))
             self._valid_req_num += len(requests)
 
-            self._nrreq += len(self.request_buffers) - req_buf_len
         else:
             for request in requests:
                 self.make_request(request)
@@ -476,8 +468,9 @@ class DeproxyClient(BaseDeproxyClient):
         self.__check_request(request)
 
         self._valid_req_num += 1
-        self._add_to_request_buffers(request if isinstance(request, str) else request.msg)
-        self._nrreq += 1
+        self._add_to_requests_queue(
+            request.encode() if isinstance(request, str) else request.msg.encode()
+        )
 
     def __check_request(self, request: str | deproxy_message.Request) -> None:
         if self.parsing and isinstance(request, str):
@@ -525,32 +518,19 @@ class DeproxyClient(BaseDeproxyClient):
             body=body,
         )
 
-    def _handle_read(self):
-        self.response_buffer += self._recv(deproxy_message.MAX_MESSAGE_SIZE).decode()
-        if not self.response_buffer:
-            return
-        while len(self.response_buffer) > 0:
-            try:
-                method = self.methods[self._nrresp]
-                response = deproxy_message.Response(self.response_buffer, method=method)
-                self.response_buffer = self.response_buffer[response.original_length :]
-            except deproxy_message.IncompleteMessage:
-                self._http_logger.debug(f"Receive IncompleteMessage")
-                return
-            except deproxy_message.ParseError:
-                self._http_logger.error(
-                    f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
-                )
-                raise
+    def _process_received_data(self, data: bytearray) -> Optional[deproxy_message.Response]:
+        try:
+            method = self.methods[self._nrresp]
+            response = deproxy_message.Response(data.decode(), method=method)
             self._nrresp += 1
-            self.receive_response(response)
-
-    def _add_to_request_buffers(self, data, *_, **__) -> None:
-        data = data if isinstance(data, list) else [data]
-        for request in data:
-            self._request_buffers.append(
-                request if isinstance(request, bytes) else request.encode()
-            )
+        except deproxy_message.IncompleteMessage:
+            self._http_logger.debug(f"Receive IncompleteMessage")
+            return None
+        except deproxy_message.ParseError:
+            self._http_logger.error(f"Can't parse message\n<<<<\n{data}\n>>>>", exc_info=True)
+            raise
+        self._receive_response(response)
+        return response
 
 
 class HuffmanEncoder(Encoder):
