@@ -13,8 +13,9 @@ from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
-DEFAULT_INITIAL_WINDOW_SIZE = 65535
+DEFAULT_INITIAL_WINDOW_SIZE = 262140
 BIG_HEADER_SIZE = 600000
+WINDOW_SIZE_10MB = 10 * 1048576
 
 
 class TestPriorityBase(H2Base):
@@ -60,6 +61,9 @@ class TestPriorityBase(H2Base):
         )
 
         client.update_initial_settings(initial_window_size=initial_window_size)
+        client.h2_connection.increment_flow_control_window(
+            WINDOW_SIZE_10MB - client.h2_connection.inbound_flow_control_window
+        )
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
         return client, server
