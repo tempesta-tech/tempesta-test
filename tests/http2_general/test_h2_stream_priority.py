@@ -13,7 +13,7 @@ from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
-DEFAULT_INITIAL_WINDOW_SIZE = 65535
+DEFAULT_INITIAL_WINDOW_SIZE = 262140
 BIG_HEADER_SIZE = 600000
 
 
