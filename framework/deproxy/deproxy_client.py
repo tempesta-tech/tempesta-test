@@ -521,7 +521,7 @@ class DeproxyClient(BaseDeproxyClient):
             body=body,
         )
 
-    def _process_received_data(self, data: bytearray) -> Optional[int.Response]:
+    def _process_received_data(self, data: bytearray) -> Optional[int]:
         try:
             method = self.methods[self._nrresp]
             response = deproxy_message.Response(data.decode(), method=method)
