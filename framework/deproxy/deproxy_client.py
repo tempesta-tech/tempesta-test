@@ -64,7 +64,7 @@ class ClientConnection(DeproxyConnection):
             resp_buffer.extend(data)
 
             while resp_buffer:
-                len_ = self._deproxy._process_received_data(data)
+                len_ = self._deproxy._process_received_data(resp_buffer)
                 if len_ is None:
                     break
                 del resp_buffer[:len_]
@@ -575,13 +575,13 @@ class DeproxyClientH2(BaseDeproxyClient):
                 stream_id = req_body_buffer.stream_id
                 end_stream = req_body_buffer.end_stream
 
-                data_to_send, size = self.__prepare_data_frames(body, stream_id, end_stream)
+                data_to_send, size = self.__prepare_data_frames(body, end_stream, stream_id)
                 # we must use data_to_send here because size may be 0 when DATA frame is empty.
                 # For example: make_request(request=b""). In this case size is 0, but data_to_send is
                 # empty DATA frame
                 if not data_to_send:
                     self._req_body_buffers.append(req_body_buffer)
-                    continue
+                    break
                 self._add_to_requests_queue(data=data_to_send)
 
                 if len(body) > size:
@@ -836,67 +836,64 @@ class DeproxyClientH2(BaseDeproxyClient):
             self._last_response_buffer = bytes()
 
         self._last_response_buffer += data
-        try:
-            events = self.h2_connection.receive_data(bytes(data))
 
-            self._http_logger.info("Receive 'h2_connection' events")
-            self._http_logger.debug(f"{events}")
-            for event in events:
-                if isinstance(event, ResponseReceived):
-                    # H2Connection returns ResponseReceived event when HEADERS and
-                    # all CONTINUATION frames with END_HEADERS flag are received.
-                    headers = self.__binary_headers_to_string(event.headers)
+        events = self.h2_connection.receive_data(bytes(data))
 
+        self._http_logger.info("Receive 'h2_connection' events")
+        self._http_logger.debug(f"{events}")
+        for event in events:
+            if isinstance(event, ResponseReceived):
+                # H2Connection returns ResponseReceived event when HEADERS and
+                # all CONTINUATION frames with END_HEADERS flag are received.
+                headers = self.__binary_headers_to_string(event.headers)
+                try:
                     response = deproxy_message.H2Response(
                         headers + "\r\n", method="", body_parsing=False
                     )
 
                     self._active_responses[event.stream_id] = response
+                except deproxy_message.IncompleteMessage:
+                    self._http_logger.debug(f"Receive IncompleteMessage")
+                except deproxy_message.ParseError as e:
+                    self._http_logger.error(
+                        f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
+                    )
+                    raise
+            elif isinstance(event, DataReceived):
+                body = event.data.decode()
+                response = self._active_responses.get(event.stream_id)
+                response.body += body
+                if self.auto_flow_control:
+                    self.increment_flow_control_window(
+                        event.stream_id, event.flow_controlled_length
+                    )
+            elif isinstance(event, TrailersReceived):
+                response = self._active_responses.get(event.stream_id)
+                for trailer in event.headers:
+                    response.trailer.add(trailer[0].decode(), trailer[1].decode())
+            elif isinstance(event, StreamEnded):
+                response = self._active_responses.pop(event.stream_id, None)
+                if response is None:
+                    continue
+                self._response_sequence.append(event.stream_id)
+                self._receive_response(response)
+                self._nrresp += 1
+            elif isinstance(event, StreamReset):
+                # the client don't receive a response for RST_STREAM, so we should decrease a counter
+                self._valid_req_num -= 1
+                self._add_error_code(event.error_code)
+            elif isinstance(event, ConnectionTerminated):
+                self._add_error_code(event.error_code)
+                self._last_stream_id = event.last_stream_id
+            elif isinstance(event, SettingsAcknowledged):
+                self._ack_settings = True
+                self._ack_cnt += 1
+            elif isinstance(event, WindowUpdated):
+                self._body_event.set()
+            elif isinstance(event, PingAckReceived):
+                self._ping_received += 1
 
-                elif isinstance(event, DataReceived):
-                    body = event.data.decode()
-                    response = self._active_responses.get(event.stream_id)
-                    response.body += body
-                    if self.auto_flow_control:
-                        self.increment_flow_control_window(
-                            event.stream_id, event.flow_controlled_length
-                        )
-                elif isinstance(event, TrailersReceived):
-                    response = self._active_responses.get(event.stream_id)
-                    for trailer in event.headers:
-                        response.trailer.add(trailer[0].decode(), trailer[1].decode())
-                elif isinstance(event, StreamEnded):
-                    response = self._active_responses.pop(event.stream_id, None)
-                    if response is None:
-                        return None
-                    self._response_sequence.append(event.stream_id)
-                    self._receive_response(response)
-                    self._nrresp += 1
-                elif isinstance(event, StreamReset):
-                    # the client don't receive a response for RST_STREAM, so we should decrease a counter
-                    self._valid_req_num -= 1
-                    self._add_error_code(event.error_code)
-                elif isinstance(event, ConnectionTerminated):
-                    self._add_error_code(event.error_code)
-                    self._last_stream_id = event.last_stream_id
-                elif isinstance(event, SettingsAcknowledged):
-                    self._ack_settings = True
-                    self._ack_cnt += 1
-                elif isinstance(event, WindowUpdated):
-                    ...
-                    # self._body_event.set()
-                elif isinstance(event, PingAckReceived):
-                    self._ping_received += 1
-
-            return len(data)
-        except deproxy_message.IncompleteMessage:
-            self._http_logger.debug(f"Receive IncompleteMessage")
-            return
-        except deproxy_message.ParseError as e:
-            self._http_logger.error(
-                f"Can't parse message\n<<<<\n{self.response_buffer}\n>>>>", exc_info=True
-            )
-            raise
+        return len(data)
 
     @staticmethod
     def __headers_to_string(headers):
