@@ -77,7 +77,6 @@ frang_limits {
 
         await self.start_all_servers()
         await self.start_tempesta()
-        await self.deproxy_manager.start()
         for client in self.get_clients():
             """
             Set the same address as for standalone deproxy server.

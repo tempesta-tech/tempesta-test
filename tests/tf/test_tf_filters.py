@@ -330,7 +330,6 @@ class TestTFHashDoesNotMatchedWithFiltered(BaseTFTestSuite):
         """
         await self.start_all_servers()
         await self.start_tempesta()
-        await self.deproxy_manager.start()
 
         limited_1 = self.get_client("limited-1")
         limited_2 = self.get_client("limited-2")

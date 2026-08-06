@@ -887,7 +887,7 @@ class DeproxyClientH2(BaseDeproxyClient):
                 self._last_stream_id = event.last_stream_id
             elif isinstance(event, SettingsAcknowledged):
                 self._ack_settings = True
-                self._ack_cnt += 1
+                self.ack_cnt += 1
             elif isinstance(event, WindowUpdated):
                 self._body_event.set()
             elif isinstance(event, PingAckReceived):
@@ -1029,7 +1029,7 @@ class DeproxyClientH2(BaseDeproxyClient):
         self._req_body_buffers: List[ReqBodyBuffer] = list()
         self._auto_flow_control = True
         self._ping_received = 0
-        self._ack_cnt = 0
+        self.ack_cnt = 0
 
     def check_header_presence_in_last_response_buffer(self, header: bytes) -> bool:
         if len(header) == 0:

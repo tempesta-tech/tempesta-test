@@ -89,7 +89,6 @@ class NginxStressBase(NginxProxyMixin, tester.TempestaTest, base=True):
         # Start servers, but not Tempesta
         self.create_cert()
         await self.start_all_servers()
-        await self.deproxy_manager.start()
         wrk = self.get_client("wrk")
         wrk.set_script("foo", content='wrk.method="GET"')
         wrk.timeout = 0

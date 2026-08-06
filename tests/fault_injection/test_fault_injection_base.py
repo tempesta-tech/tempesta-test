@@ -1028,7 +1028,6 @@ http_chain {{
 
             await server.start()
 
-        await self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
             await server.wait_for_connections(timeout=5)
@@ -1100,7 +1099,6 @@ http_chain {{
 
             await server.start()
 
-        await self.deproxy_manager.start()
         for srv_name in ["deproxy_3", "deproxy_4", "deproxy_5"]:
             server = self.get_server(srv_name)
             await server.wait_for_connections(timeout=5)
@@ -1150,7 +1148,6 @@ http_chain {{
             )
         )
         await server.start()
-        await self.deproxy_manager.start()
         await server.wait_for_connections(timeout=5)
 
         client = self.get_client("deproxy_h2")
@@ -1273,7 +1270,6 @@ grace_shutdown_time 5;
         )
 
         await server.start()
-        await self.deproxy_manager.start()
         await server.wait_for_connections(timeout=5)
 
         client = self.get_client("deproxy")
