@@ -57,6 +57,11 @@ def load_disabled() -> list[dict[str, str]]:
         if r.disable:
             disabled.extend(r.disabled)
 
+    if run_config.XFW_GATE_MODE_TESTS:
+        r = DisabledListLoader("tests/tests_disabled_xfw_gate.json")
+        if r.disable:
+            disabled.extend(r.disabled)
+
     if isinstance(remote.tempesta, remote.RemoteNode):
         r = DisabledListLoader("tests/tests_disabled_remote.json")
         if r.disable:
