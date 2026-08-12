@@ -41,3 +41,6 @@ MEMORY_LEAK_THRESHOLD = int(tf_cfg.cfg.get("General", "memory_leak_threshold")) 
 
 # run tests for debug kernel (kernel with kmemleak etc.)
 KERNEL_DBG_TESTS = False
+
+# mark if the tests are running with XFW in the gate mode
+XFW_GATE_MODE_TESTS = False

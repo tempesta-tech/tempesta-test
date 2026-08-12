@@ -71,6 +71,12 @@ def pytest_addoption(parser: argparsing.Parser) -> None:
         help="Run tests for the kernel with sanitizers/checkers",
     )
     group.addoption(
+        "--with-xfw-gate",
+        action="store_true",
+        default=False,
+        help="Disable tests that does not work with XFW in gate mode",
+    )
+    group.addoption(
         "-M",
         "--check-memory-leaks",
         action="store_true",
@@ -138,6 +144,9 @@ def pytest_configure(config: Config) -> None:
 
     if config.getoption("--kernel-dbg"):
         run_config.KERNEL_DBG_TESTS = True
+
+    if config.getoption("--with-xfw-gate"):
+        run_config.XFW_GATE_MODE_TESTS = True
 
     if config.getoption("--check-memory-leaks"):
         run_config.CHECK_MEMORY_LEAKS = True
