@@ -268,6 +268,10 @@
         {
             "name": "tests/frang/test_concurrent_connections.py::TestConcurrentConnectionsNonTempesta",
             "reason": "Is not intended to run with segmentation."
+        },
+        {
+            "name": "tests/http2_general/test_h2_stream_priority.py::TestStreamPriorityInHeaders",
+            "reason": "Disabled by test issue #935"
         }
     ]
 }
