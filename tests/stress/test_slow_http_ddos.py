@@ -162,9 +162,9 @@ http_chain {{
         curl = self.get_client(curl_id)
         curl.headers["Host"] = "tempesta-tech.com"
         curl.set_uri(path)
-        curl.start()
+        await curl.start()
         await self.wait_while_busy(curl)
-        curl.stop()
+        await curl.stop()
 
     @marks.Parameterize.expand(
         [
@@ -191,7 +191,7 @@ http_chain {{
         self.assertEqual(curl.last_response.status, 200)
 
         rudy = self.get_client(rudy_id)
-        rudy.start()
+        await rudy.start()
 
         # Let RUDY open connections and hit client_body_timeout at least once.
         await asyncio.sleep(CLIENT_BODY_TIMEOUT + 2)
@@ -212,7 +212,7 @@ http_chain {{
         )
 
         await rudy.wait_for_finish(timeout=RUDY_DURATION + 10)
-        rudy.stop()
+        await rudy.stop()
 
         # Frang must have observed incomplete slow bodies.
         found = await klog.find(
@@ -232,8 +232,9 @@ http_chain {{
         tempesta.get_stats()
         self.assertGreaterEqual(
             tempesta.stats.cl_msg_received,
-            3,
-            f"[{name}] Tempesta FW did not receive client messages during the test.",
+            4,
+            f"[{name}] Tempesta FW did not receive client messages during the test. 3 legit packets and at least"
+            f" one from rudy. The Tempeseta FW counts both legit and dropped packets",
         )
 
         server = self.get_server("nginx")
