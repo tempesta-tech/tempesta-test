@@ -175,7 +175,7 @@ def main():
     shell("sudo go build -o /usr/bin/ratecheck ./tools/gutils/cmd/ratecheck/main.go")
 
     # rudy - R-U-Dead-Yet? slow HTTP/1.1 and HTTP/2 (low and slow) DoS tool
-    # Fork with HTTP/2 support: https://github.com/symstu-tempesta/rudy
+    # Main repo: https://github.com/darkweak/rudy
     build_path = os.path.join(TEMP_DIR, "rudy")
     if os.path.exists(build_path):
         shutil.rmtree(build_path)
