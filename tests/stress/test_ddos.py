@@ -110,7 +110,6 @@ frang_limits {{
     http_method_override_allowed true;
     http_methods head post put get;
     http_strict_host_checking true;
-    ip_block 0;
 }}
 
 # Allow only following characters in URI: %+,/a-zA-Z0-9&?:-.[]_=
