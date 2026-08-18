@@ -163,6 +163,38 @@ class HeadersParsing(H2Base):
                 )
                 await client.send_request(self.post_request, status_code)
 
+    def _get_srv_msg_forwarded_stat(self, tempesta):
+        tempesta.get_stats()
+        return tempesta.stats.srv_msg_forwarded
+
+    async def test_long_header(self):
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 128
+        server = self.get_server("deproxy")
+        await self.start_all_services()
+
+        client.update_initial_settings(max_header_list_size=60000000)
+        client.send_bytes(client.h2_connection.data_to_send())
+        await client.wait_for_ack_settings()
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + f"Date: {HttpMessage.date_time_string()}\r\n"
+            + "Server: debian\r\n"
+            + f"{'a'}: {'a' * 327680}\r\n"
+            + "Content-Length: 0\r\n\r\n"
+        )
+        client.readable = lambda: False
+        client.make_request(self.get_request)
+        client.send_settings_frame(max_frame_size=65536)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            1,
+        )
+        client.readable = lambda: True
+        await client.wait_for_response(timeout=30)
+        self.assertEqual(client.last_response.status, "200")
+
 
 @marks.parameterize_class(
     [
