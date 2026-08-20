@@ -1,22 +1,16 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncio
-import json
-import multiprocessing
 import os
-import re
 import time
 import unittest
 from pathlib import Path
-from typing import Optional
 
 from framework.helpers import dmesg, networker, remote, tf_cfg
+from framework.services import webshield
 from framework.test_suite import tester
-import helpers
-from helpers import dmesg, remote, tf_cfg
-from test_suite import sysnet, tester
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
 DURATION = int(tf_cfg.cfg.get("General", "duration"))
@@ -26,7 +20,6 @@ MHDDOS_PATH = f"{MHDDOS_DIR}/start.py"
 THREADS = int(tf_cfg.cfg.get("General", "stress_threads"))
 CONNS = int(tf_cfg.cfg.get("General", "concurrent_connections"))
 RPC = int(tf_cfg.cfg.get("General", "stress_requests_count"))
-DDOS_EXECUTABLE = tf_cfg.cfg.get("General", "ddos_executable")
 
 
 # NGINX backend config with 200 response
@@ -333,448 +326,319 @@ http_chain {{
         self.assertGreater(tempesta.stats.cl_msg_received, 3, "DDoS tool doesn't work.")
 
 
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSDefenderBlockByJa5t(TestDDoSL7):
+class TestWebShieldBlockByTft(tester.TempestaTest):
+    """WebShield DDoS mitigation: block an attack fingerprint, keep legit traffic.
+
+    Why:
+        Tempesta is under load from wrk (the attack) while a control curl client
+        keeps sending valid requests. WebShield must pick wrk's TLS fingerprint
+        out of ClickHouse access logs, write it into the TFT include, reload
+        Tempesta, and leave curl unblocked.
+
+    What is checked:
+        - wrk sent requests and then saw socket errors and/or HTTP >= 400
+        - curl-1 still gets 200 after the block
+
+    Blocking window (``window`` = ``BLOCKING_WINDOW_DURATION_SEC``, default 10s):
+        Each tick compares ``users_before`` [now-3w, now-2w] with
+        ``users_after`` [now-w, now] (one-window gap). Block when before is
+        non-empty and overlap is below the intersection percent.
+
+        W1-W2: curl-1..3. W3 (gap): drop curl-1/2. W4: wrk+curl-3. W5: wrk still running.
+
+    Subclasses override wait/check hooks instead of branching inside ``test()``.
+    """
+
+    # TLS options from tests/tf/test_tf_filters.py (known-good vs Tempesta).
+    baseline_ids = ("curl-1", "curl-2", "curl-3")
+    clients = [
+        {
+            "id": "wrk",
+            "type": "wrk",
+            "ssl": True,
+            "addr": "${tempesta_ip}:443",
+        },
+        {
+            "id": "curl-1",
+            "type": "curl",
+            "ssl": True,
+            "http2": False,
+            "headers": {"X-WS": "1"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES128-GCM-SHA256 --http1.1",
+        },
+        {
+            "id": "curl-2",
+            "type": "curl",
+            "ssl": True,
+            "http2": False,
+            "headers": {"X-WS": "2"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES256-GCM-SHA384 --http1.1",
+        },
+        {
+            "id": "curl-3",
+            "type": "curl",
+            "ssl": True,
+            "http2": True,
+            "headers": {"X-WS": "3"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES128-GCM-SHA256",
+        },
+    ]
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
+pid ${pid};
+worker_processes auto;
+error_log /dev/null emerg;
+events {
+    worker_connections 1024;
+    use epoll;
+}
+http {
+    access_log off;
+    server {
+        listen 8000;
+        location / { return 200 'ok'; }
+        location /nginx_status { stub_status on; }
+    }
+}
+""",
+        }
+    ]
+
     tempesta = {
         "config": f"""
-    listen 80 proto=http;
-    listen 443 proto=h2,https;
+listen 443 proto=h2,https;
 
-    cache 2;
-    cache_fulfill * *;
-    cache_methods GET HEAD;
-    cache_ttl 3600;
+cache 0;
 
-    access_log mmap logger_config=/tmp/tfw_logger_test.json;
-    keepalive_timeout 15;
-    
-    frang_limits {{ 
-        http_strict_host_checking true;
-        ip_block on;
-    }}
+access_log mmap logger_config=${{tfw_logger_logger_config}};
+keepalive_timeout 15;
 
-    health_stat 1* 2* 3* 4* 5*;
-    health_stat_server 1* 2* 3* 4* 5*;
+frang_limits {{
+    http_strict_host_checking false;
+}}
 
-    # Make WordPress to work over TLS.
-    # See https://tempesta-tech.com/knowledge-base/WordPress-tips-and-tricks/
-    req_hdr_add X-Forwarded-Proto "https";
+health_stat 1* 2* 3* 4* 5*;
+health_stat_server 1* 2* 3* 4* 5*;
 
-    tls_certificate ${{tempesta_workdir}}/tempesta.crt;
-    tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
-    tls_match_any_server_name;
+tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+tls_match_any_server_name;
 
-    srv_group main {{server ${{server_ip}}:${{server_website_port}} conns_n=256;}}
+# WebShield rewrites blocked.conf here and reloads Tempesta.
+tft {{
+    !include /tmp/tft
+}}
+tfh {{
+    !include /tmp/tfh
+}}
 
-    vhost tempesta-tech.com {{proxy_pass main;}}
-
-    http_chain {{
-    	# Redirect old URLs from the old static website
-    	uri == "/index"		-> 301 = /;
-    	uri == "/development-services" -> 301 = /network-security-performance-analysis;
-
-    	# Disable PHP dynamic logic for caching
-    	# See https://www.varnish-software.com/developers/tutorials/configuring-varnish-wordpress/
-    	uri == "/wp-admin*" -> cache_disable;
-    	uri == "/wp-comments-post.php*" -> cache_disable;
-
-    	# RSS feed /comments/feed/ is cached as other resource for 1 hour,
-    	# defined by the global cache_ttl policy.
-
-    	# Proably outdated redirects
-    	uri == "/index.html"	-> 301 = /;
-    	uri == "/services"	-> 301 = /development-services;
-    	uri == "/services.html"	-> 301 = /development-services;
-    	uri == "/c++-services"	-> 301 = /development-services;
-    	uri == "/company.html"	-> 301 = /company;
-    	uri == "/blog/fast-programming-languages-c-c++-rust-assembly" -> 301 = /blog/fast-programming-languages-c-cpp-rust-assembly;
-
-    	-> tempesta-tech.com;
-    }}
-    """
+srv_group main {{server ${{server_ip}}:8000 conns_n=256;}}
+vhost tempesta-tech.com {{proxy_pass main;}}
+http_chain {{
+    -> tempesta-tech.com;
+}}
+"""
     }
 
-    @classmethod
-    def ddos_defender_config(cls):
-        return {
-            "TRAINING_MODE": "off",
-            "TRAINING_MODE_DURATION_MIN": "10",
-            "PATH_TO_JA5T_CONFIG": "/tmp/ja5t/blocked.conf",
-            "PATH_TO_JA5H_CONFIG": "/tmp/ja5h/blocked.conf",
-            "CLICKHOUSE_HOST": tf_cfg.cfg.get("TFW_Logger", "ip"),
-            "CLICKHOUSE_PORT": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
-            "CLICKHOUSE_USER": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-            "CLICKHOUSE_PASSWORD": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            "CLICKHOUSE_TABLE_NAME": "access_log",
-            "CLICKHOUSE_DATABASE": "default",
-            "PERSISTENT_USERS_MAX_AMOUNT": "100",
-            "PERSISTENT_USERS_WINDOW_OFFSET_MIN": "60",
-            "PERSISTENT_USERS_WINDOW_DURATION_MIN": "60",
-            "PERSISTENT_USERS_TOTAL_REQUESTS": "1",
-            "PERSISTENT_USERS_TOTAL_TIME": "1",
-            "DEFAULT_REQUESTS_THRESHOLD": "100",
-            "DEFAULT_TIME_THRESHOLD": "40",
-            "DEFAULT_ERRORS_THRESHOLD": "5",
-            "STATS_WINDOW_OFFSET_MIN": "60",
-            "STATS_WINDOW_DURATION_MIN": "60",
-            "STATS_RPS_PRECISION": "1",
-            "STATS_TIME_PRECISION": "1",
-            "STATS_ERRORS_PRECISION": "0.1",
-            "RESPONSE_STATUSES_WHITE_LIST": "[100,101,200,201,204,400,401,403]",
-            "DETECTORS": '["threshold"]',
-            "BLOCKING_TYPES": '["ja5t"]',
-            "BLOCKING_WINDOW_DURATION_SEC": "10",
-            "BLOCKING_JA5_LIMIT": "1000",
-            "BLOCKING_IP_LIMITS": "1000",
-            "BLOCKING_IPSET_NAME": "tempesta_blocked_ips",
-            "BLOCKING_TIME_MIN": "60",
-            "BLOCKING_RELEASE_TIME_MIN": "1",
-            "DETECTOR_GEOIP_PERCENT_THRESHOLD": "95",
-            "DETECTOR_GEOIP_MIN_RPS": "100",
-            "DETECTOR_GEOIP_PERIOD_SECONDS": "10",
-            "TEMPESTA_EXECUTABLE_PATH": tf_cfg.cfg.get("Tempesta", "srcdir")
-            + "/scripts/tempesta.sh",
-            "TEMPESTA_CONFIG_PATH": tf_cfg.cfg.get("Tempesta", "config"),
-            "ALLOWED_USER_AGENTS_FILE_PATH": "/tmp/allowed_user_agents.txt",
-            "LOG_LEVEL": "INFO",
-        }
+    webshield_cfg = webshield.WebShieldConfig()
 
-    ddos_defender_config_path = "/tmp/ddos-defender.env"
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.webshield = webshield.WebShield(self.webshield_cfg)
+        # Before Tempesta teardown: stop() also drops ClickHouse access_log.
+        self.addAsyncCleanup(self.webshield.stop)
 
-    @classmethod
-    def write_ddos_defender_config(cls):
-        config = ""
+    async def make_response(self, curl, uri: str = "/") -> None:
+        curl.headers["Host"] = "tempesta-tech.com"
+        curl.set_uri(uri)
+        await curl.start()
+        await self.wait_while_busy(curl)
+        await curl.stop()
 
-        for key, value in cls.ddos_defender_config().items():
-            config += key + "=" + value + "\n"
+    async def start_wrk(self, duration: int):
+        wrk = self.get_client("wrk")
+        wrk.duration = duration
+        wrk.connections = CONNS
+        wrk.threads = THREADS
+        wrk.options = ['-H "Host: tempesta-tech.com"']
+        await wrk.start()
+        return wrk
 
-        remote.tempesta.copy_file(
-            filename=cls.ddos_defender_config_path,
-            content=config,
+    async def generate_baseline(self, duration: int, ids=None):
+        curls = [self.get_client(cid) for cid in (ids or self.baseline_ids)]
+        deadline = time.time() + duration
+        while time.time() < deadline:
+            await asyncio.gather(*[self.make_response(curl) for curl in curls])
+            await asyncio.sleep(0.2)
+
+    async def curls_half_window(self, ids):
+        # Only the first half of the slice, so requests cannot spill into the next window.
+        deadline = time.time() + self.webshield.blocking_window / 2
+        curls = [self.get_client(cid) for cid in ids]
+        while time.time() < deadline:
+            await asyncio.gather(*[self.make_response(curl) for curl in curls])
+            await asyncio.sleep(0.2)
+
+    async def curl_half_window_until_tick(self, ids):
+        await self.curls_half_window(ids)
+        await self.webshield.wait_until_tick()
+
+    def check_wrk_stats(self, wrk):
+        requests, errors, rate, statuses = wrk.results()
+        self.assertGreater(requests, 0, "wrk sent no requests")
+        sock_errors = (
+            statuses.get("connect_error", 0)
+            + statuses.get("read_error", 0)
+            + statuses.get("write_error", 0)
+            + statuses.get("timeout_error", 0)
         )
-
-        remote.tempesta.copy_file(filename=cls.ddos_defender_config_path, content=config)
-
-    def get_ddos_mitigation_pid(self) -> Optional[str]:
-        stdout, stderr = remote.tempesta.run_cmd(
-            "ps -eo pid,cmd | grep ddos_mitigation | grep -v grep | grep -v /bin/sh | awk '{print $1}'"
+        failed = (
+            errors
+            + sock_errors
+            + sum(n for code, n in statuses.items() if isinstance(code, int) and code >= 400)
         )
-
-        if not stdout:
-            return print(
-                f"Can not find DDoS Mitigation Tools in active processes. stderr = {stderr}"
-            )
-
-        data = stdout.split(b"\n")
-
-        if len(data) != 2:
-            return print(f"Can not determinate DDoS Mitigation Tools PID: {data}")
-
-        pid, *_ = data
-        return pid.decode()
-
-    def stop_ddos_defender(self):
-        pid = self.get_ddos_mitigation_pid()
-
-        if not pid:
-            return
-
-        remote.tempesta.run_cmd(f"kill -9 {pid}")
-
-        remote.tempesta.remove_file("/tmp/ja5t/blocked.conf")
-        remote.tempesta.remove_file("/tmp/ja5h/blocked.conf")
-        remote.tempesta.remove_file("/tmp/allowed_user_agents.txt")
-
-    def setUp(self):
-        super().setUp()
-        self.addClassCleanup(self.stop_ddos_defender)
-
-        logger_config = {
-            "log_path": tf_cfg.cfg.get("TFW_Logger", "log_path"),
-            "clickhouse": {
-                "host": tf_cfg.cfg.get("TFW_Logger", "ip"),
-                "port": tf_cfg.cfg.get("TFW_Logger", "clickhouse_port"),
-                "user": tf_cfg.cfg.get("TFW_Logger", "clickhouse_username"),
-                "password": tf_cfg.cfg.get("TFW_Logger", "clickhouse_password"),
-            },
-        }
-
-        remote.tempesta.copy_file(
-            filename=tf_cfg.cfg.get("TFW_Logger", "logger_config"),
-            content=json.dumps(logger_config, ensure_ascii=False, indent=2),
+        self.assertGreater(
+            failed,
+            0,
+            f"wrk expected errors or non-200 after block, got statuses={statuses}",
         )
-        self.write_ddos_defender_config()
-
-        remote.tempesta.mkdir("/tmp/ja5t")
-        remote.tempesta.mkdir("/tmp/ja5h")
-
-        remote.tempesta.copy_file(
-            filename="/tmp/ja5t/blocked.conf",
-            content="",
-        )
-        remote.tempesta.copy_file(
-            filename="/tmp/ja5h/blocked.conf",
-            content="",
-        )
-        remote.tempesta.copy_file(
-            filename="/tmp/allowed_user_agents.txt",
-            content="",
-        )
-        self.running_process = None
-
-    @staticmethod
-    def run_ddos_mitigation(tempesta_src_dir: str, ddos_executable: str, ddos_config: str):
-        remote.tempesta.run_cmd(
-            f"{ddos_executable} {tempesta_src_dir}/scripts/ddos_mitigation/app.py --config={ddos_config}",
-            is_blocking=False,
-            timeout=DURATION * 2,
-        )
-
-    def get_total_blocked(self):
-        stdout, _ = remote.tempesta.run_cmd("cat /tmp/ja5t/blocked.conf")
-        return len(stdout.split(b"\n")) - 1
-
-    def check_total_blocked(self):
-        total_blocked = self.get_total_blocked()
-        self.assertGreaterEqual(total_blocked, 1)
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
-        self.start_all_services(client=False)
+    async def test(self):
+        await self.start_all_services(client=False)
 
-        client = self.get_client("mhddos")
-        curl = self.get_client("curl")
+        curl = self.get_client("curl-1")
+        window = self.webshield.blocking_window
 
-        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
+        await self.make_response(curl)
         self.assertEqual(curl.last_response.status, 200)
 
-        self.running_process = multiprocessing.Process(
-            target=self.run_ddos_mitigation,
-            kwargs={
-                "tempesta_src_dir": tf_cfg.cfg.get("Tempesta", "srcdir"),
-                "ddos_config": self.ddos_defender_config_path,
-                "ddos_executable": DDOS_EXECUTABLE,
-            },
-        )
-        self.running_process.start()
+        await self.webshield.start()
+        self.assertIsNotNone(self.webshield.pid, "WebShield is not running")
+        await self.webshield.wait_until_started()
+        await self.webshield.wait_until_tick()
 
-        time.sleep(10)
+        # Window 1. Three curls with different TLS fingerprints. First half of
+        # the slice only, then idle so nothing spills into window 2.
+        await self.curl_half_window_until_tick(self.baseline_ids)
 
-        pid = self.get_ddos_mitigation_pid()
-        self.assertIsNotNone(pid, "DDoS mitigation tools is not running")
+        # Window 2. Same three curls. On the T=4w tick this slice is users_before.
+        await self.curl_half_window_until_tick(self.baseline_ids)
 
-        client.options = [
-            f"{MHDDOS_PATH} "
-            + f"--url https://{TEMPESTA_IP}:443 "
-            + f"--hostname tempesta-tech.com "
-            + f"--threads {THREADS} "
-            + f"--rpc {RPC} "
-            + f"--duration {DURATION} "
-        ]
-        client.start()
+        # Window 3. Detector gap: not used in the comparison. Stop curl-1/2 so
+        # they are gone from users_after; keep curl-3.
+        await self.curl_half_window_until_tick(("curl-3",))
 
-        time.sleep(DURATION / 2)
-        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
-        self.assertEqual(curl.last_response.status, 200, "Tempesta FW does not respond")
+        # Window 4. New fingerprint (wrk) plus curl-3 → users_after.
+        # duration=2*window: wrk must still be sending in window 5, after
+        # WebShield writes the hash and reloads Tempesta. A half-window burst
+        # would finish with 200s before --reload.
+        wrk = await self.start_wrk(duration=window * 2)
+        await self.curl_half_window_until_tick(("curl-3",))
 
-        self.assertTrue(client.wait_for_finish(timeout=DURATION + 5))
-        client.stop()
+        # Window 5. wrk still running. This tick compares window 2 vs window 4
+        # and the next one can pick wrk in after. Then wait for wrk to exit:
+        # timeout is wrk duration (2 windows) plus 5s slack that BaseClient
+        # already uses for run_cmd_safe (duration + 5).
+        await self.webshield.wait_until_tick()
+        await wrk.wait_for_finish(timeout=window * 2 + 5)
+        await wrk.stop()
 
-        time.sleep(3)
-        self.check_total_blocked()
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200, "Control client must not be blocked")
 
-
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSDefenderBlockByJa5h(TestDDoSDefenderBlockByJa5t):
-    @classmethod
-    def ddos_defender_config(cls):
-        config = super().ddos_defender_config()
-        config["BLOCKING_TYPES"] = '["ja5h"]'
-        return config
-
-    def check_total_blocked(self):
-        stdout, _ = remote.tempesta.run_cmd("cat /tmp/ja5h/blocked.conf")
-        total_blocked = len(stdout.split(b"\n")) - 1
-        self.assertGreater(total_blocked, 1)
+        # Two detector ticks typically write hashes (see check_wrk_stats).
+        #
+        # intersection = |before ∩ after| / |before| * 100
+        # block the whole after group if that percent is NOT > INTERSECTION_PERCENT (60).
+        #
+        # Example from a real run (three curl TFT hashes C1,C2,C3; wrk is W):
+        #   before={C1,C2,C3} after={C3}     → 1/3 ≈ 33% < 60 → block C3 (curl-3)
+        #   before={C1,C2,C3} after={W}      → 0/3 = 0%  < 60 → block W  (wrk)
+        # So "Blocked user" appears twice: first the leftover curl in after,
+        # then wrk. curl-1/curl-2 are only in before, so they stay unblocked.
+        # wrk's early requests are 200s; after --reload the tail must error.
+        self.check_wrk_stats(wrk)
 
 
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSDefenderBlockByIpset(TestDDoSDefenderBlockByJa5t):
-    @classmethod
-    def ddos_defender_config(cls):
-        config = super().ddos_defender_config()
-        config["BLOCKING_TYPES"] = '["ipset"]'
-        return config
+class TestWebShieldBlockByTfh(TestWebShieldBlockByTft):
+    """Same as TFT, but block wrk by HTTP fingerprint (tfh_rps)."""
 
-    @classmethod
-    def clean_ipset(cls):
-        config = cls.ddos_defender_config()
-        name = config["BLOCKING_IPSET_NAME"]
-        remote.tempesta.run_cmd(f"iptables -D INPUT -m set --match-set {name} src -j DROP")
-        time.sleep(1)
-        # wait while previous rule comes applied
-        remote.tempesta.run_cmd(f"ipset destroy {name}")
-
-    def check_total_blocked(self):
-        config = self.ddos_defender_config()
-        # wait while last changes become dumped
-        time.sleep(1)
-        stdout, _ = remote.tempesta.run_cmd("ipset list " + config["BLOCKING_IPSET_NAME"])
-        members = stdout.decode().split("Members:\n")[1]
-        total_blocked = len(members.split("\n"))
-        self.assertGreaterEqual(total_blocked, 1)
-
-    def setUp(self):
-        super().setUp()
-        self.addCleanup(self.clean_ipset)
+    webshield_cfg = webshield.WebShieldConfig(
+        detectors=(webshield.Detector.TFH_RPS,),
+        blocking_types=(webshield.BlockingType.TFH,),
+    )
 
 
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSDefenderBlockByNFTable(TestDDoSDefenderBlockByJa5t):
-    @classmethod
-    def ddos_defender_config(cls):
-        config = super().ddos_defender_config()
-        config["BLOCKING_TYPES"] = '["nftables"]'
-        return config
+class TestWebShieldDontBlock(TestWebShieldBlockByTft):
+    """Thresholds above wrk volume: no hashes, wrk still gets 200s."""
 
-    @classmethod
-    def clean_nftables(cls):
-        config = cls.ddos_defender_config()
-        name = config["BLOCKING_IPSET_NAME"]
-        try:
-            remote.tempesta.run_cmd(f"nft flush table inet {name}_table")
-            time.sleep(1)
-            remote.tempesta.run_cmd(f"nft delete table inet {name}_table")
-        except helpers.error.ProcessBadExitStatusException:
-            """
-            was not created
-            """
+    webshield_cfg = webshield.WebShieldConfig(
+        tft=webshield.DetectorConfig(
+            rps_threshold=1_000_000,
+            time_threshold=1_000_000,
+            errors_threshold=1_000_000,
+        ),
+    )
 
-    def check_total_blocked(self):
-        config = self.ddos_defender_config()
-        # wait while last changes become dumped
-        time.sleep(1)
-        name = config["BLOCKING_IPSET_NAME"]
-        stdout, _ = remote.tempesta.run_cmd(f"nft list table inet {name}_table")
-        matched = re.findall(
-            r".*elements = {(?P<ips>.*).*}.*}.*chain", stdout.decode(), flags=re.DOTALL
-        )
-
-        if not matched:
-            return 0
-
-        ips = matched[0].split(",")
-        ips = [i.strip() for i in ips]
-        self.assertGreaterEqual(len(ips), 1)
-
-    def setUp(self):
-        super().setUp()
-        self.addCleanup(self.clean_nftables)
+    def check_wrk_stats(self, wrk):
+        requests, errors, rate, statuses = wrk.results()
+        self.assertGreater(requests, 0, "wrk sent no requests")
+        self.assertGreater(statuses.get(200, 0), 0, "wrk got no 200 responses")
 
 
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSDefenderDontBlock(TestDDoSDefenderBlockByJa5t):
+class TestWebShieldTrainingMode(TestWebShieldBlockByTft):
+    """Real training on live curl, then the same baseline + wrk block as TFT."""
 
-    @classmethod
-    def ddos_defender_config(cls):
-        config = super().ddos_defender_config()
-        multiplier = int(config.get("BLOCKING_WINDOW_DURATION_SEC"))
-
-        config["DEFAULT_REQUESTS_THRESHOLD"] = str(10 * 10 * multiplier)
-        config["DEFAULT_TIME_THRESHOLD"] = str(10 * 10 * multiplier)
-        config["DEFAULT_ERRORS_THRESHOLD"] = str(10 * 10)
-        return config
-
-    def check_total_blocked(self):
-        stdout, _ = remote.tempesta.run_cmd("cat /tmp/ja5t/blocked.conf")
-        total_blocked = len(stdout.split(b"\n")) - 1
-        self.assertGreater(total_blocked, 1)
-
-        tempesta = self.get_tempesta()
-        total_requests = sum(tempesta.stats.health_statuses.values())
-        self.assertGreaterEqual(total_requests, 1000)
-        self.assertLessEqual(total_requests, 1500)
-
-
-@unittest.skipIf(
-    TEMPESTA_IP.startswith("127."), "Please don't use loopback interface for this test."
-)
-@unittest.skipIf(not TEMPESTA_IP.startswith("192."), "This test doesn't work on SUT.")
-class TestDDoSTrainingMode(TestDDoSDefenderBlockByJa5t):
-    @classmethod
-    def ddos_defender_config(cls):
-        config = super().ddos_defender_config()
-        config["TRAINING_MODE"] = "real"
-        config["TRAINING_MODE_DURATION_MIN"] = "1"
-        return config
+    webshield_cfg = webshield.WebShieldConfig(
+        training_mode=webshield.TrainingMode.REAL,
+        training_mode_duration_min=1,
+    )
 
     @dmesg.limited_rate_on_tempesta_node
-    def test(self):
-        self.start_all_services(client=False)
+    async def test(self):
+        await self.start_all_services(client=False)
 
-        client = self.get_client("mhddos")
-        curl = self.get_client("curl")
+        curl = self.get_client("curl-1")
+        window = self.webshield.blocking_window
 
-        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
+        await self.make_response(curl)
         self.assertEqual(curl.last_response.status, 200)
 
-        self.running_process = multiprocessing.Process(
-            target=self.run_ddos_mitigation,
-            kwargs={
-                "tempesta_src_dir": tf_cfg.cfg.get("Tempesta", "srcdir"),
-                "ddos_config": self.ddos_defender_config_path,
-                "ddos_executable": DDOS_EXECUTABLE,
-            },
-        )
-        self.running_process.start()
-        client.options = [
-            f"{MHDDOS_PATH} "
-            + f"--url https://{TEMPESTA_IP}:443 "
-            + f"--hostname tempesta-tech.com "
-            + f"--threads 2 "
-            + f"--rpc 2 "
-            + f"--duration 120 "
-        ]
-        time.sleep(2)
-        pid = self.get_ddos_mitigation_pid()
-        self.assertIsNotNone(pid, "DDoS mitigation tools is not running")
+        await self.webshield.start()
+        self.assertIsNotNone(self.webshield.pid, "WebShield is not running")
 
-        time.sleep(120)
-        self.assertEqual(self.get_total_blocked(), 0)
+        # Traffic during the training minute (threshold = mean+stddev of this period).
+        await self.generate_baseline(duration=self.webshield.training_duration_sec)
+        # Release-monitor log appears only after training; then the same 5 windows as TFT.
+        await self.webshield.wait_until_started()
+        self.assertEqual(self.webshield.blocked_count(), 0, "WebShield blocked during training")
+        await self.webshield.wait_until_tick()
 
-        client.options = [
-            f"{MHDDOS_PATH} "
-            + f"--url https://{TEMPESTA_IP}:443 "
-            + f"--hostname tempesta-tech.com "
-            + f"--threads 10 "
-            + f"--rpc 120 "
-            + f"--duration 20 "
-        ]
-        time.sleep(2)
-        pid = self.get_ddos_mitigation_pid()
-        self.assertIsNotNone(pid, "DDoS mitigation tools is not running")
+        # Window 1. Three curls, first half of the slice, then idle.
+        await self.curl_half_window_until_tick(self.baseline_ids)
 
-        time.sleep(10)
-        self.make_response(curl, "/knowledge-base/DDoS-mitigation/")
-        self.assertEqual(curl.last_response.status, 403, "Request should be blocked")
+        # Window 2. Same three curls → users_before on the block tick.
+        await self.curl_half_window_until_tick(self.baseline_ids)
 
-        self.assertTrue(client.wait_for_finish(timeout=20))
-        client.stop()
+        # Window 3. Gap: drop curl-1/2, keep curl-3.
+        await self.curl_half_window_until_tick(("curl-3",))
 
-        time.sleep(3)
-        self.assertGreaterEqual(self.get_total_blocked(), 1)
+        # Window 4. wrk + curl-3. duration=2*window so wrk outlives --reload.
+        wrk = await self.start_wrk(duration=window * 2)
+        await self.curl_half_window_until_tick(("curl-3",))
+
+        # Window 5. Wait one more tick, then wrk duration + 5s BaseClient slack.
+        await self.webshield.wait_until_tick()
+        await wrk.wait_for_finish(timeout=window * 2 + 5)
+        await wrk.stop()
+
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200, "Control client must not be blocked")
+        self.check_wrk_stats(wrk)
