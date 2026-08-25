@@ -50,7 +50,9 @@ class BaseModuleInstallation(metaclass=abc.ABCMeta):
     green = "\033[92m"
     yellow = "\033[93m"
     reset = "\033[0m"
-    force_install: bool = False
+
+    def __init__(self, force: bool = False):
+        self.force_install = force
 
     @classmethod
     def shell(cls, cmd: str, hint: Optional[str] = None, cwd: Optional[str] = None):
