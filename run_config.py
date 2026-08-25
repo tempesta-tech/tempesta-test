@@ -44,3 +44,6 @@ KERNEL_DBG_TESTS = False
 
 # mark if the tests are running with XFW in the gate mode
 XFW_GATE_MODE_TESTS = False
+
+# mark if the tests are running with XFW in the host mode
+XFW_HOST_MODE_TESTS = False
