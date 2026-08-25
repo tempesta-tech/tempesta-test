@@ -255,7 +255,7 @@ class WebShield(stateful.Stateful):
         # writes expanded !include hashes where the kernel rereads them.
         # nohup + & : run_cmd still communicate()-waits and kills on timeout.
         # --log-level=DEBUG : CLI defaults to INFO and ignores env LOG_LEVEL.
-        remote.tempesta.run_cmd(
+        remote.tempesta.run_cmd_safe(
             f"nohup {executable} {srcdir}/app.py --config={config_path} "
             f"--log-level=DEBUG >> {log_path} 2>&1 </dev/null &",
             is_blocking=False,
@@ -300,7 +300,7 @@ class WebShield(stateful.Stateful):
         self._process = None
 
         # nohup detaches app.py from the multiprocessing child; pkill by cmdline.
-        remote.tempesta.run_cmd(
+        remote.tempesta.run_cmd_safe(
             "ps -eo pid,cmd | grep webshield | grep -v grep | awk '{print $1}' "
             "| xargs -r kill -9 || true"
         )
@@ -314,12 +314,12 @@ class WebShield(stateful.Stateful):
             remote.tempesta.remove_file(path)
 
     def read(self, path: Optional[str] = None) -> str:
-        stdout, _ = remote.tempesta.run_cmd(f"cat {path or self.blocked_config} || true")
+        stdout, _ = remote.tempesta.run_cmd_safe(f"cat {path or self.blocked_config} || true")
         return stdout.decode() if isinstance(stdout, bytes) else (stdout or "")
 
     @property
     def pid(self) -> Optional[str]:
-        stdout, _ = remote.tempesta.run_cmd(
+        stdout, _ = remote.tempesta.run_cmd_safe(
             "ps -eo pid,cmd | grep webshield | grep -v grep | awk '{print $1}' || true"
         )
         if not stdout:
