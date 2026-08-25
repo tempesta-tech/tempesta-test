@@ -237,7 +237,9 @@ class WebShield(stateful.Stateful):
     def restore_tempesta_tmpl(self) -> None:
         # tempesta.sh --start expands the live config into TFW_CFG_TMPL and then
         # deletes it. The kernel module still rereads that path on reload.
-        remote.tempesta.run_cmd(f"cp {self.config.tempesta_config_path} {self.tempesta_tmpl_path}")
+        remote.tempesta.run_cmd_safe(
+            f"cp {self.config.tempesta_config_path} {self.tempesta_tmpl_path}"
+        )
 
     @staticmethod
     def _run(

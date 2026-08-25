@@ -26,6 +26,8 @@ logger = logging.getLogger("setup")
 class CommandLineArgs:
     name: str
     verify: bool
+    # force requirements installation
+    force: bool
 
     @classmethod
     def parse_args(cls) -> "CommandLineArgs":
@@ -36,6 +38,7 @@ class CommandLineArgs:
         )
         parser.add_argument("--name", type=str, default="full-setup")
         parser.add_argument("--verify", type=bool, default=False)
+        parser.add_argument("--force", type=bool, default=False)
         return cls(**vars(parser.parse_args()))
 
 
@@ -47,6 +50,7 @@ class BaseModuleInstallation(metaclass=abc.ABCMeta):
     green = "\033[92m"
     yellow = "\033[93m"
     reset = "\033[0m"
+    force_install: bool = False
 
     @classmethod
     def shell(cls, cmd: str, hint: Optional[str] = None, cwd: Optional[str] = None):
@@ -80,7 +84,7 @@ class BaseModuleInstallation(metaclass=abc.ABCMeta):
         pass
 
     def install(self):
-        if self.installed():
+        if self.installed() and not self.force_install:
             logger.info(f"[{self.yellow}skip{self.reset}] {self.name}")
             return
         self.do_install()
@@ -490,7 +494,7 @@ def main():
         print(f"Installation `{args.name}` not found. Available: {', '.join(available_map)}")
         exit(1)
 
-    module = module_class()
+    module = module_class(force=args.force)
     module.prepare()
     module.install()
     module.after_cleanup()

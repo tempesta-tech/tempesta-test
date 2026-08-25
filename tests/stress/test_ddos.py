@@ -593,7 +593,7 @@ class TestWebShieldDontBlock(TestWebShieldBlockByTft):
         self.assertGreater(statuses.get(200, 0), 0, "wrk got no 200 responses")
 
 
-class TestWebShieldTrainingMode(TestWebShieldBlockByTft):
+class TestWebShieldTrainingModeTft(TestWebShieldBlockByTft):
     """Real training on live curl, then the same baseline + wrk block as TFT."""
 
     webshield_cfg = webshield.WebShieldConfig(
@@ -642,3 +642,14 @@ class TestWebShieldTrainingMode(TestWebShieldBlockByTft):
         await self.make_response(curl)
         self.assertEqual(curl.last_response.status, 200, "Control client must not be blocked")
         self.check_wrk_stats(wrk)
+
+
+class TestWebShieldTrainingModeTfh(TestWebShieldBlockByTft):
+    """Real training on live curl, then the same baseline + wrk block as TFT."""
+
+    webshield_cfg = webshield.WebShieldConfig(
+        training_mode=webshield.TrainingMode.REAL,
+        training_mode_duration_min=1,
+        detectors=(webshield.Detector.TFH_RPS,),
+        blocking_types=(webshield.BlockingType.TFH,),
+    )
