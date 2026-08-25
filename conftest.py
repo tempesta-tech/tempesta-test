@@ -77,6 +77,12 @@ def pytest_addoption(parser: argparsing.Parser) -> None:
         help="Disable tests that does not work with XFW in gate mode",
     )
     group.addoption(
+        "--with-xfw-host",
+        action="store_true",
+        default=False,
+        help="Disable tests that does not work with XFW in host mode",
+    )
+    group.addoption(
         "-M",
         "--check-memory-leaks",
         action="store_true",
@@ -147,6 +153,9 @@ def pytest_configure(config: Config) -> None:
 
     if config.getoption("--with-xfw-gate"):
         run_config.XFW_GATE_MODE_TESTS = True
+
+    if config.getoption("--with-xfw-host"):
+        run_config.XFW_HOST_MODE_TESTS = True
 
     if config.getoption("--check-memory-leaks"):
         run_config.CHECK_MEMORY_LEAKS = True

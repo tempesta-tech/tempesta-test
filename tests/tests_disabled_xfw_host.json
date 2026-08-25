@@ -1,0 +1,181 @@
+{
+    "disable": true,
+    "disabled": [
+        {
+            "name": "tests/multiple_listeners/test_multiple_listening.py::TestMultipleListening",
+            "reason": "This test should not be run with remote setup. This test uses only loopback interface."
+        },
+        {
+            "name": "tests/stress/test_nginx.py",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/reconf",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/server_options",
+            "reason": "These tests should not be run with remote setup. Remote setup has no effect on these tests."
+        },
+        {
+            "name": "tests/fault_injection",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/frang/test_ip_block.py",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestRateHttp",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestBurstHttp",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestRateH2",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_request_rate_burst.py::TestFrangRequestBurstH2",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_concurrent_connections.py::ConcurrentConnections::test_clear_client_connection_stats",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_concurrent_connections.py::ConcurrentConnections::test_three_clients_same_ip_with_block_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockH2::test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/frang/test_http_resp_code_block.py::TestRespCodeBlockHttp::test_two_clients_one_ip",
+            "reason": "These tests should not be run with remote setup. Tempesta blocks ip and ssh does not work."
+        },
+        {
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigGlobal",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/sessions/test_cookies.py::StickyCookieConfigVhost",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_path",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_max_age",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/sessions/test_cookies.py::StickyCookieOptions::test_dublicate_expires",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/frang/test_config.py",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/cache/test_purge.py::TestPurgeInvalidConfig",
+            "reason": "These tests should not be run with remote setup."
+        },
+        {
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsH2::test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+        },
+        {
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttps::test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+        },
+        {
+            "name": "tests/tcp_options/test_tcp_options.py::TestTcpOptionsHttp::test_large_response_tcp_mtu_probing_40000",
+            "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+        },
+        {
+            "name": "tests/http2_general/test_h2_frame.py::TestPostponedFrames",
+	        "reason": "These tests should not be run with remote setup. This test use a special MTU for loopback."
+	    },
+        {
+            "name": "tests/frang/test_concurrent_connections.py::TestConcurrentConnectionsNonTempesta",
+            "reason": "Is not intended to run on remote setup. Local only."
+        },
+        {
+            "name": "tests/stress/test_stress.py::H2LoadStressMTU80",
+            "reason": "Disabled by test issue #816"
+        },
+        {
+            "name": "tests/stress/test_stress.py::TlsWrkStressMTU80",
+            "reason": "Disabled by test issue #816"
+        },
+        {
+            "name": "tests/stress/test_stress.py::WrkStressMTU80",
+            "reason": "Disabled by test issue #816"
+        },
+        {
+            "name": "tests/deadtime/test_deadtime_1M.py",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/cve/test_cve.py",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/http2_general/test_h2_specs.py::H2Spec::test_h2_specs",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/http2_general/test_h2_streams.py::TestMultiplexing::test_base_multiplexing",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/regress",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/selftests/test_deproxy.py::DeproxyClientTest",
+            "reason": "Looks like some additional ports should be opened, but also see tcp_auth_filter (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/selftests/test_curl_client.py::TestCurlClient::test_ssl_request_completed",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/sessions/test_learn.py::LearnSessions::test_backend_fail",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/stress",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/tf/test_tf.py::TestTFtStress",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/tls/test_tls_stress.py",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/ws/test_ws_ping.py",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/clickhouse/test_clickhouse_logs.py::TestClickhouseLogTiming::test_multiple_requests",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/client_mem/test_client_mem.py::TestSeveralClientsWithSmallLrusize::test_all_clients_active",
+            "reason": "The tcp_auth_filter blocks some packets (XFW ISSUE #67)"
+        },
+        {
+            "name": "tests/long_body/test_long_request.py",
+            "reason": "Some of the tests are crashing (XFW ISSUE #89)"
+        }
+    ]
+}
