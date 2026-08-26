@@ -130,7 +130,11 @@
             "reason": "WebShield could run only on the same host with FW"
         },
         {
-            "name": "tests/stress/test_ddos.py::TestWebShieldTrainingMode",
+            "name": "tests/stress/test_ddos.py::TestWebShieldTrainingModeTft",
+            "reason": "WebShield could run only on the same host with FW"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldTrainingModeTfh",
             "reason": "WebShield could run only on the same host with FW"
         }
     ]
