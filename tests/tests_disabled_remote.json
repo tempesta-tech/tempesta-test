@@ -116,6 +116,26 @@
         {
             "name": "tests/stress/test_stress.py::WrkStressMTU80",
             "reason": "Disabled by test issue #816"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldBlockByTft",
+            "reason": "WebShield could run only on the same host with FW"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldBlockByTfh",
+            "reason": "WebShield could run only on the same host with FW"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldDontBlock",
+            "reason": "WebShield could run only on the same host with FW"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldTrainingModeTft",
+            "reason": "WebShield could run only on the same host with FW"
+        },
+        {
+            "name": "tests/stress/test_ddos.py::TestWebShieldTrainingModeTfh",
+            "reason": "WebShield could run only on the same host with FW"
         }
     ]
 }

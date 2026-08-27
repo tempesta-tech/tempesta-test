@@ -1,13 +1,16 @@
 __author__ = "Tempesta Technologies, Inc."
-__copyright__ = "Copyright (C) 2024-2025 Tempesta Technologies, Inc."
+__copyright__ = "Copyright (C) 2026 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
 import asyncio
 import os
+import re
+import time
 import unittest
 from pathlib import Path
 
 from framework.helpers import dmesg, networker, remote, tf_cfg
+from framework.services import webshield
 from framework.test_suite import tester
 
 TEMPESTA_IP = tf_cfg.cfg.get("Tempesta", "ip")
@@ -322,3 +325,362 @@ http_chain {{
 
         tempesta.get_stats()
         self.assertGreater(tempesta.stats.cl_msg_received, 3, "DDoS tool doesn't work.")
+
+
+def _h2load_client(id_: str) -> dict:
+    return {
+        "id": id_,
+        "type": "external",
+        "binary": "h2load",
+        "ssl": True,
+        "cmd_args": (
+            " https://${tempesta_ip}:443/"
+            f" --clients {CONNS}"
+            f" --threads {THREADS}"
+            f" --max-concurrent-streams {RPC}"
+            " --connection-inactivity-timeout=2s"
+            " --connection-active-timeout=2s"
+            ' --header ":authority: tempesta-tech.com"'
+            ' --header "x-attack: h2load"'
+        ),
+    }
+
+
+class TestWebShieldBlockByTft(tester.TempestaTest):
+    """WebShield DDoS mitigation: block an attack fingerprint, keep legit traffic.
+
+    Why:
+        Tempesta is under HTTP/2 load from h2load while a control curl client
+        keeps sending valid requests. WebShield must pick h2load's TLS fingerprint
+        out of ClickHouse access logs, write it into the TFT include, reload
+        Tempesta, and leave curl unblocked.
+
+    What is checked:
+        - attack h2load sent HTTP/2 requests
+        - WebShield wrote hashes; a second h2load after --reload errors
+        - curl-1 still gets 200 after the block
+
+    Blocking window (``window`` = ``BLOCKING_WINDOW_DURATION_SEC``, default 10s):
+        Each tick compares ``users_before`` [now-3w, now-2w] with
+        ``users_after`` [now-w, now] (one-window gap). Block when before is
+        non-empty and overlap is below the intersection percent.
+
+        W1-W2: curl-1..3. W3 (gap): drop curl-1/2. W4: h2load+curl-3. W5: h2load still running.
+
+    Subclasses override wait/check hooks instead of branching inside ``test()``.
+    """
+
+    # TLS options from tests/tf/test_tf_filters.py (known-good vs Tempesta).
+    baseline_ids = ("curl-1", "curl-2", "curl-3")
+    clients = [
+        _h2load_client("h2load"),
+        _h2load_client("h2load-probe"),
+        {
+            "id": "curl-1",
+            "type": "curl",
+            "ssl": True,
+            "http2": False,
+            "headers": {"X-WS": "1"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES128-GCM-SHA256 --http1.1",
+        },
+        {
+            "id": "curl-2",
+            "type": "curl",
+            "ssl": True,
+            "http2": False,
+            "headers": {"X-WS": "2"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES256-GCM-SHA384 --http1.1",
+        },
+        {
+            "id": "curl-3",
+            "type": "curl",
+            "ssl": True,
+            "http2": True,
+            "headers": {"X-WS": "3"},
+            "cmd_args": "--tlsv1.2 --ciphers ECDHE-ECDSA-AES128-GCM-SHA256",
+        },
+    ]
+
+    backends = [
+        {
+            "id": "nginx",
+            "type": "nginx",
+            "port": "8000",
+            "status_uri": "http://${server_ip}:8000/nginx_status",
+            "config": """
+pid ${pid};
+worker_processes auto;
+error_log /dev/null emerg;
+events {
+    worker_connections 1024;
+    use epoll;
+}
+http {
+    access_log off;
+    server {
+        listen 8000;
+        location / { return 200 'ok'; }
+        location /nginx_status { stub_status on; }
+    }
+}
+""",
+        }
+    ]
+
+    tempesta = {
+        "config": f"""
+listen 443 proto=h2,https;
+
+cache 0;
+
+access_log mmap logger_config=${{tfw_logger_logger_config}};
+keepalive_timeout 15;
+
+frang_limits {{
+    http_strict_host_checking false;
+}}
+
+health_stat 1* 2* 3* 4* 5*;
+health_stat_server 1* 2* 3* 4* 5*;
+
+tls_certificate ${{tempesta_workdir}}/tempesta.crt;
+tls_certificate_key ${{tempesta_workdir}}/tempesta.key;
+tls_match_any_server_name;
+
+# WebShield rewrites blocked.conf here and reloads Tempesta.
+tft {{
+    !include /tmp/tft
+}}
+tfh {{
+    !include /tmp/tfh
+}}
+
+srv_group main {{server ${{server_ip}}:8000 conns_n=256;}}
+vhost tempesta-tech.com {{proxy_pass main;}}
+http_chain {{
+    -> tempesta-tech.com;
+}}
+"""
+    }
+
+    webshield_cfg = webshield.WebShieldConfig()
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.webshield = webshield.WebShield(self.webshield_cfg)
+        # Before Tempesta teardown: stop() also drops ClickHouse access_log.
+        self.addAsyncCleanup(self.webshield.stop)
+
+    async def make_response(self, curl, uri: str = "/") -> None:
+        curl.headers["Host"] = "tempesta-tech.com"
+        curl.set_uri(uri)
+        await curl.start()
+        await self.wait_while_busy(curl)
+        await curl.stop()
+
+    async def start_h2load(self, duration: int, client_id: str = "h2load"):
+        h2load = self.get_client(client_id)
+        # BaseClient kills the process at duration+5; must match --duration.
+        h2load.duration = duration
+        h2load.options[0] += f" --duration {duration}"
+        await h2load.start()
+        return h2load
+
+    async def run_attack(self, window: int):
+        # duration=3*window: still sending on the W6 tick (W4 vs W6).
+        h2load = await self.start_h2load(duration=window * 3)
+        await self.curl_half_window_until_tick(("curl-3",))
+        await self.webshield.wait_until_tick()
+        await self.webshield.wait_until_tick()
+        probe = await self.start_h2load(duration=5, client_id="h2load-probe")
+        await h2load.wait_for_finish(timeout=window * 3 + 5)
+        await h2load.stop()
+        started, _, _, text = self.h2load_stats(h2load)
+        self.assertGreater(started, 0, f"h2load sent no requests: {text}")
+        await probe.wait_for_finish(timeout=10)
+        await probe.stop()
+        return probe
+
+    async def generate_baseline(self, duration: int, ids=None):
+        curls = [self.get_client(cid) for cid in (ids or self.baseline_ids)]
+        deadline = time.time() + duration
+        while time.time() < deadline:
+            await asyncio.gather(*[self.make_response(curl) for curl in curls])
+            await asyncio.sleep(0.2)
+
+    async def curls_half_window(self, ids):
+        # Only the first half of the slice, so requests cannot spill into the next window.
+        deadline = time.time() + self.webshield.blocking_window / 2
+        curls = [self.get_client(cid) for cid in ids]
+        while time.time() < deadline:
+            await asyncio.gather(*[self.make_response(curl) for curl in curls])
+            await asyncio.sleep(0.2)
+
+    async def curl_half_window_until_tick(self, ids):
+        await self.curls_half_window(ids)
+        await self.webshield.wait_until_tick()
+
+    def h2load_stats(self, client):
+        text = client.response_msg or ""
+        req_m = re.search(
+            r"requests: (\d+) total, (\d+) started, (\d+) done, "
+            r"(\d+) succeeded, (\d+) failed, (\d+) errored, (\d+) timeout",
+            text,
+            re.I,
+        )
+        status_m = re.search(
+            r"status codes: (\d+) 2xx, (\d+) 3xx, (\d+) 4xx, (\d+) 5xx",
+            text,
+            re.I,
+        )
+        started = int(req_m.group(2)) if req_m else 0
+        failed = int(req_m.group(5)) + int(req_m.group(6)) + int(req_m.group(7)) if req_m else 0
+        statuses = {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0}
+        if status_m:
+            statuses = {
+                "2xx": int(status_m.group(1)),
+                "3xx": int(status_m.group(2)),
+                "4xx": int(status_m.group(3)),
+                "5xx": int(status_m.group(4)),
+            }
+        return started, failed, statuses, text
+
+    def check_h2load_stats(self, h2load):
+        started, failed, statuses, text = self.h2load_stats(h2load)
+        self.assertTrue(text.strip(), "h2load probe produced no output")
+        # TFT handshake drop: started=0. TFH: streams start, never complete
+        # (0 done / 0 2xx, failed still 0 until the conn times out).
+        blocked = failed + statuses["4xx"] + statuses["5xx"] > 0
+        hung = started > 0 and statuses["2xx"] == 0
+        self.assertTrue(
+            started == 0 or blocked or hung,
+            f"h2load expected errors, hang or non-2xx after block, got: {text}",
+        )
+
+    @dmesg.limited_rate_on_tempesta_node
+    async def test(self):
+        await self.start_all_services(client=False)
+
+        curl = self.get_client("curl-1")
+        window = self.webshield.blocking_window
+
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200)
+
+        await self.webshield.start()
+        self.assertIsNotNone(self.webshield.pid, "WebShield is not running")
+        await self.webshield.wait_until_started()
+        await self.webshield.wait_until_tick()
+
+        # Window 1. Three curls with different TLS fingerprints. First half of
+        # the slice only, then idle so nothing spills into window 2.
+        await self.curl_half_window_until_tick(self.baseline_ids)
+
+        # Window 2. Same three curls. On the T=4w tick this slice is users_before.
+        await self.curl_half_window_until_tick(self.baseline_ids)
+
+        # Window 3. Detector gap: not used in the comparison. Stop curl-1/2 so
+        # they are gone from users_after; keep curl-3.
+        await self.curl_half_window_until_tick(("curl-3",))
+
+        # Window 4. New fingerprint (h2load) plus curl-3 → users_after.
+        # Window 5. Attack h2load still running; this tick compares W2 vs W4.
+        # After hashes + --reload, probe is a new handshake with the same TFT.
+        probe = await self.run_attack(window)
+
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200, "Control client must not be blocked")
+
+        # Two detector ticks typically write hashes (see check_h2load_stats).
+        #
+        # intersection = |before ∩ after| / |before| * 100
+        # block the whole after group if that percent is NOT > INTERSECTION_PERCENT (60).
+        #
+        # Example from a real run (three curl TFT hashes C1,C2,C3; h2load is H):
+        #   before={C1,C2,C3} after={C3}     → 1/3 ≈ 33% < 60 → block C3 (curl-3)
+        #   before={C1,C2,C3} after={H}      → 0/3 = 0%  < 60 → block H  (h2load)
+        # So "Blocked user" appears twice: first the leftover curl in after,
+        # then h2load. curl-1/curl-2 are only in before, so they stay unblocked.
+        self.check_h2load_stats(probe)
+
+
+class TestWebShieldBlockByTfh(TestWebShieldBlockByTft):
+    """Same as TFT, but block h2load by HTTP fingerprint (tfh_rps)."""
+
+    webshield_cfg = webshield.WebShieldConfig(
+        detectors=(webshield.Detector.TFH_RPS,),
+        blocking_types=(webshield.BlockingType.TFH,),
+    )
+
+
+class TestWebShieldDontBlock(TestWebShieldBlockByTft):
+    """Thresholds above h2load volume: no hashes, h2load still gets 200s."""
+
+    webshield_cfg = webshield.WebShieldConfig(
+        tft=webshield.DetectorConfig(
+            rps_threshold=1_000_000,
+            time_threshold=1_000_000,
+            errors_threshold=1_000_000,
+        ),
+    )
+
+    def check_h2load_stats(self, h2load):
+        started, _, statuses, text = self.h2load_stats(h2load)
+        self.assertGreater(started, 0, f"h2load sent no requests: {text}")
+        self.assertGreater(statuses["2xx"], 0, f"h2load got no 200 responses: {text}")
+
+
+class TestWebShieldTrainingModeTft(TestWebShieldBlockByTft):
+    """Real training on live curl, then the same baseline + h2load block as TFT."""
+
+    webshield_cfg = webshield.WebShieldConfig(
+        training_mode=webshield.TrainingMode.REAL,
+        training_mode_duration_min=1,
+    )
+
+    @dmesg.limited_rate_on_tempesta_node
+    async def test(self):
+        await self.start_all_services(client=False)
+
+        curl = self.get_client("curl-1")
+        window = self.webshield.blocking_window
+
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200)
+
+        await self.webshield.start()
+        self.assertIsNotNone(self.webshield.pid, "WebShield is not running")
+
+        # Traffic during the training minute (threshold = mean+stddev of this period).
+        await self.generate_baseline(duration=self.webshield.training_duration_sec)
+        # Release-monitor log appears only after training; then the same 5 windows as TFT.
+        await self.webshield.wait_until_started()
+        self.assertEqual(self.webshield.blocked_count(), 0, "WebShield blocked during training")
+        await self.webshield.wait_until_tick()
+
+        # Window 1. Three curls, first half of the slice, then idle.
+        await self.curl_half_window_until_tick(self.baseline_ids)
+
+        # Window 2. Same three curls → users_before on the block tick.
+        await self.curl_half_window_until_tick(self.baseline_ids)
+
+        # Window 3. Gap: drop curl-1/2, keep curl-3.
+        await self.curl_half_window_until_tick(("curl-3",))
+
+        # Window 4–5. Attack h2load, then probe after --reload.
+        probe = await self.run_attack(window)
+
+        await self.make_response(curl)
+        self.assertEqual(curl.last_response.status, 200, "Control client must not be blocked")
+        self.check_h2load_stats(probe)
+
+
+class TestWebShieldTrainingModeTfh(TestWebShieldTrainingModeTft):
+    """Real training on live curl, then the same baseline + h2load block as TFH."""
+
+    webshield_cfg = webshield.WebShieldConfig(
+        training_mode=webshield.TrainingMode.REAL,
+        training_mode_duration_min=1,
+        detectors=(webshield.Detector.TFH_RPS,),
+        blocking_types=(webshield.BlockingType.TFH,),
+    )

@@ -84,6 +84,13 @@ long_body_size = 500
 # the threshold for memory leak checks. in KB
 memory_leak_threshold = 65536
 
+# Tempesta WebShield (https://github.com/tempesta-tech/webshield).
+# Python interpreter from the WebShield venv and the source tree with app.py.
+# Defaults match setup.py / setup.sh install paths.
+#
+# webshield_executable = /opt/tempesta/webshield/venv/bin/python
+# webshield_srcdir = /opt/tempesta/webshield/source
+
 
 [Client]
 # Configuration for the HTTP clients. Clients are always ran locally.

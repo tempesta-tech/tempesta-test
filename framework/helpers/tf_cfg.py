@@ -105,6 +105,8 @@ class TestFrameworkCfg:
                     "long_body_size": "500",
                     "memory_leak_threshold": "131072",
                     "unavailable_timeout": "300",
+                    "webshield_executable": "/opt/tempesta/webshield/venv/bin/python",
+                    "webshield_srcdir": "/opt/tempesta/webshield/source",
                 },
                 "Loggers": {
                     "stream_handler": "CRITICAL",
