@@ -25,6 +25,8 @@ from framework.test_suite import marks
 from framework.test_suite.marks import parameterize_class
 from tests.http2_general.helpers import H2Base
 
+MAX_WINDOW_INCREMENT = 2**31 - 1
+
 
 class TestClosedStreamState(H2Base):
     async def __base_scenario(self, send_frame_func: typing.Callable):
@@ -74,7 +76,6 @@ class TestLocHalfClosedStreamState(H2Base):
         await self.initiate_h2_connection(client)
 
         stream = client.init_stream_for_send(client.stream_id)
-        client.h2_connection.state_machine.process_input(ConnectionInputs.SEND_HEADERS)
 
         # Send first HEADERS to create stream.
         client.send_headers_frame(
@@ -159,6 +160,9 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     def _send_data_frame(self, client, stream_id):
         client.send_data_frame(stream_id=stream_id, data=b"a")
 
+    def _send_window_update_frame(self, client, stream_id):
+        client.send_window_update_frame(stream_id=stream_id, window_increment=MAX_WINDOW_INCREMENT)
+
     def _send_rst_frame(self, client, stream_id):
         client.send_rst_stream_frame(stream_id=stream_id)
 
@@ -233,6 +237,11 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
                 name="frame_headers", send_frame_func=_send_headers_frame, rcv_rst_expected=True
             ),
             marks.Param(name="frame_data", send_frame_func=_send_data_frame, rcv_rst_expected=True),
+            marks.Param(
+                name="frame_window_update",
+                send_frame_func=_send_window_update_frame,
+                rcv_rst_expected=True,
+            ),
             marks.Param(name="frame_rst", send_frame_func=_send_rst_frame, rcv_rst_expected=False),
         ]
     )
@@ -440,6 +449,107 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         self._check_all_headers_presents_in_partially_received_response(client.last_response)
         self.assertEqual(client.last_response.body, "q" * client.rcv_buf_size)
 
+    async def test_initiate_stream_reset_while_blocked_by_another_stream(
+        self,
+    ):
+        """
+        Verify that Tempesta can reset a stream whose response is blocked by another stream.
+
+        Stop the client from reading and send requests on streams 1 and 3 so that the response
+        on stream 3 is queued behind the response on stream 1. Send an invalid WINDOW_UPDATE on
+        stream 3 to trigger RST_STREAM, then resume reading.
+
+        Expected: the client receives RST_STREAM for stream 3, while the connection remains open
+        and can serve a subsequent request.
+        """
+        self.disable_deproxy_auto_parser()
+        expected_rst_stream_id = 3
+
+        tempesta = self.get_tempesta()
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        server = self.get_server("deproxy")
+        long_hdr_size = 4 * client.rcv_buf_size
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * long_hdr_size)
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + f"Content-Length: {client.rcv_buf_size}\r\n\r\n"
+            + ("q" * client.rcv_buf_size)
+        )
+
+        await self.start_all_services()
+        await client.wait_for_connection_open()
+        await self.initiate_h2_connection(client)
+
+        client.readable = lambda: False
+        client.make_request(request=self.get_request)
+        client.stream_id = expected_rst_stream_id
+        client.make_request(request=self.get_request, priority_depends_on=1)
+        await self.assertWaitUntilEqual(
+            lambda: self._get_srv_msg_forwarded_stat(tempesta),
+            2,
+        )
+        # initiate RST_STREAM
+        client.send_window_update_frame(
+            stream_id=expected_rst_stream_id, window_increment=MAX_WINDOW_INCREMENT
+        )
+        # These two update need for check that Tempesta doesn't close connection on receiving
+        # WINDOW_UPDATE frame in this state.
+        client.send_window_update_frame(stream_id=expected_rst_stream_id, window_increment=1400)
+        client.send_window_update_frame(stream_id=expected_rst_stream_id, window_increment=1400)
+
+        client.readable = lambda: True
+
+        await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=5)
+
+        # ensure that connection still alive
+        client.stream_id = expected_rst_stream_id + 2
+        client.make_request(request=self.get_request)
+        await client.wait_for_response(2)
+
+    async def test_initiate_stream_reset_before_receive_response(
+        self,
+    ):
+        """
+        Verify that Tempesta can reset a stream before receiving its backend response.
+
+        Delay the backend response, send a request on stream 1, and then send an invalid
+        WINDOW_UPDATE to trigger RST_STREAM before the response arrives.
+
+        Expected: the client receives RST_STREAM for stream 1, while the connection remains open
+        and can serve a subsequent request on a new stream.
+        """
+        self.disable_deproxy_auto_parser()
+        expected_rst_stream_id = 1
+
+        client = self.get_client("deproxy")
+        server = self.get_server("deproxy")
+        server.delay_before_sending_response = 2
+
+        await self.start_all_services()
+        await client.wait_for_connection_open()
+        await self.initiate_h2_connection(client)
+
+        client.stream_id = expected_rst_stream_id
+        client.make_request(request=self.get_request)
+
+        # initiate RST_STREAM
+        client.send_window_update_frame(
+            stream_id=expected_rst_stream_id, window_increment=MAX_WINDOW_INCREMENT
+        )
+
+        await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=5)
+
+        server.delay_before_sending_response = 0
+        # ensure that connection still alive
+        client.stream_id = expected_rst_stream_id + 2
+        client.make_request(request=self.get_request)
+        await client.wait_for_response(1)
+
 
 class TestHalfClosedStreamStateWindowUpdate(H2Base):
     async def test_window_update_frame_in_half_closed_state(self):
@@ -498,7 +608,7 @@ class TestStreamState(H2Base):
     from tempesta code)
     """
 
-    async def __setup(self, request=None, expect_response=False):
+    async def __setup(self, flags, request=None, expect_response=False):
         await self.start_all_services()
         client = self.get_client("deproxy")
         server = self.get_server("deproxy")
@@ -518,31 +628,61 @@ class TestStreamState(H2Base):
         client.send_headers_frame(
             stream_id=client.stream_id,
             data=client.h2_connection.encoder.encode(request),
-            flags=self.flags,
+            flags=flags,
             expect_response=expect_response,
         )
         return client
 
-    async def test_any_frame_between_header_blocks(self):
-        """
-        Each field block is processed as a discrete unit. Field blocks MUST be
-        transmitted as a contiguous sequence of frames, with no interleaved
-        frames of any other type or from any other stream. The last frame in a
-        sequence of HEADERS or CONTINUATION frames has the END_HEADERS flag set.
-        The last frame in a sequence of PUSH_PROMISE or CONTINUATION frames has
-        the END_HEADERS flag set. This allows a field block to be logically
-        equivalent to a single frame.
-        """
-        client = await self.__setup()
+    def _send_data_frame(self, client):
+        client.send_data_frame(stream_id=client.stream_id, data=b"a")
+
+    def _send_headers_frame(self, client):
         client.send_headers_frame(
             stream_id=client.stream_id,
             data=client.h2_connection.encoder.encode(self.post_request),
             flags=["END_HEADERS", "END_STREAM"],
         )
-        await client.wait_for_connection_close()
-        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    async def test_headers_frame_for_other_stream_between_header_blocks(self):
+    def _send_priority_frame(self, client):
+        client.send_priority_frame(stream_id=client.stream_id)
+
+    def _send_rst_stream_frame(self, client):
+        client.send_rst_stream_frame(stream_id=client.stream_id)
+
+    def _send_settings_frame(self, client):
+        client.send_settings_frame()
+
+    def _send_push_promise_frame(self, client):
+        client.send_push_promise_frame(
+            stream_id=client.stream_id,
+            promised_stream_id=client.stream_id + 1,
+            data=client.h2_connection.encoder.encode(self.post_request),
+            flags=["END_HEADERS"],
+        )
+
+    def _send_ping_frame(self, client):
+        client.send_ping_frame(opaque_data=b"12345678")
+
+    def _send_go_away_frame(self, client):
+        client.send_go_away_frame(last_stream_id=client.stream_id)
+
+    def _send_window_update_frame(self, client):
+        client.send_window_update_frame(stream_id=client.stream_id, window_increment=1)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="frame_data", send_frame_func=_send_data_frame),
+            marks.Param(name="frame_headers", send_frame_func=_send_headers_frame),
+            marks.Param(name="frame_priority", send_frame_func=_send_priority_frame),
+            marks.Param(name="frame_rst_stream", send_frame_func=_send_rst_stream_frame),
+            marks.Param(name="frame_settings", send_frame_func=_send_settings_frame),
+            marks.Param(name="frame_push_promise", send_frame_func=_send_push_promise_frame),
+            marks.Param(name="frame_ping", send_frame_func=_send_ping_frame),
+            marks.Param(name="frame_go_away", send_frame_func=_send_go_away_frame),
+            marks.Param(name="frame_window_update", send_frame_func=_send_window_update_frame),
+        ]
+    )
+    async def test_any_frame_between_header_blocks(self, name, send_frame_func):
         """
         Each field block is processed as a discrete unit. Field blocks MUST be
         transmitted as a contiguous sequence of frames, with no interleaved
@@ -552,11 +692,33 @@ class TestStreamState(H2Base):
         the END_HEADERS flag set. This allows a field block to be logically
         equivalent to a single frame.
         """
-        client = await self.__setup()
+        client = await self.__setup(self.flags)
+        send_frame_func(self, client)
+        await client.wait_for_connection_close()
+        client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
+
+    async def test_continuation_frame_for_other_stream_between_header_blocks(self):
+        """
+        Each field block is processed as a discrete unit. Field blocks MUST be
+        transmitted as a contiguous sequence of frames, with no interleaved
+        frames of any other type or from any other stream. The last frame in a
+        sequence of HEADERS or CONTINUATION frames has the END_HEADERS flag set.
+        The last frame in a sequence of PUSH_PROMISE or CONTINUATION frames has
+        the END_HEADERS flag set. This allows a field block to be logically
+        equivalent to a single frame.
+        """
+        client = await self.__setup([])
+        client.send_continuation_frame(stream_id=client.stream_id, flags=["END_HEADERS"])
         client.send_headers_frame(
             stream_id=client.stream_id + 2,
             data=client.h2_connection.encoder.encode(self.post_request),
-            flags=["END_HEADERS", "END_STREAM"],
+            flags=self.flags,
+        )
+        # This CONTINUATION frame must refer to stream that currently sending headers, that's why
+        # we do the first request
+        client.send_continuation_frame(
+            stream_id=client.stream_id,
+            flags=["END_HEADERS"],
         )
         await client.wait_for_connection_close()
         client.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
@@ -574,7 +736,7 @@ class TestStreamState(H2Base):
         or a frame on a different stream as a connection error of type
         PROTOCOL_ERROR.
         """
-        client = await self.__setup()
+        client = await self.__setup(self.flags)
         client.send_rst_stream_frame(stream_id=1)
         client.stream_id = 3
         client.make_request(self.post_request)
@@ -586,7 +748,7 @@ class TestStreamState(H2Base):
         Test case when we don't receive END_HEADERS flag
         but have error during processing request.
         """
-        client = await self.__setup(self.post_request + [("BAD", "BAD")], True)
+        client = await self.__setup(self.flags, self.post_request + [("BAD", "BAD")], True)
         await client.wait_for_response()
         self.assertEqual(client.last_response.status, "400")
 
