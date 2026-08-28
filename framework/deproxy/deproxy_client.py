@@ -412,7 +412,7 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
             stream_id=stream_id,
             promised_stream_id=promised_stream_id,
             data=data,
-            pad_length=pad_legnth,
+            pad_length=pad_length,
             flags=flags,
             **kwargs,
         )
