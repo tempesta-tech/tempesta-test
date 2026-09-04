@@ -364,8 +364,14 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
         await client.wait_for_connection_close()
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="frame_data", send_frame_func=_send_data_frame),
+            marks.Param(name="frame_window_update", send_frame_func=_send_window_update_frame),
+        ]
+    )
     async def test_initiate_stream_reset_during_sending_resp_headers_and_trigger_stream_cleanup(
-        self,
+        self, name, send_frame_func
     ):
         """
         This test verifies that headers will be fully sent by Tempesta when stream has been reset
@@ -407,6 +413,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         await self.initiate_h2_connection(client)
 
         client.readable = lambda: False
+
         client.stream_id = expected_rst_stream_id
         client.make_request(request=self.get_request)
         await self.assertWaitUntilEqual(
@@ -414,20 +421,16 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             1,
         )
 
-        # Stream must be not exclusive
-        client.send_priority_frame(stream_id=1, depends_on=205, stream_weight=100, exclusive=False)
-
         # Reset the first stream
-        client.send_data_frame(stream_id=expected_rst_stream_id, data=b"a")
+        send_frame_func(self, client=client, stream_id=expected_rst_stream_id)
 
-        # Create idle streams
-        for stream_id in range(3, 201, 2):
-            client.send_priority_frame(
-                stream_id=stream_id, depends_on=stream_id + 2, stream_weight=2, exclusive=False
-            )
+        dep_on = 0
+        for id in range(3, 13, 2):
+            client.send_priority_frame(stream_id=id, depends_on=dep_on, exclusive=False)
+            dep_on = 1
 
         # Initiate idle streams removing to trigger stream clean up
-        client.stream_id = 203
+        client.stream_id = 13
         client.make_request(request=self.get_request)
         await self.assertWaitUntilEqual(
             lambda: self._get_srv_msg_forwarded_stat(tempesta),
@@ -438,7 +441,6 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         client.readable = lambda: True
 
         await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=3)
-
         await client.wait_for_response(n=1),
 
         partial_response = client._active_responses[expected_rst_stream_id]
