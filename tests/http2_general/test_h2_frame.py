@@ -288,6 +288,44 @@ class TestH2Frame(H2Base):
         # that connection is open.
         await client.send_request(self.post_request, "200")
 
+    async def test_empty_settings_frame(self):
+        """Tempesta must acknowledge an empty SETTINGS frame and keep the connection open."""
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        await self.initiate_h2_connection(client)
+
+        # Acknowledge Tempesta's initial SETTINGS frame before sending a new one.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.send_settings_frame()
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge an empty SETTINGS frame."
+        )
+
+        await client.send_request(self.get_request, "200")
+        self.assertFalse(client.connection_is_closed)
+
+    async def test_empty_initial_settings_frame(self):
+        """Tempesta must acknowledge an empty initial SETTINGS frame."""
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initial_settings()
+        initial_data = client.h2_connection.data_to_send()
+
+        # Keep the 24-byte client connection preface but replace the generated
+        # initial SETTINGS frame with an empty one.
+        client.send_bytes(initial_data[:24] + SettingsFrame(stream_id=0).serialize())
+
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge an empty initial SETTINGS frame."
+        )
+        self.assertFalse(client.connection_is_closed)
+
     async def test_window_update_frame(self):
         """Tempesta must handle WindowUpdate frame."""
         await self.start_all_services(client=True)
