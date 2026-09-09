@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from hyperframe.frame import PriorityFrame
 
@@ -13,7 +14,7 @@ from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
-DEFAULT_INITIAL_WINDOW_SIZE = 65535
+DEFAULT_INITIAL_WINDOW_SIZE = 262140
 BIG_HEADER_SIZE = 600000
 
 
