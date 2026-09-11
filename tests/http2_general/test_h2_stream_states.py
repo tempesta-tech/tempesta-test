@@ -8,7 +8,7 @@ import asyncio
 import socket
 import typing
 
-from h2.connection import ConnectionInputs
+from h2.connection import ConnectionInputs, H2Connection
 from h2.errors import ErrorCodes
 from hyperframe.frame import (
     DataFrame,
@@ -24,8 +24,6 @@ from framework.helpers import dmesg
 from framework.test_suite import marks
 from framework.test_suite.marks import parameterize_class
 from tests.http2_general.helpers import H2Base
-
-MAX_WINDOW_INCREMENT = 2**31 - 1
 
 
 class TestClosedStreamState(H2Base):
@@ -61,6 +59,82 @@ class TestClosedStreamState(H2Base):
         Tempesta MUST not close connection.
         """
         await self.__base_scenario(lambda client: client.send_priority_frame(stream_id=1))
+
+    async def test_data_frames_after_stream_reset(self):
+        """
+        Verify that Tempesta does not change a stream's receive-side flow-control
+        window when the stream is in the LOC_CLOSED state. Reset the stream with an
+        overflowing WINDOW_UPDATE and wait for the initial connection-window
+        replenishment after sending one DATA frame. Then send enough DATA to exceed
+        an open stream's receive window, followed by an empty DATA frame with
+        END_STREAM. These frames must leave the closed stream's receive window
+        unchanged, without triggering further connection WINDOW_UPDATE frames or
+        closing the connection. Subsequent requests must still succeed.
+        """
+        await self.start_all_services()
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 512
+        await self.initiate_h2_connection(client)
+
+        stream_id = client.stream_id
+        client.make_request(
+            self.post_request,
+            end_stream=False,
+        )
+        # Overflow Tempesta's send-side stream window to trigger RST_STREAM.
+        client.send_window_update_frame(
+            stream_id=stream_id, window_increment=H2Connection.MAX_WINDOW_INCREMENT
+        )
+
+        await client.wait_for_reset_stream(stream_id=stream_id)
+
+        data = bytes("a" * client.h2_connection.max_outbound_frame_size, "ascii")
+        # Raw DATA frames bypass h2's flow-control accounting. Account for this
+        # payload manually so the expected WINDOW_UPDATE does not overflow the window.
+        client.h2_connection.outbound_flow_control_window -= len(data)
+        client.send_data_frame(stream_id=stream_id, data=data, auto_flow_control=False)
+        # Wait for the initial replenishment before checking for further updates.
+        await self.assertWaitUntilEqual(
+            lambda: client.h2_connection.outbound_flow_control_window,
+            H2Connection.MAX_WINDOW_INCREMENT,
+        )
+        initial_connection_window = client.h2_connection.outbound_flow_control_window
+
+        # Send 6 * max_outbound_frame_size bytes, that overflow 65535 stream window in normal case
+        # however, we sending it to closed stream and expect that stream window will not
+        # be changed.
+        for _ in range(6):
+            client.send_data_frame(stream_id=stream_id, data=data, auto_flow_control=False)
+
+        # Try to end the already reset stream with an empty DATA frame.
+        # This frame should also be ignored.
+        client.send_data_frame(
+            stream_id=stream_id,
+            data=b"",
+            flags=["END_STREAM"],
+            expect_response=True,
+            auto_flow_control=False,
+        )
+
+        self.assertEqual(
+            client.h2_connection.outbound_flow_control_window,
+            initial_connection_window,
+            "Connection WINDOW_UPDATE frames were received",
+        )
+
+        client.stream_id = 3
+        client.make_request(
+            self.get_request,
+            end_stream=True,
+        )
+        await client.send_request(self.get_request, expected_status_code="200")
+        # Successful responses must not be accompanied by delayed WINDOW_UPDATE frames.
+        self.assertEqual(
+            client.h2_connection.outbound_flow_control_window,
+            initial_connection_window,
+            "Connection WINDOW_UPDATE frames were received",
+        )
+        self.assertFalse(client.connection_is_closed)
 
 
 class TestLocHalfClosedStreamState(H2Base):
@@ -163,7 +237,9 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         client.send_data_frame(stream_id=stream_id, data=b"a")
 
     def _send_window_update_frame(self, client, stream_id):
-        client.send_window_update_frame(stream_id=stream_id, window_increment=MAX_WINDOW_INCREMENT)
+        client.send_window_update_frame(
+            stream_id=stream_id, window_increment=H2Connection.MAX_WINDOW_INCREMENT
+        )
 
     def _send_rst_frame(self, client, stream_id):
         client.send_rst_stream_frame(stream_id=stream_id)
@@ -499,7 +575,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         )
         # initiate RST_STREAM
         client.send_window_update_frame(
-            stream_id=expected_rst_stream_id, window_increment=MAX_WINDOW_INCREMENT
+            stream_id=expected_rst_stream_id, window_increment=H2Connection.MAX_WINDOW_INCREMENT
         )
         # These two update need for check that Tempesta doesn't close connection on receiving
         # WINDOW_UPDATE frame in this state.
@@ -543,7 +619,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
 
         # initiate RST_STREAM
         client.send_window_update_frame(
-            stream_id=expected_rst_stream_id, window_increment=MAX_WINDOW_INCREMENT
+            stream_id=expected_rst_stream_id, window_increment=H2Connection.MAX_WINDOW_INCREMENT
         )
 
         await client.wait_for_reset_stream(stream_id=expected_rst_stream_id, timeout=5)
