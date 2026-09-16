@@ -813,9 +813,8 @@ class TestTrailers(H2Base):
         )
         client.send_bytes(data=hf.serialize(), expect_response=False)
 
-        # create and send DATA frame without END_STREAM
-        df = frame.DataFrame(stream_id=client.stream_id, data=b"asd")
-        client.send_bytes(data=df.serialize(), expect_response=False)
+        # send DATA frame without END_STREAM
+        client.send_data_frame(stream_id=client.stream_id, data=b"asd")
 
     @marks.Parameterize.expand(
         [
