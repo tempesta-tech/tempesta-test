@@ -166,11 +166,13 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
     def _send_rst_frame(self, client, stream_id):
         client.send_rst_stream_frame(stream_id=stream_id)
 
-    def _check_all_headers_presents_in_partially_received_response(self, response):
+    def _check_all_headers_presents_in_partially_received_response(
+        self, response, expected_content_length=True
+    ):
         # Check all headers received
         self.assertEqual(response.status, "200")
         self.assertIsNotNone(response.headers.get("long_hdr", None))
-        self.assertIsNotNone(response.headers.get("content-length", None))
+        self.assertEqual("content-length" in response.headers, expected_content_length)
         self.assertIsNotNone(response.headers.get("via", None))
         self.assertIsNotNone(response.headers.get("date", None))
         self.assertIsNotNone(response.headers.get("server", None))
@@ -183,6 +185,7 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         expected_empty_body: bool,
         second_response_body_size: int,
         rcv_buf_size_threshold: int,
+        expected_content_length: bool = True,
     ):
         self.disable_deproxy_auto_parser()
         tempesta = self.get_tempesta()
@@ -223,12 +226,16 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         await client.wait_for_response(n=1),
 
         partial_response = client._active_responses[expected_rst_stream_id]
-        self._check_all_headers_presents_in_partially_received_response(partial_response)
+        self._check_all_headers_presents_in_partially_received_response(
+            partial_response, expected_content_length
+        )
         if expected_empty_body:
             self.assertEqual(partial_response.body, "")
 
         # Full response has the same headers set as partial, thus use the same method for check
-        self._check_all_headers_presents_in_partially_received_response(client.last_response)
+        self._check_all_headers_presents_in_partially_received_response(
+            client.last_response, expected_content_length
+        )
         self.assertEqual(client.last_response.body, "q" * second_response_body_size)
 
     @marks.Parameterize.expand(
@@ -286,6 +293,58 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             rcv_buf_size_threshold=long_hdr_val_size,
         )
 
+    @marks.Parameterize.expand(
+        [
+            marks.Param(
+                name="frame_headers", send_frame_func=_send_headers_frame, rcv_rst_expected=True
+            ),
+            marks.Param(name="frame_data", send_frame_func=_send_data_frame, rcv_rst_expected=True),
+            marks.Param(
+                name="frame_window_update",
+                send_frame_func=_send_window_update_frame,
+                rcv_rst_expected=True,
+            ),
+            marks.Param(name="frame_rst", send_frame_func=_send_rst_frame, rcv_rst_expected=False),
+        ]
+    )
+    async def test_initiate_stream_reset_during_sending_resp_headers_with_trailer(
+        self, name, send_frame_func, rcv_rst_expected
+    ):
+        """
+        The same as test_initiate_stream_reset_during_sending_resp_headers but the backend
+        response includes a trailer. The second response must contain the trailer.
+        """
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        long_hdr_val_size = 4 * client.rcv_buf_size
+        body_size = client.rcv_buf_size * 4
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: "
+            + ("x" * long_hdr_val_size)
+            + "\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token\r\n\r\n"
+            + f"{body_size:x}\r\n"
+            + ("q" * body_size)
+            + "\r\n0\r\n"
+            + "X-Token: value\r\n\r\n"
+        )
+
+        await self._test_initiate_stream_reset_during_sending_data_base(
+            send_frame_func=send_frame_func,
+            rcv_rst_expected=rcv_rst_expected,
+            expected_rst_stream_id=1,
+            expected_empty_body=True,
+            second_response_body_size=body_size,
+            rcv_buf_size_threshold=long_hdr_val_size,
+            expected_content_length=False,
+        )
+        self.assertEqual(client.last_response.trailer.get("X-Token"), "value")
+
     async def test_initiate_stream_reset_during_sending_resp_data(self):
         """
         The same as test_initiate_stream_reset_during_sending_resp_headers but resets the stream
@@ -314,6 +373,39 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
             second_response_body_size=body_size,
             rcv_buf_size_threshold=body_size,
         )
+
+    async def test_initiate_stream_reset_during_sending_resp_data_with_trailers(self):
+        """
+        The same as test_initiate_stream_reset_during_sending_resp_data but the backend
+        response includes a trailer. The second response must contain the trailer.
+        """
+        client = self.get_client("deproxy")
+        client.rcv_buf_size = 1024
+        body_size = client.rcv_buf_size * 4
+        server = self.get_server("deproxy")
+        server.set_response(
+            "HTTP/1.1 200 OK\r\n"
+            + "Long_hdr: x\r\n"
+            + "Connection: keep-alive\r\n"
+            + "Server: deproxy\r\n"
+            + "Transfer-Encoding: chunked\r\n"
+            + "Trailer: X-Token\r\n\r\n"
+            + f"{body_size:x}\r\n"
+            + ("q" * body_size)
+            + "\r\n0\r\n"
+            + "X-Token: value\r\n\r\n"
+        )
+
+        await self._test_initiate_stream_reset_during_sending_data_base(
+            send_frame_func=TestHalfClosedStreamStateUnexpectedFrames._send_data_frame,
+            rcv_rst_expected=True,
+            expected_rst_stream_id=1,
+            expected_empty_body=False,
+            second_response_body_size=body_size,
+            rcv_buf_size_threshold=body_size,
+            expected_content_length=False,
+        )
+        self.assertEqual(client.last_response.trailer.get("X-Token"), "value")
 
     async def test_tempesta_rcv_multiple_data_during_sending_resp_headers(self):
         """
