@@ -6,6 +6,7 @@ __license__ = "GPL2"
 
 import asyncio
 
+from h2.connection import H2Connection
 from h2.errors import ErrorCodes
 from hyperframe.frame import DataFrame
 
@@ -68,6 +69,38 @@ class TestFlowControl(H2Base, asserts.Sniffer):
                 return False
 
         return False
+
+    async def test_first_window_update(self):
+        """
+        Verify that Tempesta expands its connection receive window to 2**31 - 1
+        after receiving the first DATA frame. Open a POST stream and check that
+        the client's connection outbound window is not yet at the maximum. Send
+        one maximum-sized DATA frame and wait for Tempesta's first connection
+        WINDOW_UPDATE to bring the client's outbound window to 2**31 - 1.
+        """
+        await self.start_all_services()
+        client = self.get_client("deproxy")
+        await self.initiate_h2_connection(client)
+
+        stream_id = client.stream_id
+        client.make_request(
+            self.post_request,
+            end_stream=False,
+        )
+
+        self.assertNotEqual(
+            client.h2_connection.outbound_flow_control_window, H2Connection.MAX_WINDOW_INCREMENT
+        )
+        data = bytes("a" * client.h2_connection.max_outbound_frame_size, "ascii")
+        client.send_data_frame(stream_id=stream_id, data=data)
+        await self.assertWaitUntilEqual(
+            lambda: client.h2_connection.outbound_flow_control_window,
+            H2Connection.MAX_WINDOW_INCREMENT,
+        )
+
+        stream = client.h2_connection.streams.get(stream_id)
+        # Only connection window expected to be increased
+        self.assertNotEqual(stream.outbound_flow_control_window, H2Connection.MAX_WINDOW_INCREMENT)
 
     async def test_apply_new_window_size_on_blocked_stream(self):
         """
@@ -295,7 +328,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         await client.wait_for_headers_frame(stream_id=1)
 
         # send DATA frame for GET request and wait for RST_STREAM
-        client.send_bytes(DataFrame(stream_id=1, data=b"123", flags=["END_STREAM"]).serialize())
+        client.send_data_frame(stream_id=1, data=b"123", flags=["END_STREAM"])
 
         await client.wait_for_reset_stream(
             stream_id=1,
