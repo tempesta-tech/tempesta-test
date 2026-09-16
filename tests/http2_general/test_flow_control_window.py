@@ -295,7 +295,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         await client.wait_for_headers_frame(stream_id=1)
 
         # send DATA frame for GET request and wait for RST_STREAM
-        client.send_bytes(DataFrame(stream_id=1, data=b"123", flags=["END_STREAM"]).serialize())
+        client.send_data_frame(stream_id=1, data=b"123", flags=["END_STREAM"])
 
         await client.wait_for_reset_stream(
             stream_id=1,

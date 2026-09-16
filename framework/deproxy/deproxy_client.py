@@ -357,13 +357,23 @@ class BaseDeproxyClient(BaseDeproxy, abc.ABC):
         data: bytes,
         pad_length: int = 0,
         flags: Iterable[str] = (),
+        expect_response=False,
+        auto_flow_control=True,
         **kwargs: Any,
     ) -> None:
         frame = DataFrame(
             stream_id=stream_id, data=data, pad_length=pad_length, flags=flags, **kwargs
         )
 
-        self.send_bytes(data=frame.serialize())
+        if auto_flow_control:
+            stream = self.h2_connection.streams.get(stream_id)
+
+            stream.outbound_flow_control_window -= frame.flow_controlled_length
+            self.h2_connection.outbound_flow_control_window -= frame.flow_controlled_length
+            assert self.h2_connection.outbound_flow_control_window >= 0
+            assert stream.outbound_flow_control_window >= 0
+
+        self.send_bytes(data=frame.serialize(), expect_response=expect_response)
 
     def send_priority_frame(
         self,

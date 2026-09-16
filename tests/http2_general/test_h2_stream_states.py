@@ -117,10 +117,12 @@ class TestHalfClosedStreamStateUnexpectedFrames(H2Base):
         client.h2_connection.encoder.huffman = True
 
         client.h2_connection.send_headers(stream_id=1, headers=self.get_request, end_stream=True)
+        df_payload = b"request body"
+        client.h2_connection.outbound_flow_control_window -= len(df_payload)
         client.send_bytes(
             data=(
                 client.h2_connection.data_to_send()
-                + DataFrame(stream_id=1, data=b"request body").serialize()
+                + DataFrame(stream_id=1, data=df_payload).serialize()
                 + frame.serialize()
             ),
             expect_response=False,
