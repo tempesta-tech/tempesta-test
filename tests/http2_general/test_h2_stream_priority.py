@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from hyperframe.frame import PriorityFrame
 
@@ -13,7 +14,8 @@ from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
-DEFAULT_INITIAL_WINDOW_SIZE = 65535
+WINDOW_SIZE_MAX = 2**31 - 65535
+DEFAULT_INITIAL_WINDOW_SIZE = WINDOW_SIZE_MAX
 BIG_HEADER_SIZE = 600000
 
 
@@ -60,6 +62,9 @@ class TestPriorityBase(H2Base):
         )
 
         client.update_initial_settings(initial_window_size=initial_window_size)
+        client.h2_connection.increment_flow_control_window(
+            WINDOW_SIZE_MAX - client.h2_connection.inbound_flow_control_window
+        )
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
         return client, server
