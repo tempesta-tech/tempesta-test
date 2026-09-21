@@ -81,7 +81,7 @@ class TestPriorityBase(H2Base):
                 await client.wait_for_headers_frame(
                     stream_id, timeout=60 if run_config.TCP_SEGMENTATION else 5
                 )
-        client.send_settings_frame(initial_window_size=initial_window_size)
+        client.send_h2_settings(initial_window_size=initial_window_size)
         await client.wait_for_ack_settings()
         await client.wait_for_response(timeout=timeout)
 
@@ -308,7 +308,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
 		When count of closed streams is greater then 5, the creation of new
 		stream leads to deletion of one of the old closed streams.
 		"""
-        client.send_settings_frame(initial_window_size=0)
+        client.send_h2_settings(initial_window_size=0)
         await client.wait_for_ack_settings()
 
         client.make_request(
@@ -327,7 +327,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
             priority_exclusive=False,
         )
 
-        client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
+        client.send_h2_settings(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
         await client.wait_for_ack_settings()
 
         await self.wait_for_responses(client, [15, 17])

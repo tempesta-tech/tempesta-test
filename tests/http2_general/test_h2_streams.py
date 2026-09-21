@@ -65,14 +65,14 @@ class TestH2Stream(H2Base):
         for _ in range(2):
             await client.send_request(self.post_request, "200")
 
-        client.send_settings_frame(initial_window_size=0)
+        client.send_h2_settings(initial_window_size=0)
         client.h2_connection.clear_outbound_data_buffer()
         await client.wait_for_ack_settings()
 
         for _ in range(max_streams):
             client.make_request(self.post_request)
 
-        client.send_settings_frame(initial_window_size=65536)
+        client.send_h2_settings(initial_window_size=65536)
         client.h2_connection.clear_outbound_data_buffer()
         await client.wait_for_ack_settings()
 

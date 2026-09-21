@@ -834,7 +834,7 @@ class DeproxyClientH2(BaseDeproxyClient):
 
         self.h2_connection.initiate_connection()
 
-    def send_settings_frame(
+    def send_h2_settings(
         self,
         header_table_size: int = None,
         enable_push: int = None,

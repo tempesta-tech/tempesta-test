@@ -1012,7 +1012,7 @@ class TestPostponedFrames(H2Base):
         await client.wait_for_headers_frame(stream_id)
         await client.wait_for_ping_frames(ping_count)
 
-        client.send_settings_frame(initial_window_size=65535)
+        client.send_h2_settings(initial_window_size=65535)
         await client.wait_for_ack_settings()
 
         for _ in range(0, ping_count):
