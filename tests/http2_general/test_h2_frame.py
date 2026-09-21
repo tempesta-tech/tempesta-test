@@ -795,6 +795,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             data_to_send += self.__prepare_hf_to_send(client)
 
         client.send_bytes(data_to_send, expect_response=False)
+        client.send_h2_settings(initial_window_size=300)
         for _ in range(extra_settings_cnt):
             client.send_bytes(
                 SettingsFrame(
@@ -818,7 +819,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         # First ack was received when we establish connection
         self.assertTrue(
             await util.wait_until(
-                lambda: client.ack_cnt - 1 != extra_settings_cnt,
+                lambda: client.ack_cnt - 2 != extra_settings_cnt,
                 timeout,
                 abort_cond=lambda: client.state != stateful.STATE_STARTED,
             )
