@@ -1002,9 +1002,12 @@ class DeproxyClientH2(BaseDeproxyClient):
                     response = self._active_responses.get(event.stream_id)
                     response.body += body
                     if self.auto_flow_control:
-                        self.increment_flow_control_window(
-                            event.stream_id, event.flow_controlled_length
+                        self.h2_connection.acknowledge_received_data(
+                            event.flow_controlled_length, event.stream_id
                         )
+                        data_to_send = self.h2_connection.data_to_send()
+                        if data_to_send:
+                            self.send_bytes(data_to_send)
                 elif isinstance(event, TrailersReceived):
                     response = self._active_responses.get(event.stream_id)
                     for trailer in event.headers:
