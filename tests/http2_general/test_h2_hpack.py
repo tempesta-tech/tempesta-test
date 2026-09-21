@@ -34,7 +34,7 @@ def randomword(length):
 
 class TestHpackBase(H2Base):
     async def change_header_table_size(self, client, new_table_size):
-        client.send_settings_frame(header_table_size=new_table_size)
+        client.send_h2_settings(header_table_size=new_table_size)
         await client.wait_for_ack_settings()
 
     async def setup_settings_header_table_tests(self):
@@ -364,10 +364,10 @@ class TestHpack(TestHpackBase):
         )
 
         # Tempesta MUST clear dynamic table when receive SETTINGS_HEADER_TABLE_SIZE = 0
-        client.send_settings_frame(header_table_size=0)
+        client.send_h2_settings(header_table_size=0)
         await client.wait_for_ack_settings()
 
-        client.send_settings_frame(header_table_size=4096)
+        client.send_h2_settings(header_table_size=4096)
         await client.wait_for_ack_settings()
 
         # Tempesta MUST saves via header in dynamic table again. Via header is indexed again.
@@ -439,7 +439,7 @@ class TestHpack(TestHpackBase):
 
         # Client set HEADER_TABLE_SIZE = 12288 bytes, but Tempesta works with table 4096 bytes
         # and we expect \x3f\xe1\x1f bytes in first header frame
-        client.send_settings_frame(header_table_size=12288)
+        client.send_h2_settings(header_table_size=12288)
         await client.send_request(request=self.post_request, expected_status_code="200")
         self.assertTrue(
             client.check_header_presence_in_last_response_buffer(b"\x3f\xe1\x1f"),
@@ -504,11 +504,11 @@ class TestHpack(TestHpackBase):
         )
         self.assertEqual(client.h2_connection.decoder.header_table_size, 1024)
 
-        client.send_settings_frame(header_table_size=3072)
+        client.send_h2_settings(header_table_size=3072)
         await client.wait_for_ack_settings(timeout=3)
-        client.send_settings_frame(header_table_size=768)
+        client.send_h2_settings(header_table_size=768)
         await client.wait_for_ack_settings(timeout=3)
-        client.send_settings_frame(header_table_size=2048)
+        client.send_h2_settings(header_table_size=2048)
         await client.wait_for_ack_settings(timeout=3)
 
         await client.send_request(request=self.post_request, expected_status_code="200")
@@ -673,7 +673,7 @@ class TestHpack(TestHpackBase):
         client.make_request(self.get_request)
         await client.wait_for_headers_frame(stream_id=1)
         # send the new table size
-        client.send_settings_frame(header_table_size=new_table_size)
+        client.send_h2_settings(header_table_size=new_table_size)
         # ensure that the current table size is equal to default 4096 and the same as default of Tempesta
         self.assertEqual(client.h2_connection.decoder.header_table_size, 4096)
         await client.wait_for_ack_settings()

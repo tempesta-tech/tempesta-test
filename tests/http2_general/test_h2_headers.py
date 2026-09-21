@@ -186,7 +186,7 @@ class HeadersParsing(H2Base):
         )
         client.readable = lambda: False
         client.make_request(self.get_request)
-        client.send_settings_frame(max_frame_size=65536)
+        client.send_h2_settings(max_frame_size=65536)
         await self.assertWaitUntilEqual(
             lambda: self._get_srv_msg_forwarded_stat(tempesta),
             1,

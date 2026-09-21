@@ -101,12 +101,12 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         client.update_initial_settings(initial_window_size=0)
         client.send_bytes(client.h2_connection.data_to_send())
         client.make_request(self.get_request)
-        client.send_settings_frame(initial_window_size=1024)
+        client.send_h2_settings(initial_window_size=1024)
         # Wait while settigns frame will be processed
         await asyncio.sleep(2)
         client.readable = lambda: True
         await client.wait_for_ack_settings()
-        client.send_settings_frame(initial_window_size=2048)
+        client.send_h2_settings(initial_window_size=2048)
         await client.wait_for_ack_settings()
         await client.wait_for_response()
         self._ensure_ack_received_after_headers(client._last_response_buffer)
@@ -264,7 +264,7 @@ class TestFlowControl(H2Base, asserts.Sniffer):
         client.make_request(self.get_request)
         await client.wait_for_headers_frame(stream_id=1)
 
-        client.send_settings_frame(header_table_size=2048)
+        client.send_h2_settings(header_table_size=2048)
         await client.wait_for_ack_settings(
             msg="Tempesta did not forward the SETTINGS frame when the window size is 0."
         )
