@@ -41,7 +41,10 @@ class TestBlockActionH2(BlockActionH2Base):
         await H2Base.asyncSetUp(self)
 
     def check_sniffer_for_attack_reply(self, sniffer, clients: list[BaseDeproxyClient]):
-        self.check_fin_and_rst_in_sniffer(sniffer, clients)
+        if self.INITIAL_WINDOW_SIZE > len(self.ERROR_RESPONSE_BODY):
+            self.check_fin_no_rst_in_sniffer(sniffer, clients)
+        else:
+            self.check_fin_and_rst_in_sniffer(sniffer, clients)
 
     async def check_last_error_response(self, client, expected_status_code, expected_goaway_code):
         await client.wait_for_connection_close()
@@ -159,7 +162,7 @@ class TestBlockActionH2(BlockActionH2Base):
             client, expected_status_code="403", expected_goaway_code=ErrorCodes.PROTOCOL_ERROR
         )
 
-        self.check_fin_and_rst_in_sniffer(sniffer, [client])
+        self.check_sniffer_for_attack_reply(sniffer, [client])
 
 
 class TestBlockActionH2Drop(BlockActionH2Base):

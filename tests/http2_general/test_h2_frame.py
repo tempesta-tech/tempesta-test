@@ -126,7 +126,6 @@ class TestH2Frame(H2Base):
         )
 
         deproxy_cl.send_bytes(hf_bad.serialize() + hf_good.serialize())
-        await deproxy_cl.wait_for_reset_stream(stream.stream_id)
         await deproxy_cl.wait_for_connection_close()
 
     async def test_multiple_empty_headers_frames(self):
@@ -268,7 +267,33 @@ class TestH2Frame(H2Base):
         await deproxy_cl.wait_for_connection_close(timeout=5)
         deproxy_cl.assert_error_code(expected_error_code=ErrorCodes.PROTOCOL_ERROR)
 
-    async def test_settings_frame(self):
+    def _make_settings_frame(self, client, settings_count):
+        setting_codes = [
+            SettingCodes.HEADER_TABLE_SIZE,
+            SettingCodes.ENABLE_PUSH,
+            SettingCodes.MAX_CONCURRENT_STREAMS,
+            SettingCodes.INITIAL_WINDOW_SIZE,
+            SettingCodes.MAX_FRAME_SIZE,
+            SettingCodes.MAX_HEADER_LIST_SIZE,
+        ]
+        # Encode the payload directly because SettingsFrame's dict cannot retain
+        # repeated identifiers. Cycle through the six known settings.
+        payload = b""
+        for i in range(settings_count):
+            code = setting_codes[i % len(setting_codes)]
+            value = client.h2_connection.local_settings[code]
+            payload += code.to_bytes(2, "big") + value.to_bytes(4, "big")
+        header = SettingsFrame(stream_id=0).serialize()
+        return len(payload).to_bytes(3, "big") + header[3:] + payload
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="1_setting", settings_count=1),
+            marks.Param(name="6_settings", settings_count=6),
+            marks.Param(name="32_settings", settings_count=32),
+        ]
+    )
+    async def test_settings_frame(self, name, settings_count):
         """
         Create tls connection and send preamble + correct settings frame.
         Tempesta must accept settings and return settings + ack settings frames.
@@ -281,6 +306,45 @@ class TestH2Frame(H2Base):
         # initiate_connection() generates preamble + settings frame with default variables
         await self.initiate_h2_connection(client)
 
+        # Acknowledge Tempesta's initial SETTINGS before sending another frame.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        frame = self._make_settings_frame(client, settings_count)
+        client.send_bytes(frame)
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge a non-initial SETTINGS frame."
+        )
+
+        await client.send_request(self.post_request, "200")
+        self.assertFalse(client.connection_is_closed)
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="1_setting", settings_count=1),
+            marks.Param(name="6_settings", settings_count=6),
+            marks.Param(name="32_settings", settings_count=32),
+        ]
+    )
+    async def test_initial_settings_frame(self, name, settings_count):
+        """
+        Send the client preface followed by an initial SETTINGS frame containing
+        1, 6, or 32 entries, repeating known setting identifiers as needed.
+        Tempesta must acknowledge the settings and successfully process a request
+        after the client acknowledges Tempesta's initial SETTINGS frame.
+        """
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initial_settings()
+
+        initial_data = client.h2_connection.data_to_send()
+        frame = self._make_settings_frame(client, settings_count)
+        # Keep the client preface and replace the generated initial SETTINGS frame.
+        client.send_bytes(initial_data[:24] + frame)
+        await client.wait_for_ack_settings()
+
         # send empty setting frame with ack flag.
         client.send_bytes(client.h2_connection.data_to_send())
         client.h2_connection.clear_outbound_data_buffer()
@@ -288,6 +352,117 @@ class TestH2Frame(H2Base):
         # send header frame after exchanging settings and make sure
         # that connection is open.
         await client.send_request(self.post_request, "200")
+
+    @marks.Parameterize.expand(
+        [
+            marks.Param(name="1_setting", settings_count=1),
+            marks.Param(name="6_settings", settings_count=6),
+            marks.Param(name="32_settings", settings_count=32),
+        ]
+    )
+    async def test_settings_frame_unknown_settings(self, name, settings_count):
+        """
+        Tempesta must ignore unknown setting identifiers, acknowledge the SETTINGS
+        frame, and successfully process a subsequent request.
+        """
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        await self.initiate_h2_connection(client)
+
+        # Acknowledge Tempesta's initial SETTINGS before sending another frame.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        settings = {100 + i: i for i in range(settings_count)}
+        frame = SettingsFrame(stream_id=0, settings=settings)
+        # Wait for a fresh ACK for the frame containing unknown settings.
+        client.send_bytes(frame.serialize())
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge a SETTINGS frame with unknown identifiers."
+        )
+
+        await client.send_request(self.post_request, "200")
+        self.assertFalse(client.connection_is_closed)
+
+    async def test_settings_frame_33_settings(self):
+        """
+        Tempesta must disconnect after receiving a SETTINGS frame with 33 entries,
+        as it enforces a limit of 32 SETTINGS entries per frame.
+        """
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        await self.initiate_h2_connection(client)
+
+        # Acknowledge Tempesta's initial SETTINGS before sending another frame.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        ack_count = client.ack_cnt
+        client.send_bytes(self._make_settings_frame(client, settings_count=33))
+        await client.wait_for_connection_close(timeout=5)
+        self.assertEqual(
+            client.ack_cnt,
+            ack_count,
+            "Tempesta acknowledged a SETTINGS frame with 33 entries.",
+        )
+
+    async def test_initial_settings_frame_33_settings(self):
+        """Tempesta must disconnect after receiving a SETTINGS frame with 33 entries,
+        as it enforces a limit of 32 SETTINGS entries per frame."""
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+        client.update_initial_settings()
+
+        initial_data = client.h2_connection.data_to_send()
+        frame = self._make_settings_frame(client, settings_count=33)
+        # Keep the client preface and replace the generated initial SETTINGS frame.
+        client.send_bytes(initial_data[:24] + frame)
+        await client.wait_for_connection_close(timeout=5)
+        self.assertFalse(
+            client.ack_settings,
+            "Tempesta acknowledged an initial SETTINGS frame with 33 entries.",
+        )
+
+    async def test_empty_settings_frame(self):
+        """Tempesta must acknowledge an empty SETTINGS frame and keep the connection open."""
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        await self.initiate_h2_connection(client)
+
+        # Acknowledge Tempesta's initial SETTINGS frame before sending a new one.
+        client.send_bytes(client.h2_connection.data_to_send())
+        client.h2_connection.clear_outbound_data_buffer()
+
+        client.send_settings_frame()
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge an empty SETTINGS frame."
+        )
+
+        await client.send_request(self.get_request, "200")
+        self.assertFalse(client.connection_is_closed)
+
+    async def test_empty_initial_settings_frame(self):
+        """Tempesta must acknowledge an empty initial SETTINGS frame."""
+        await self.start_all_services(client=True)
+
+        client: deproxy_client.DeproxyClientH2 = self.get_client("deproxy")
+
+        client.update_initial_settings()
+        initial_data = client.h2_connection.data_to_send()
+
+        # Keep the 24-byte client connection preface but replace the generated
+        # initial SETTINGS frame with an empty one.
+        client.send_bytes(initial_data[:24] + SettingsFrame(stream_id=0).serialize())
+
+        await client.wait_for_ack_settings(
+            msg="Tempesta did not acknowledge an empty initial SETTINGS frame."
+        )
+        self.assertFalse(client.connection_is_closed)
 
     async def test_window_update_frame(self):
         """Tempesta must handle WindowUpdate frame."""
@@ -620,6 +795,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
             data_to_send += self.__prepare_hf_to_send(client)
 
         client.send_bytes(data_to_send, expect_response=False)
+        client.send_h2_settings(initial_window_size=300)
         for _ in range(extra_settings_cnt):
             client.send_bytes(
                 SettingsFrame(
@@ -643,7 +819,7 @@ class TestH2FrameEnabledDisabledTsoGroGso(TestH2FrameEnabledDisabledTsoGroGsoBas
         # First ack was received when we establish connection
         self.assertTrue(
             await util.wait_until(
-                lambda: client.ack_cnt - 1 != extra_settings_cnt,
+                lambda: client.ack_cnt - 2 != extra_settings_cnt,
                 timeout,
                 abort_cond=lambda: client.state != stateful.STATE_STARTED,
             )
@@ -837,7 +1013,7 @@ class TestPostponedFrames(H2Base):
         await client.wait_for_headers_frame(stream_id)
         await client.wait_for_ping_frames(ping_count)
 
-        client.send_settings_frame(initial_window_size=65535)
+        client.send_h2_settings(initial_window_size=65535)
         await client.wait_for_ack_settings()
 
         for _ in range(0, ping_count):

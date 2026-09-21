@@ -4,6 +4,7 @@ __author__ = "Tempesta Technologies, Inc."
 __copyright__ = "Copyright (C) 2023-2025 Tempesta Technologies, Inc."
 __license__ = "GPL2"
 
+from h2.connection import ConnectionInputs
 from h2.errors import ErrorCodes
 from hyperframe.frame import PriorityFrame
 
@@ -13,8 +14,9 @@ from framework.test_suite import marks
 from tests.http2_general.helpers import H2Base
 
 DEFAULT_MTU = 1500
-DEFAULT_INITIAL_WINDOW_SIZE = 65535
+DEFAULT_INITIAL_WINDOW_SIZE = 262140
 BIG_HEADER_SIZE = 600000
+WINDOW_SIZE_10MB = 10 * 1048576
 
 
 class TestPriorityBase(H2Base):
@@ -60,6 +62,9 @@ class TestPriorityBase(H2Base):
         )
 
         client.update_initial_settings(initial_window_size=initial_window_size)
+        client.h2_connection.increment_flow_control_window(
+            WINDOW_SIZE_10MB - client.h2_connection.inbound_flow_control_window
+        )
         client.send_bytes(client.h2_connection.data_to_send())
         await client.wait_for_ack_settings()
         return client, server
@@ -76,7 +81,7 @@ class TestPriorityBase(H2Base):
                 await client.wait_for_headers_frame(
                     stream_id, timeout=60 if run_config.TCP_SEGMENTATION else 5
                 )
-        client.send_settings_frame(initial_window_size=initial_window_size)
+        client.send_h2_settings(initial_window_size=initial_window_size)
         await client.wait_for_ack_settings()
         await client.wait_for_response(timeout=timeout)
 
@@ -303,7 +308,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
 		When count of closed streams is greater then 5, the creation of new
 		stream leads to deletion of one of the old closed streams.
 		"""
-        client.send_settings_frame(initial_window_size=0)
+        client.send_h2_settings(initial_window_size=0)
         await client.wait_for_ack_settings()
 
         client.make_request(
@@ -322,7 +327,7 @@ class TestStreamPriorityInHeaders(TestPriorityBase):
             priority_exclusive=False,
         )
 
-        client.send_settings_frame(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
+        client.send_h2_settings(initial_window_size=DEFAULT_INITIAL_WINDOW_SIZE)
         await client.wait_for_ack_settings()
 
         await self.wait_for_responses(client, [15, 17])
