@@ -231,7 +231,7 @@ class LocalNode(ANode):
             error.CommandExecutionException: if something happened during the execution
             error.ProcessKilledException: if a process was killed
         """
-        self._logger.info(f"'{cmd}'")
+        self._logger.debug(f"'{cmd}'")
         if not is_blocking:
             self._logger.debug("***NON-BLOCKING (no wait to finish)***")
 
@@ -483,7 +483,7 @@ class RemoteNode(ANode):
                     cmd,
                 ],
             )
-        self._logger.info(f"'{cmd}'")
+        self._logger.debug(f"'{cmd}'")
         if not is_blocking:
             self._logger.debug("***NON-BLOCKING (no wait to finish)***")
         self._logger.debug(f"All environment variables after updating: {env}")
