@@ -3,6 +3,11 @@ Tests for valid and invalid TLS handhshakes, various violations in
 handshake messages.
 """
 
+from functools import partial
+
+import h2.connection
+import h2.events
+
 from framework.helpers import analyzer, dmesg, remote
 from framework.helpers.cert_generator_x509 import CertGenerator
 from framework.test_suite import tester
@@ -18,7 +23,7 @@ __license__ = "GPL2"
 class TlsHandshakeTest(tester.TempestaTest):
     backends = [
         {
-            "id": "0",
+            "id": "deproxy",
             "type": "deproxy",
             "port": "8000",
             "response": "static",
@@ -53,6 +58,113 @@ class TlsHandshakeTest(tester.TempestaTest):
         await self.start_all_services()
         res = await TlsHandshake().do_12()
         self.assertTrue(res, "Wrong handshake result: %s" % res)
+
+    async def test_tls12_false_start_http1(self):
+        """Receive an HTTP/1.1 response after completing a false start handshake."""
+        await self.start_all_services()
+        body = b"TLS false start HTTP/1.1 response"
+        self.get_server("deproxy").set_response(
+            b"HTTP/1.1 200 OK\r\nContent-Length: "
+            + str(len(body)).encode()
+            + b"\r\nConnection: close\r\n\r\n"
+            + body
+        )
+
+        conn = TlsHandshake()
+        conn.alpn_protocols = [b"http/1.1"]
+        # ECDHE with AES-GCM (ECDSA or RSA authentication).
+        conn.ciphers = [0xC02B, 0xC02C, 0xC02F, 0xC030]
+        conn.send_data = [
+            TLSApplicationData(
+                data="GET / HTTP/1.1\r\nHost: tempesta-tech.com\r\nConnection: close\r\n\r\n"
+            )
+        ]
+        self.assertTrue(
+            await conn.do_12(automaton=FalseStartTLSClientAutomaton),
+            "False start handshake did not complete",
+        )
+        self.assertTrue(conn.hs.data_after_handshake, "No HTTP/1.1 data received")
+        self.assertTrue(
+            all(conn.hs.data_after_handshake), "HTTP/1.1 data received before handshake completed"
+        )
+        for record in conn.hs.server_data:
+            if isinstance(record, TLSAlert):
+                self.assertEqual(record, TLSAlert(level=1, descr=0), "Unexpected TLS alert")
+            else:
+                self.assertIsInstance(record, TLSApplicationData, "Unexpected TLS response")
+        response = b"".join(
+            record.data for record in conn.hs.server_data if isinstance(record, TLSApplicationData)
+        )
+        headers, separator, response_body = response.partition(b"\r\n\r\n")
+        self.assertEqual(separator, b"\r\n\r\n", "Incomplete HTTP/1.1 response")
+        self.assertEqual(headers.split(b"\r\n", 1)[0], b"HTTP/1.1 200 OK")
+        self.assertEqual(response_body, body)
+        self.assertEqual(len(self.get_server("deproxy").requests), 1)
+
+    async def test_tls12_false_start_http2(self):
+        """Receive an HTTP/2 response after completing a false start handshake."""
+        self.get_tempesta().config.replace("proto=https", "proto=h2")
+        await self.start_all_services()
+        body = b"TLS false start response"
+        self.get_server("deproxy").set_response(
+            b"HTTP/1.1 200 OK\r\nContent-Length: "
+            + str(len(body)).encode()
+            + b"\r\nConnection: keep-alive\r\n\r\n"
+            + body
+        )
+
+        h2_conn = h2.connection.H2Connection()
+        h2_conn.initiate_connection()
+        h2_conn.send_headers(
+            stream_id=1,
+            headers=[
+                (":method", "GET"),
+                (":scheme", "https"),
+                (":authority", "tempesta-tech.com"),
+                (":path", "/"),
+            ],
+            end_stream=True,
+        )
+        conn = TlsHandshake()
+        conn.alpn_protocols = [b"h2"]
+        # ECDHE with AES-GCM (ECDSA or RSA authentication).
+        conn.ciphers = [0xC02B, 0xC02C, 0xC02F, 0xC030]
+        conn.send_data = [TLSApplicationData(data=h2_conn.data_to_send())]
+        self.assertTrue(
+            await conn.do_12(automaton=partial(FalseStartTLSClientAutomaton, h2_conn=h2_conn)),
+            "False start handshake did not complete",
+        )
+        events = conn.hs.events
+        self.assertTrue(conn.hs.data_after_handshake, "No HTTP/2 data received")
+        self.assertTrue(
+            all(conn.hs.data_after_handshake), "HTTP/2 data received before handshake completed"
+        )
+        for record in conn.hs.server_data:
+            self.assertIsInstance(record, TLSApplicationData, "Unexpected TLS response")
+        self.assertTrue(any(isinstance(event, h2.events.RemoteSettingsChanged) for event in events))
+        responses = [event for event in events if isinstance(event, h2.events.ResponseReceived)]
+        self.assertEqual(len(responses), 1, "Expected one HTTP/2 response")
+        self.assertEqual(responses[0].stream_id, 1)
+        self.assertIn((b":status", b"200"), responses[0].headers)
+        data = [event for event in events if isinstance(event, h2.events.DataReceived)]
+        self.assertTrue(data, "No HTTP/2 DATA frames received")
+        self.assertTrue(all(event.stream_id == 1 for event in data))
+        self.assertEqual(b"".join(event.data for event in data), body)
+        self.assertTrue(
+            any(
+                isinstance(event, h2.events.StreamEnded) and event.stream_id == 1
+                for event in events
+            ),
+            "HTTP/2 response stream did not complete",
+        )
+        self.assertFalse(
+            any(
+                isinstance(event, (h2.events.StreamReset, h2.events.ConnectionTerminated))
+                for event in events
+            ),
+            "HTTP/2 stream or connection was terminated",
+        )
+        self.assertEqual(len(self.get_server("deproxy").requests), 1)
 
     async def test_1byte_transfer(self):
         await self.start_all_services()

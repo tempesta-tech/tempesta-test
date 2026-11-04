@@ -10,6 +10,7 @@ __license__ = "GPL2"
 import asyncio
 import ssl
 
+import h2.events
 import scapy.layers.tls.crypto.suites as suites
 from scapy.all import *
 from scapy.layers.tls.all import *
@@ -315,6 +316,79 @@ class ModifiedTLSClientAutomaton(TLSClientAutomaton):
             raise self.WAIT_CLIENTDATA()
 
 
+class FalseStartTLSClientAutomaton(ModifiedTLSClientAutomaton):
+    """Send a request with ClientFinished and collect the response.
+
+    HTTP/1.1 requests must use Connection: close to delimit the response.
+    Pass h2_conn to parse HTTP/2 responses and acknowledge server SETTINGS.
+    """
+
+    def __init__(self, *args, h2_conn=None, **kwargs):
+        self.h2_conn = h2_conn
+        self.events = []
+        self.data_after_handshake = []
+        self.false_start_before_finished = False
+        super().__init__(*args, **kwargs)
+
+    @ATMT.state()
+    def ADDED_CLIENTFINISHED(self):
+        # Send application data after our Finished, before reading the
+        # server's final handshake flight.
+        self.false_start_before_finished = not self.hs_state
+        self.add_record()
+        self.add_msg(self.send_data.pop(0))
+
+    @ATMT.condition(ModifiedTLSClientAutomaton.HANDLED_SERVERFINISHED)
+    def should_wait_ClientData(self):
+        raise self.WAITING_SERVERDATA()
+
+    @ATMT.state()
+    def WAITING_SERVERDATA(self):
+        self.get_next_msg(2, 2)
+        raise self.RECEIVED_SERVERDATA()
+
+    @ATMT.condition(TLSClientAutomaton.RECEIVED_SERVERDATA, prio=1)
+    def should_handle_ServerData(self):
+        if not self.buffer_in:
+            raise self.CLOSE_NOTIFY()
+        record = self.buffer_in.pop(0)
+        self.server_data.append(record)
+        if not isinstance(record, TLSApplicationData):
+            raise self.CLOSE_NOTIFY()
+        self.data_after_handshake.append(self.hs_state)
+        if self.h2_conn is None:
+            # HTTP/1.1 responses may span several TLS records. Keep reading
+            # until the server closes the connection requested by the client.
+            raise self.WAITING_SERVERDATA()
+        received = self.h2_conn.receive_data(record.data)
+        self.events.extend(received)
+        for event in received:
+            if isinstance(event, h2.events.DataReceived):
+                self.h2_conn.acknowledge_received_data(
+                    event.flow_controlled_length, event.stream_id
+                )
+        # Acknowledge server SETTINGS while waiting for the response;
+        # HTTP/2 frames may span multiple TLS application records.
+        pending = self.h2_conn.data_to_send()
+        if pending:
+            self.add_record()
+            self.add_msg(TLSApplicationData(data=pending))
+            self.flush_records()
+        if any(
+            isinstance(
+                event,
+                (
+                    h2.events.StreamEnded,
+                    h2.events.StreamReset,
+                    h2.events.ConnectionTerminated,
+                ),
+            )
+            for event in received
+        ):
+            raise self.CLOSE_NOTIFY()
+        raise self.WAITING_SERVERDATA()
+
+
 class TlsHandshake:
     """
     TLSHandshake class to manage TLSAutomaton
@@ -331,6 +405,7 @@ class TlsHandshake:
         self.host = self.sni
         self.chunk = chunk
         self.send_data = None
+        self.alpn_protocols = None
         self.sign_algs = [
             "sha256+rsa",
             "sha384+rsa",
@@ -387,6 +462,11 @@ class TlsHandshake:
         if resumption:
             self.ciphers = [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
         ext = [ext1, ext2, self.ext_ec, ext4, self.ext_sa, self.renegotiation_info]
+
+        if self.alpn_protocols:
+            ext.append(
+                TLS_Ext_ALPN(protocols=[ProtocolName(protocol=p) for p in self.alpn_protocols])
+            )
 
         if self.ticket_data is not None:
             ticket = TLS_Ext_SessionTicket(ticket=self.ticket_data)
